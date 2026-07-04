@@ -55,6 +55,9 @@ Questions to ask before accepting a social method:
 
 For protocols with cryptographic account identifiers, such as Nostr, a stronger
 adapter can verify the public key rather than a mutable display handle.
+Farcaster is another useful comparison because an FID has custody keys, scoped
+signers, username proofs, and address-verification messages. An ENS adapter for
+Farcaster should prefer FID-linked proofs over a mutable display name alone.
 
 ## Cryptographic Addresses
 
@@ -126,5 +129,5 @@ support such methods but not require them.
 - [BIP-322: Generic signed message format](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)
 - [CAIP-10: Account ID specification](https://chainagnostic.org/CAIPs/caip-10)
 - [Nostr NIP-05](https://github.com/nostr-protocol/nips/blob/master/05.md)
+- [Farcaster protocol specification](https://github.com/farcasterxyz/protocol/blob/main/docs/SPECIFICATION.md)
 - [W3C Verifiable Credentials Data Model](https://www.w3.org/TR/vc-data-model-2.0/)
-

@@ -17,8 +17,11 @@ extract constraints that apply to ENS record verification.
 | DID Core | DID document defines verification methods and services | DID method resolution | Verification method and service endpoint are separate concepts. |
 | Verifiable Credentials | Issuer makes a claim about a subject | Credential exchange or registry | Attestation is distinct from target control. |
 | Ethereum Attestation Service | Structured attestations by issuers | Onchain or offchain attestations | Useful optional trust layer, not neutral base verification. |
+| Farcaster | FIDs, signers, usernames, and verified addresses | Protocol messages and contracts | Good model for scoped signers and address-control proofs. |
 | Unstoppable Domains | Domain records resolve to wallets/profile data | UD resolution | Records are useful, but target control is app-specific. |
 | OpenAlias | DNS TXT maps names to cryptocurrency addresses | DNS TXT, optionally DNSSEC | DNS can publish payment records but does not prove recipient identity. |
+| Handshake | Decentralized DNS root zone | Handshake blockchain and DNS records | Decentralized namespace control is still not arbitrary record verification. |
+| Namecoin | Blockchain key/value names for DNS and identities | Namecoin blockchain | Secure publication of values does not make the values true. |
 
 ## ACME
 
@@ -124,13 +127,72 @@ EAS should be treated as an optional attestation rail. If the base ENSIP depends
 on a particular attestation registry, verification becomes a governance and
 issuer-trust problem rather than a neutral record-control problem.
 
-## Unstoppable Domains and OpenAlias
+## Farcaster
+
+Farcaster is not a naming service in the same sense as ENS, but it is an
+important identity-system comparison. The protocol has FIDs, custody addresses,
+registered signers, user data messages, username proofs, and address
+verifications. Address verification is a cryptographic proof that a wallet
+address is linked to a Farcaster identity.
+
+Relevant lessons:
+
+- identity systems benefit from explicit signer delegation and revocation;
+- proof messages should be domain-separated and typed;
+- mutable user data and usernames need ongoing validity checks;
+- verifying an address is different from verifying a profile URL or display
+  name.
+
+For ENS, Farcaster supports the idea that a generic envelope can dispatch to
+different message bodies or method profiles while preserving common signature and
+revocation rules.
+
+## Other Naming Systems
+
+### Unstoppable Domains
+
+Unstoppable Domains resolves human-readable names to cryptocurrency addresses
+and profile records. Its Profile API supports authenticated update flows using
+domain-owner signatures. That is useful record-write authorization, but it does
+not by itself prove that every social account, URL, or payment address in the
+profile is controlled by the same party.
+
+Lesson for ENS: owner-signed updates are necessary but not sufficient. External
+targets still need their own evidence.
+
+### OpenAlias
 
 Unstoppable Domains and OpenAlias both publish records that applications can
 resolve to addresses or profile data. OpenAlias uses DNS TXT records and can
 benefit from DNSSEC. These systems are useful comparisons because they show the
 same limitation: publishing a payment address in a naming system does not prove
 that the address belongs to the expected person or that paying it is safe.
+
+OpenAlias is especially relevant for address records because it treats DNS as
+the publication layer. DNSSEC can authenticate that a DNS zone published the
+record, but the recipient address can still be wrong, compromised, or socially
+misleading.
+
+### Handshake
+
+Handshake decentralizes control of the DNS root zone through a blockchain-based
+naming protocol. It changes who controls root-zone naming, but applications
+still need to interpret records under the same broad DNS trust model. A
+Handshake name can publish records; that does not prove that a referenced social
+account, wallet address, or website content is safe or controlled by the same
+person.
+
+Lesson for ENS: decentralizing namespace ownership solves censorship and control
+of the namespace, not verification of arbitrary claims inside records.
+
+### Namecoin
+
+Namecoin provides a blockchain key/value namespace used historically for DNS and
+identity records. It can make publication and transfer of names decentralized,
+but values stored under a name remain claims made by the name controller.
+
+Lesson for ENS: secure publication is not semantic verification. A decentralized
+namespace still needs bidirectional proofs or attestations for external targets.
 
 ## What ENS Should Reuse
 
@@ -160,6 +222,9 @@ that the address belongs to the expected person or that paying it is safe.
 - [W3C DID Core](https://www.w3.org/TR/did-core/)
 - [W3C Verifiable Credentials Data Model](https://www.w3.org/TR/vc-data-model-2.0/)
 - [Ethereum Attestation Service documentation](https://docs.attest.org/docs/welcome)
+- [Farcaster protocol specification](https://github.com/farcasterxyz/protocol/blob/main/docs/SPECIFICATION.md)
 - [Unstoppable Domains records reference](https://docs.unstoppabledomains.com/web3/resolution/records-reference)
+- [Unstoppable Domains Profile API](https://docs.unstoppabledomains.com/web3/apis/profile-v1/openapi)
 - [OpenAlias standard](https://openalias.org/)
-
+- [Handshake developer documentation](https://hsd-dev.org/)
+- [Namecoin FAQ](https://www.namecoin.org/docs/faq/)

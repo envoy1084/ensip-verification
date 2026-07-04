@@ -197,6 +197,7 @@ Method identifiers should be versioned. Initial candidates:
 | `dns-txt@1` | `url`, domain, email domain | Fetch TXT proof; DNSSEC upgrades result strength. |
 | `atproto-handle@1` | AT Protocol social text records | Resolve handle through DNS or HTTPS to DID. |
 | `nostr-nip05@1` | Nostr social text records | Fetch `.well-known/nostr.json` and match public key. |
+| `farcaster-fid@1` | Farcaster social records | Verify FID, signer, username proof, or address verification message. |
 | `rel-me@1` | web profile links | Check reciprocal `rel="me"` link. |
 | `evm-eip712@1` | EVM addresses | Recover EOA signature over claim digest. |
 | `evm-erc1271@1` | EVM contract accounts | Call `isValidSignature` for claim digest. |
@@ -300,7 +301,7 @@ It adds the missing parts:
 - [ENS records](https://docs.ens.domains/web/records/)
 - [AT Protocol handle specification](https://atproto.com/specs/handle)
 - [Nostr NIP-05](https://github.com/nostr-protocol/nips/blob/master/05.md)
+- [Farcaster protocol specification](https://github.com/farcasterxyz/protocol/blob/main/docs/SPECIFICATION.md)
 - [BIP-322: Generic signed message format](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)
 - [W3C Verifiable Credentials Data Model](https://www.w3.org/TR/vc-data-model-2.0/)
 - [Ethereum Attestation Service documentation](https://docs.attest.org/docs/welcome)
-
