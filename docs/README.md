@@ -1,20 +1,15 @@
-# ENS Record Verification Notes
+# ENS Record Verification Developer Docs
 
-The current ENSIP draft is:
+The normative draft is [ENSIP-X: ENS Record Verification](../ensip-x-verification.md).
 
-- [ENSIP-X: URL Text Record Verification](../ensip-x-url-verification.md)
+These documents are implementation guides for each verification category:
 
-The earlier multi-profile draft files were removed because they introduced
-generic abstractions that were not ENS-native. Future record verification
-profiles should be separate ENSIPs with concrete fields and algorithms.
+1. [URL verification](./01-url.md)
+2. [Address verification](./02-address.md)
+3. [Social account verification](./03-social.md)
+4. [Contenthash verification](./04-contenthash.md)
+5. [Avatar NFT verification](./05-avatar-nft.md)
+6. [Non-verifiable metadata](./06-profile-metadata.md)
 
-## Category Guidance
-
-| Category | Record | Recommended verification |
-| --- | --- | --- |
-| URL | `text(node, "url")` | Current owner signature plus HTTPS or DNS proof. |
-| Address | `addr(node)` or `addr(node, coinType)` | Current owner signature plus target account signature over `coinType` and native address bytes. |
-| Social | `text(node, serviceKey)` | Service-specific public proof or issuer attestation over the live service key value. |
-| Contenthash | `contenthash(node)` | Publisher manifest, Arweave owner proof, DNSLink proof, or issuer attestation over raw contenthash bytes. |
-| Avatar NFT | `text(node, "avatar")` | ENSIP-12 CAIP-22/CAIP-29 NFT ownership by the resolved address. |
-| Profile metadata | `name`, `description`, display fields | No default verification. |
+Each guide includes a 0-to-1 setup flow, verification flow, resolver reads,
+proof publication options, and implementation notes for SDKs.
