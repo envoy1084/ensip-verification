@@ -1,55 +1,20 @@
-# ENS Record Verification Specs
+# ENS Record Verification Notes
 
-These documents define a minimal SDK-verifiable model for ENS record
-verification. The model supports ENSv1 and future ENSv2 by verifying live
-resolver state through version-specific authority adapters.
+The current ENSIP draft is:
 
-Verification is only for records that claim control of an external target. It is
-not needed for ordinary profile metadata.
+- [ENSIP-X: URL Text Record Verification](../ensip-x-url-verification.md)
 
-## Documents
+The earlier multi-profile draft files were removed because they introduced
+generic abstractions that were not ENS-native. Future record verification
+profiles should be separate ENSIPs with concrete fields and algorithms.
 
-1. [Verification kernel](./00-verification-kernel.md)
-2. [URL verification](./01-url-verification.md)
-3. [Address verification](./02-address-verification.md)
-4. [Social account verification](./03-social-verification.md)
-5. [Contenthash verification](./04-contenthash-verification.md)
-6. [Avatar NFT verification](./05-avatar-nft-verification.md)
-7. [SDK verification](./07-sdk-verification.md)
+## Category Guidance
 
-## Record Categories
-
-| Category | Verify? | Methods |
+| Category | Record | Recommended verification |
 | --- | --- | --- |
-| URL records | Yes | `url-https@1`, `url-dns-txt@1`, `url-dnssec@1` |
-| Address records | Yes | `addr-evm-eip712@1`, `addr-evm-erc1271@1`, `addr-chain-signature@1` |
-| Social accounts | Yes when a service adapter exists | `social-public-proof@1`, `social-protocol-proof@1`, `social-attestation@1` |
-| Contenthash | Yes for publisher or namespace control | `contenthash-manifest@1`, `contenthash-arweave@1`, `contenthash-dnslink@1`, `contenthash-attestation@1` |
-| Avatar NFT | Yes for CAIP NFT references only | `avatar-caip-nft@1` |
-| Display metadata | No | Not verified |
-| Email and private contact fields | No default public verification | Out of scope until a privacy-preserving profile exists |
-
-## Minimal Result Shape
-
-Every record returns either no verification or one positive verification:
-
-```ts
-type VerificationStatus = "none" | "verified";
-type VerificationKind = "control" | "attestation";
-```
-
-Errors such as `unsupported_method`, `proof_missing`, `expired`, and
-`signature_invalid` are failure reasons on `status: "none"`, not statuses.
-
-## Design Rules
-
-- Verify live ENS records, not stale indexed data.
-- Bind proofs to a minimal claim: context, name ID, record, value, target,
-  method, expiry, and nonce.
-- Keep proof publication flexible: HTTPS, DNS, ENS sidecars, onchain contracts,
-  attestations, and content manifests are all valid method transports.
-- Require current ENS authority or explicit current delegation for control
-  methods.
-- Treat ENSv1 and ENSv2 differences as authority-adapter concerns.
-- Invalidate positives on transfer, expiry, remint, resolver change, record
-  value change, target change, revocation, or proof expiry.
+| URL | `text(node, "url")` | Current owner signature plus HTTPS or DNS proof. |
+| Address | `addr(node)` or `addr(node, coinType)` | Current owner signature plus target account signature over `coinType` and native address bytes. |
+| Social | `text(node, serviceKey)` | Service-specific public proof or issuer attestation over the live service key value. |
+| Contenthash | `contenthash(node)` | Publisher manifest, Arweave owner proof, DNSLink proof, or issuer attestation over raw contenthash bytes. |
+| Avatar NFT | `text(node, "avatar")` | ENSIP-12 CAIP-22/CAIP-29 NFT ownership by the resolved address. |
+| Profile metadata | `name`, `description`, display fields | No default verification. |
