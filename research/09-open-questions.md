@@ -124,7 +124,25 @@ Recommended direction:
 - experimental methods use a reserved prefix;
 - clients choose which methods they trust.
 
-### 10. How Should UI Avoid Overclaiming?
+### 10. How Should Text Record Keys Be Framed?
+
+Existing ENSIPs distinguish global keys, service keys, and parameterized keys.
+Verification should not invent broad keys without fitting those conventions.
+
+Recommended direction:
+
+- category-wide sidecars use lowercase global-key style prefixes such as
+  `url-verification` or `addr-verification`;
+- service-specific social claims bind to existing service keys such as
+  `com.github`, but do not squat inside service namespaces unless the service
+  defines that key;
+- parameterized sidecars use bracketed parameters and explicitly define
+  canonical encoding and delimiter restrictions;
+- absent or empty sidecars must have defined behavior;
+- values must be either semantically specified or explicitly treated as
+  presence-only.
+
+### 11. How Should UI Avoid Overclaiming?
 
 The protocol can return precise states, but apps may still render a generic
 checkmark.
@@ -158,6 +176,10 @@ Use this checklist before accepting a design decision:
 - Does UI language avoid implying safety or legal identity?
 - Can future record types plug in without changing the base envelope?
 - Can future record types plug in without changing a mandatory global envelope?
+- Does any new text key follow ENSIP-5 global/service key rules?
+- Are parameterized key arguments canonicalized and delimiter-safe?
+- Does each sidecar define empty, malformed, unknown-field, and duplicate-field
+  behavior?
 
 ## Suggested ENSIP Work Plan
 
@@ -177,6 +199,9 @@ Use this checklist before accepting a design decision:
 
 - [ENS records](https://docs.ens.domains/web/records/)
 - [ENSIP-1: ENS](https://docs.ens.domains/ensip/1/)
+- [ENSIP-5: Text Records](https://docs.ens.domains/ensip/5/)
+- [ENSIP-25: AI Agent Registry ENS Name Verification](https://docs.ens.domains/ensip/25/)
+- [ENSIP-26: Agent Text Records](https://docs.ens.domains/ensip/26/)
 - [EIP-634: Storage of text records in ENS](https://eips.ethereum.org/EIPS/eip-634)
 - [EIP-1577: contenthash field for ENS](https://eips.ethereum.org/EIPS/eip-1577)
 - [EIP-2304: Multicoin support for ENS](https://eips.ethereum.org/EIPS/eip-2304)

@@ -19,6 +19,7 @@ The research is organized to separate evidence from proposal:
 8. [Developer UX and adoption](./08-developer-ux-and-adoption.md)
 9. [Open questions and evaluation checklist](./09-open-questions.md)
 10. [Singleton reassessment](./10-singleton-reassessment.md)
+11. [ENSIP record design practices](./11-ensip-record-design-practices.md)
 
 ## Working Conclusions
 
@@ -38,6 +39,9 @@ The research is organized to separate evidence from proposal:
 - Developer adoption depends on Ethereum-native signatures where appropriate,
   method-native integrations such as OAuth or DNSSEC, optional discovery, and an
   SDK that hides adapter complexity while returning explicit result semantics.
+- ENSIP practice favors small resolver profiles, explicit text-record keys,
+  parameter grammar, examples, backwards compatibility, and method-specific
+  validation flows over broad underspecified records.
 
 ## Source Policy
 

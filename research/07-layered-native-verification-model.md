@@ -146,12 +146,17 @@ Three publication modes should be allowed:
 
 | Mode | Example | Use When |
 | --- | --- | --- |
-| ENS sidecar | `url-verification[<originHash>]` | ENS opt-in and digest binding are important. |
+| ENS sidecar | `url-verification[<originHash>]`, `addr-verification[<coinType>][<valueHash>]`, or `social-verification[<serviceKey>][<accountIdHash>]` | ENS opt-in and digest binding are important. |
 | Resolver-native verification | Future resolver interface or CCIP-Read resolver response. | Resolver can return typed verification data. |
 | Attestation reference | Text record points to EAS UID, offchain credential URI, or content-addressed proof. | Provider-mediated or third-party claims are needed. |
 
 The base ENSIP can define how clients evaluate these modes, but each method
 profile decides whether a sidecar is required.
+
+When a method profile defines a text-record sidecar, it should follow ENSIP-5,
+ENSIP-25, and ENSIP-26 practice: lowercase global-key style prefix, bracketed
+parameters for deterministic lookup, explicit parameter grammar, example keys,
+and clear value semantics.
 
 ## Delegation
 
@@ -275,6 +280,8 @@ small interoperable primitives and let applications compose them.
 - [ENS resolution documentation](https://docs.ens.domains/resolution/)
 - [ENSIP-1: ENS](https://docs.ens.domains/ensip/1/)
 - [ENSIP-5: Text Records](https://docs.ens.domains/ensip/5/)
+- [ENSIP-25: AI Agent Registry ENS Name Verification](https://docs.ens.domains/ensip/25/)
+- [ENSIP-26: Agent Text Records](https://docs.ens.domains/ensip/26/)
 - [ENS Universal Resolver](https://docs.ens.domains/resolvers/universal/)
 - [ENS CCIP-Read documentation](https://docs.ens.domains/resolvers/ccip-read)
 - [ERC-137: Ethereum Domain Name Service](https://eips.ethereum.org/EIPS/eip-137)
