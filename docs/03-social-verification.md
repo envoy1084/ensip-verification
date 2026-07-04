@@ -1,265 +1,137 @@
 # Social Account Verification
 
-Social verification applies to ENS service keys and social profile records:
+Social verification applies to ENS service keys and protocol identity records,
+for example:
 
 - `text("com.github")`
 - `text("com.twitter")`
 - `text("org.telegram")`
-- `text("xyz.farcaster")` or future service-owned keys
-- protocol-native identity records such as Nostr or AT Protocol handles
+- `text("xyz.farcaster")`
+- service-owned keys for Nostr, AT Protocol, Farcaster, or future systems
 
-This profile verifies that a target account participated in the claim or that a
-trusted provider attested to it. It does not prove the social account is safe or
-that a handle will never be recycled.
+It verifies that the ENS name and the social target are bound by a public proof
+or by a trusted issuer attestation. It does not prove account safety, legal
+identity, or that a recycled handle will continue to identify the same account.
 
-## Method Profiles
+## Methods
 
-| Method | Target Authority | Result Level |
+| Method | Verification | Target |
 | --- | --- | --- |
-| `social-public-proof@1` | Public account surface or protocol proof | `bidirectional` |
-| `social-oauth-attestation@1` | OAuth/OIDC provider plus verifier issuer | `provider-mediated` |
-| `social-protocol-native@1` | Protocol-specific signed proof | `bidirectional` or `attested` |
+| `social-public-proof@1` | `control` | Public account surface or protocol proof |
+| `social-protocol-proof@1` | `control` | Protocol-native signed identity proof |
+| `social-attestation@1` | `attestation` | Issuer claim, such as OAuth/OIDC verifier output |
 
-## ENS Record and Sidecar
+OAuth tokens and private API responses MUST NOT be published in ENS. If the
+public cannot independently refetch the target proof, the result is an
+attestation, not control.
 
-Canonical record example:
+## Service Adapters
+
+Each service adapter MUST define:
+
+- ENS text key;
+- canonical handle or record value;
+- stable account ID format, if the service provides one;
+- target proof location and bytes;
+- target proof freshness rules;
+- handle recycling behavior;
+- whether public verification or only attestation is possible.
+
+Stable account IDs SHOULD be used over display handles. If a service exposes no
+stable account ID, the adapter MAY use the canonical handle as `targetRef`, but
+clients SHOULD display weaker confidence.
+
+## Claim Fields
+
+For a service text record:
 
 ```text
-text(node, "com.github") = alice
+recordRef = keccak256(bytes("text:" || serviceKey))
+valueHash = keccak256(bytes(canonicalLiveRecordValue))
+targetRef = keccak256(bytes(serviceKey || "\x00" || canonicalStableAccountId))
 ```
 
-Sidecar key:
+If no stable account ID exists:
 
 ```text
-social-verification[<serviceKey>][<accountIdHash>]
+targetRef = keccak256(bytes(serviceKey || "\x00" || canonicalHandle))
 ```
 
-Where:
+The signed claim MUST use the kernel `ENSRecordClaim` fields. The display handle
+and proof URL may appear as unsigned helpers but MUST be recomputed or checked
+by the service adapter.
 
-- `serviceKey` is the ENSIP-5 service key, such as `com.github`.
-- `accountIdHash = keccak256(bytes(canonicalStableAccountId))`.
-- If a platform has no stable account ID, hash the canonical handle and mark
-  the method as weaker in UI.
+## Public Proof Payload
 
-Sidecar value:
+Control methods require two pieces of evidence:
 
-```text
-v=ENSSOC1;method=social-public-proof@1;digest=<proofDigest>;exp=<unix-time>;issuer=<optional>
-```
+- current ENS authority signature or delegation over the claim;
+- target account proof that the service adapter validates against the claim
+  hash.
 
-Rules:
+These pieces MAY be published in the same proof object or in separate method
+defined proof locations. Public target proofs MUST contain or resolve to the
+claim hash. The exact target envelope is service-defined. Examples include:
 
-- The live ENS text record MUST still equal the canonical display handle or
-  service-defined value.
-- Stable account IDs SHOULD be used when available.
-- The sidecar MUST bind both the stable account ID and display handle when both
-  exist.
-- OAuth tokens MUST NOT be published in ENS.
+- profile field containing `ens-verify:<claimHash>`;
+- public post containing `ens-verify:<claimHash>`;
+- protocol message signed by the target account key;
+- website or protocol document that maps the account ID to the claim hash.
 
-## Public Proof Model
+If a service only allows a public handle string and no stable account ID, the
+proof MUST bind the canonical handle and the verifier MUST treat handle
+recycling as a normal invalidation risk.
 
-Use when the target account exposes a public proof that any verifier can fetch.
+## Attestation Payload
 
-Supported proof families:
-
-| Family | Example |
-| --- | --- |
-| Profile field | Bio contains signed challenge or ENS name. |
-| Public post | Post contains proof URI or challenge digest. |
-| Reciprocal link | Website or profile contains `rel="me"` link. |
-| NIP-05 | HTTPS JSON maps identifier to Nostr public key. |
-| AT Protocol | DNS TXT or HTTPS handle proof maps handle to DID. |
-| Farcaster | Protocol message verifies address, FID, or username relationship. |
-
-Public proof object:
+For `social-attestation@1`, an issuer signs or publishes an onchain attestation
+over the same claim:
 
 ```json
 {
-  "type": "ENSSocialVerification",
-  "version": 1,
-  "chainId": 1,
-  "registry": "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  "name": "alice.eth",
-  "node": "0x...",
-  "serviceKey": "com.github",
-  "handle": "alice",
-  "stableAccountId": "123456",
-  "method": "social-public-proof@1",
-  "proofUrl": "https://github.com/alice/...",
-  "ensAuthority": "0x...",
-  "issuedAt": 1783123200,
+  "v": "ENSVERIFY1",
+  "claimHash": "0x...",
+  "issuer": "0x...",
+  "subject": {
+    "serviceKey": "com.github",
+    "stableAccountId": "123456",
+    "handle": "alice"
+  },
   "expiresAt": 1790812800,
-  "nonce": "0x...",
-  "signature": "0x..."
+  "revocation": "eip155:1/..."
 }
 ```
 
-## OAuth Attestation Model
+The public proof does not need to reveal OAuth tokens or provider secrets.
+Verifiers MUST apply issuer trust policy and revocation checks before returning
+`verified/attestation`.
 
-OAuth and OIDC are provider-mediated. The public cannot verify the original
-OAuth token, so the result is not the same as a public target proof.
+## Verification
 
-Flow:
+For public or protocol proofs, a verifier MUST:
 
-1. User signs into provider through OAuth/OIDC.
-2. Verifier obtains stable provider account ID and handle.
-3. User signs ENS authorization or verifier checks sidecar.
-4. Verifier issues an attestation binding ENS name, service key, stable account
-   ID, handle, issuer, expiry, and revocation.
-5. ENS sidecar references the attestation digest or URI.
+1. Resolve the live ENS social record.
+2. Canonicalize the value using the service adapter.
+3. Build the claim from live ENS state and current authority state.
+4. Fetch the public proof or protocol message.
+5. Check the proof binds the claim hash and current target account.
+6. Verify ENS authority signature or current owner delegation.
+7. Return `verified/control` only if the ENS side and target side validate the
+   same claim.
 
-Attestation payload:
+For attestations, a verifier MUST:
 
-```json
-{
-  "type": "ENSSocialOAuthAttestation",
-  "version": 1,
-  "issuer": "0x3333333333333333333333333333333333333333",
-  "provider": "github.com",
-  "serviceKey": "com.github",
-  "stableAccountId": "123456",
-  "handle": "alice",
-  "name": "alice.eth",
-  "node": "0x...",
-  "issuedAt": 1783123200,
-  "expiresAt": 1790812800,
-  "revocationRef": "eas:0x..."
-}
-```
-
-## User Setup Flow: Public Proof
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant App
-    participant Wallet
-    participant Social
-    participant ENS
-
-    User->>App: Select social record
-    App->>ENS: Resolve record and authority
-    ENS-->>App: Handle and owner
-    App->>App: Build challenge with name, serviceKey, handle, accountId
-    App->>Wallet: Sign ENS authorization
-    Wallet-->>App: Signature
-    App->>Social: User publishes challenge in public surface
-    Social-->>App: Proof URL or protocol proof
-    App->>ENS: Write social record and optional sidecar
-    ENS-->>App: Confirmed
-    App-->>User: Social verification active
-```
-
-## User Setup Flow: OAuth Attestation
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant App
-    participant Provider
-    participant Wallet
-    participant Issuer
-    participant ENS
-
-    User->>App: Verify social account with OAuth
-    App->>Provider: OAuth authorization request
-    Provider-->>App: Authorization code
-    App->>Provider: Token exchange and userinfo
-    Provider-->>App: Stable account ID and handle
-    App->>Wallet: Sign ENS authorization
-    Wallet-->>App: Signature
-    App->>Issuer: Submit provider result and ENS authorization
-    Issuer-->>App: Signed or onchain attestation
-    App->>ENS: Write social sidecar with attestation reference
-    ENS-->>App: Confirmed
-    App-->>User: Provider-mediated verification active
-```
-
-## Independent Verification Flow
-
-```mermaid
-sequenceDiagram
-    participant Verifier
-    participant ENS
-    participant Social
-    participant Issuer
-
-    Verifier->>ENS: Resolve social text record and sidecar
-    ENS-->>Verifier: Handle and proof metadata
-    Verifier->>ENS: Resolve current authority
-    ENS-->>Verifier: ENS authority
-    alt Public proof
-        Verifier->>Social: Fetch public proof
-        Social-->>Verifier: Profile field, post, or protocol data
-        Verifier->>Verifier: Check challenge, stable ID, handle, signature, expiry
-    else OAuth attestation
-        Verifier->>Issuer: Fetch attestation and revocation status
-        Issuer-->>Verifier: Attestation result
-        Verifier->>Verifier: Check issuer trust, subject, ENS match, expiry
-    end
-    Verifier-->>Verifier: Return bidirectional, provider-mediated, or failure
-```
-
-## Verifier Requirements
-
-Public proof:
-
-1. Resolve live ENS social record.
-2. Canonicalize handle according to service rules.
-3. Resolve sidecar and proof reference.
-4. Fetch public proof.
-5. Check proof binds name, node, service key, stable account ID, handle, method,
-   and expiry.
-6. Check ENS authority signature or scoped delegate.
-7. Check target account identity using service-specific adapter.
-
-OAuth attestation:
-
-1. Resolve live ENS social record.
-2. Resolve sidecar attestation reference.
+1. Resolve the live ENS social record.
+2. Build the claim.
 3. Verify issuer signature or onchain attestation.
-4. Check issuer is trusted by the verifier policy.
-5. Check stable account ID and handle match.
-6. Check expiry and revocation.
-7. Return `provider-mediated` unless the provider exposes a public proof that
-   can be independently refetched.
-
-## API and Indexer Verification
-
-Indexers can discover:
-
-- `TextChanged(node, "com.github", value)`;
-- `TextChanged(node, "social-verification[...]", value)`;
-- attestation events;
-- owner, resolver, and wrapper transfer events.
-
-Provider-mediated checks require offchain workers because OAuth tokens cannot be
-stored in a subgraph. A subgraph should index attestation references and issuer
-events, while an API worker verifies provider revocation and issuer policy.
-
-Recommended API response:
-
-```json
-{
-  "name": "alice.eth",
-  "record": "text:com.github",
-  "value": "alice",
-  "level": "provider-mediated",
-  "method": "social-oauth-attestation@1",
-  "provider": "github.com",
-  "stableAccountId": "123456",
-  "issuer": "0x3333333333333333333333333333333333333333",
-  "expiresAt": 1790812800,
-  "checkedAt": 1783200000
-}
-```
+4. Check issuer trust policy, expiry, and revocation.
+5. Check the attested account ID and handle match the live ENS record.
+6. Return `verified/attestation`.
 
 ## Security Notes
 
-- Prefer stable account IDs over handles.
-- Handle-only verification is weak if the platform recycles usernames.
-- OAuth tokens are secrets and must never be published.
-- Provider-mediated verification depends on issuer trust.
-- Public proofs can be deleted or edited; clients must revalidate.
+- Prefer stable account IDs over usernames.
+- Public proofs can be deleted or edited; SDKs must revalidate.
+- API-gated proofs should become attestations, not hidden control checks.
 - A verified social account is not proof that the account is safe or official.
-
+- Service adapters must document handle recycling and account suspension cases.

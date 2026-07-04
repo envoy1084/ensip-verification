@@ -2,225 +2,132 @@
 
 Address verification applies to ENS address records:
 
-- `addr(bytes32)` for Ethereum mainnet address compatibility;
-- `addr(bytes32,uint256 coinType)` for multicoin records;
-- EVM chain-derived coin types from ENSIP-11.
+- `addr(bytes32)` for Ethereum mainnet compatibility;
+- `addr(bytes32,uint256 coinType)` for ENSIP-9 multicoin records;
+- ENSIP-11 EVM chain-derived coin types.
 
-This profile verifies account control. It does not prove willingness to receive
-funds, legal ownership, sanctions status, or safety.
+It verifies control of the ENS name and control of the target account. It does
+not prove willingness to receive funds, legal ownership, sanctions status, or
+safety.
 
-## Method Profiles
+## Methods
 
-| Method | Target Authority | Result Level |
+| Method | Verification | Target |
 | --- | --- | --- |
-| `addr-evm-eip712@1` | EVM EOA address | `bidirectional` |
-| `addr-evm-erc1271@1` | EVM contract account | `bidirectional` |
-| `addr-chain-specific@1` | Non-EVM account | Chain-specific |
-| `addr-attestation@1` | Issuer attestation | `attested` or `provider-mediated` |
+| `addr-evm-eip712@1` | `control` | EVM EOA |
+| `addr-evm-erc1271@1` | `control` | EVM contract account |
+| `addr-chain-signature@1` | `control` | Non-EVM account with a profile-defined signing standard |
+| `addr-attestation@1` | `attestation` | Issuer claim about an account |
 
-## ENS Record and Sidecar
+Clients SHOULD return `none` with `unsupported_method` for chains whose signing
+standard is not implemented.
 
-Canonical record examples:
-
-```text
-addr(node) = 0x1111111111111111111111111111111111111111
-addr(node, 60) = 0x1111111111111111111111111111111111111111
-addr(node, 0) = <bitcoin scriptPubKey bytes>
-```
-
-Sidecar key:
+## Claim Fields
 
 ```text
-addr-verification[<coinType>][<addressHash>]
+recordRef = keccak256(bytes("addr:" || decimalCoinType))
+valueHash = keccak256(canonicalAddressBytes)
+targetRef = keccak256(canonicalTargetAccountBytes)
 ```
 
-Where:
+For ordinary address records, `canonicalTargetAccountBytes` equals
+`canonicalAddressBytes`. A method profile MAY define a different target account
+reference for account systems with distinct public keys, script encodings, or
+account IDs.
 
-```text
-addressHash = keccak256(canonicalAddressBytes)
-```
-
-Sidecar value:
-
-```text
-v=ENSADDR1;method=addr-evm-eip712@1;digest=<proofDigest>;exp=<unix-time>
-```
-
-Rules:
-
-- Sidecar is RECOMMENDED for discoverability and caching.
-- EVM target signature is REQUIRED for `bidirectional`.
-- If the ENS authority and target account are the same account, one signature
-  MAY satisfy both roles if the signed message explicitly states both roles.
-- Contract accounts MUST validate with ERC-1271.
-
-## Address Canonicalization
-
-EVM:
+EVM canonicalization:
 
 - `coinType = 60` is Ethereum mainnet.
 - ENSIP-11 EVM coin types derive from `0x80000000 | chainId`.
-- Canonical EVM value is 20 raw address bytes.
-- Display value SHOULD use EIP-55 checksum.
+- Canonical EVM address bytes are the 20 raw address bytes.
+- Display values SHOULD use EIP-55 checksum, but display case is not signed.
 
-Non-EVM:
+Non-EVM canonicalization MUST be defined by the method profile.
 
-- Use ENSIP-9 native binary encoding.
-- Method profile MUST define signing algorithm and canonical target bytes.
-- If no robust signing standard exists, return `unverified` or `attested`.
+## Proof Payload
 
-## Proof Object
+Address verification normally needs a sidecar, onchain proof, or caller-supplied
+proof reference because an address record has no natural offchain publication
+location.
 
 ```json
 {
-  "type": "ENSAddressVerification",
-  "version": 1,
-  "chainId": 1,
-  "registry": "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  "name": "alice.eth",
-  "node": "0x...",
-  "record": {
-    "kind": "addr",
-    "coinType": 60,
-    "canonicalAddress": "0x1111111111111111111111111111111111111111",
-    "addressHash": "0x..."
+  "v": "ENSVERIFY1",
+  "claim": {
+    "contextId": "0x...",
+    "nameId": "0x...",
+    "recordRef": "0x...",
+    "valueHash": "0x...",
+    "targetRef": "0x...",
+    "method": "addr-evm-eip712@1",
+    "expiresAt": 1790812800,
+    "nonce": "0x..."
   },
-  "targetAccount": "0x1111111111111111111111111111111111111111",
-  "ensAuthority": "0x2222222222222222222222222222222222222222",
-  "method": "addr-evm-eip712@1",
-  "issuedAt": 1783123200,
-  "expiresAt": 1790812800,
-  "nonce": "0x...",
   "ensSignature": "0x...",
   "targetSignature": "0x..."
 }
 ```
 
-EIP-712 target message:
+`ensSignature` MUST cover the claim hash and MUST be produced by the current ENS
+authority or valid verification delegate.
+
+`targetSignature` MUST cover the same claim hash and MUST be produced by the
+target account. For EVM contract accounts, the verifier MUST call:
 
 ```solidity
-AddressTargetVerification(
-  bytes32 node,
-  string name,
-  uint256 coinType,
-  bytes32 addressHash,
-  string method,
-  uint64 issuedAt,
-  uint64 expiresAt,
-  bytes32 nonce
-)
+isValidSignature(bytes32 hash, bytes signature) returns (bytes4)
 ```
 
-ENS authority message MAY use the shared `ENSRecordVerification` type from the
-kernel.
+and require `0x1626ba7e`.
 
-## User Setup Flow
+If the ENS authority and target account are the same account, one signature MAY
+be reused for both roles if it verifies against both roles under the method
+profile.
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant App
-    participant ENSWallet as ENS Authority Wallet
-    participant TargetWallet as Target Account Wallet
-    participant ENS
+Maximum validity: 90 days.
 
-    User->>App: Select addr record to verify
-    App->>ENS: Resolve live addr and owner
-    ENS-->>App: Address bytes and ENS authority
-    App->>App: Canonicalize coinType and address bytes
-    App->>ENSWallet: Sign ENS authorization
-    ENSWallet-->>App: ensSignature
-    App->>TargetWallet: Sign address-control proof
-    TargetWallet-->>App: targetSignature or ERC-1271-ready signature
-    App->>ENS: Write addr record and optional addr-verification sidecar
-    ENS-->>App: Confirmed
-    App-->>User: Address verification active until expiry
+## ENS Sidecar
+
+Recommended key:
+
+```text
+verification[<recordRef>][<valueHash>]
 ```
 
-## Independent Verification Flow
+Recommended value:
 
-```mermaid
-sequenceDiagram
-    participant Verifier
-    participant ENS
-    participant Account
-
-    Verifier->>ENS: Resolve addr(node, coinType)
-    ENS-->>Verifier: Address bytes
-    Verifier->>Verifier: Compute addressHash
-    Verifier->>ENS: Resolve addr-verification[coinType][addressHash]
-    ENS-->>Verifier: Optional sidecar
-    Verifier->>ENS: Resolve current owner or wrapped owner
-    ENS-->>Verifier: ENS authority
-    Verifier->>Verifier: Validate ENS signature or delegate
-    alt EOA target
-        Verifier->>Verifier: Recover target signature
-    else Contract target
-        Verifier->>Account: isValidSignature(digest, signature)
-        Account-->>Verifier: ERC-1271 magic value
-    end
-    Verifier->>Verifier: Check live addr, expiry, method, and target account
-    Verifier-->>Verifier: Return bidirectional or failure reason
+```text
+v=ENSVERIFY1;method=addr-evm-eip712@1;claim=<claimHash>;exp=<unix-time>;uri=<proof-ref>
 ```
 
-## Verifier Requirements
+`uri` may point to an HTTPS object, content-addressed object, onchain verifier,
+or resolver-native proof defined by the method profile.
 
-For `addr-evm-eip712@1`:
+## Verification
 
-1. Resolve live address bytes.
-2. Recompute `addressHash`.
-3. Check sidecar if required by app policy.
-4. Determine current ENS authority.
-5. Validate ENS authority signature or scoped delegation.
-6. Recover target signer from `targetSignature`.
-7. Check recovered address equals canonical target address.
-8. Check expiry and nonce policy.
+For `addr-evm-eip712@1`, a verifier MUST:
 
-For `addr-evm-erc1271@1`:
+1. Resolve the live address record.
+2. Compute `recordRef`, `valueHash`, and `targetRef`.
+3. Read current ENS authority state.
+4. Build the claim.
+5. Verify `ensSignature` against current ENS authority or delegate.
+6. Recover `targetSignature` and require the recovered address to equal the
+   canonical target account.
+7. Check expiry and revocation.
+8. Return `verified/control` only if both signatures validate the same claim.
 
-1. Resolve live address bytes.
-2. Treat address as contract account.
-3. Call `isValidSignature(targetDigest, targetSignature)`.
-4. Require `0x1626ba7e`.
-5. Continue with ENS authority and expiry checks.
+For `addr-evm-erc1271@1`, replace step 6 with ERC-1271 validation against the
+target contract account.
 
-## API and Indexer Verification
-
-Indexers can discover candidates from:
-
-- `AddrChanged(node,address)`;
-- `AddressChanged(node,coinType,bytes)`;
-- `TextChanged(node,"addr-verification[...]",value)`;
-- owner, resolver, and wrapper transfer events.
-
-Subgraphs can index address records and sidecars, but ECDSA/ERC-1271 checks are
-better handled by an offchain worker or API because contract validation needs
-chain calls at verification time.
-
-Recommended API response:
-
-```json
-{
-  "name": "alice.eth",
-  "record": "addr:60",
-  "value": "0x1111111111111111111111111111111111111111",
-  "level": "bidirectional",
-  "method": "addr-evm-eip712@1",
-  "expiresAt": 1790812800,
-  "checkedAt": 1783200000,
-  "checks": {
-    "liveEnsRecord": true,
-    "currentEnsAuthority": true,
-    "targetAccountSignature": true
-  }
-}
-```
+For `addr-attestation@1`, verify issuer signature, subject, expiry, and
+revocation. Return `verified/attestation` only if the issuer is trusted by
+verifier policy.
 
 ## Security Notes
 
 - Address verification can reveal wallet linkage.
-- Custodial deposit addresses may not be able to sign.
-- Contract account validation can change with contract state.
-- A valid signature does not imply the address should receive all payments.
-- Clients should revalidate before high-value transfers.
-
+- Custodial or deposit addresses may be unable to sign.
+- Contract-account validity can change with contract state.
+- A verified account is not necessarily suitable for every payment or chain.
+- SDKs should revalidate before high-value transfers.

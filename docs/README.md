@@ -1,54 +1,55 @@
-# ENS Record Verification Technical Specs
+# ENS Record Verification Specs
 
-This folder turns the research into implementation-oriented method profiles.
-The design is a verification kernel plus native method profiles. The kernel
-standardizes shared semantics; each profile uses the proof mechanism native to
-the target being verified.
+These documents define a minimal SDK-verifiable model for ENS record
+verification. The model supports ENSv1 and future ENSv2 by verifying live
+resolver state through version-specific authority adapters.
 
-Read in order:
+Verification is only for records that claim control of an external target. It is
+not needed for ordinary profile metadata.
+
+## Documents
 
 1. [Verification kernel](./00-verification-kernel.md)
-2. [URL and web origin verification](./01-url-verification.md)
+2. [URL verification](./01-url-verification.md)
 3. [Address verification](./02-address-verification.md)
 4. [Social account verification](./03-social-verification.md)
 5. [Contenthash verification](./04-contenthash-verification.md)
-6. [Avatar and media verification](./05-avatar-media-verification.md)
-7. [Contact, identity, and attestation verification](./06-contact-identity-attestations.md)
-8. [Indexers, APIs, subgraphs, and SDKs](./07-indexers-apis-subgraphs.md)
+6. [Avatar NFT verification](./05-avatar-nft-verification.md)
+7. [SDK verification](./07-sdk-verification.md)
 
-## Verification Categories
+## Record Categories
 
-| Category | Verify By Default | Primary Method Profiles |
+| Category | Verify? | Methods |
 | --- | --- | --- |
-| URL and web origin | Yes | `url-https@1`, `url-dns-txt@1`, `url-dnssec@1` |
-| EVM address | Yes for high-risk UX | `addr-evm-eip712@1`, `addr-evm-erc1271@1` |
-| Non-EVM address | Optional by chain support | `addr-chain-specific@1` |
-| Social account | Yes when a stable target exists | `social-public-proof@1`, `social-oauth-attestation@1` |
-| Contenthash | Yes, but with precise semantics | `contenthash-owner@1`, `contenthash-publisher@1` |
-| Avatar and media | Yes when displayed as identity | `avatar-ensip12-nft@1`, `media-url@1`, `media-contenthash@1` |
-| Email and contact | Usually opt-in only | `contact-domain@1`, `contact-provider-attestation@1` |
-| Legal identity and role | Attestation only | `identity-attestation@1` |
-| Freeform profile text | No | None by default |
+| URL records | Yes | `url-https@1`, `url-dns-txt@1`, `url-dnssec@1` |
+| Address records | Yes | `addr-evm-eip712@1`, `addr-evm-erc1271@1`, `addr-chain-signature@1` |
+| Social accounts | Yes when a service adapter exists | `social-public-proof@1`, `social-protocol-proof@1`, `social-attestation@1` |
+| Contenthash | Yes for publisher or namespace control | `contenthash-manifest@1`, `contenthash-arweave@1`, `contenthash-dnslink@1`, `contenthash-attestation@1` |
+| Avatar NFT | Yes for CAIP NFT references only | `avatar-caip-nft@1` |
+| Display metadata | No | Not verified |
+| Email and private contact fields | No default public verification | Out of scope until a privacy-preserving profile exists |
 
-## Non-Goals
+## Minimal Result Shape
 
-- Do not mark arbitrary profile text as verified.
-- Do not treat verification as safety, legal ownership, trademark ownership, or
-  ENS endorsement.
-- Do not require all methods to use one global proof envelope.
-- Do not require a central verifier service for public, independently
-  verifiable methods.
-- Do not hide the underlying ENS record when verification fails.
+Every record returns either no verification or one positive verification:
 
-## Common Implementation Rule
+```ts
+type VerificationStatus = "none" | "verified";
+type VerificationKind = "control" | "attestation";
+```
 
-Every positive verification result must bind:
+Errors such as `unsupported_method`, `proof_missing`, `expired`, and
+`signature_invalid` are failure reasons on `status: "none"`, not statuses.
 
-- the ENS deployment context;
-- the normalized ENS name and node;
-- the exact resolver record selector;
-- the canonical current record value;
-- the current ENS authority or scoped delegate;
-- the target authority or attestation issuer;
-- the method profile and version;
-- expiry and revocation boundaries.
+## Design Rules
+
+- Verify live ENS records, not stale indexed data.
+- Bind proofs to a minimal claim: context, name ID, record, value, target,
+  method, expiry, and nonce.
+- Keep proof publication flexible: HTTPS, DNS, ENS sidecars, onchain contracts,
+  attestations, and content manifests are all valid method transports.
+- Require current ENS authority or explicit current delegation for control
+  methods.
+- Treat ENSv1 and ENSv2 differences as authority-adapter concerns.
+- Invalidate positives on transfer, expiry, remint, resolver change, record
+  value change, target change, revocation, or proof expiry.

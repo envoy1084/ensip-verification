@@ -1,101 +1,167 @@
 # Verification Kernel
 
-The kernel defines shared rules used by all method profiles. It is not a
-mandatory singleton proof format. Method profiles may publish proofs as ENS text
-records, DNS TXT records, HTTPS files, EIP-712 signatures, ERC-1271 contract
-responses, EAS attestations, provider attestations, or content manifests.
+This kernel defines the shared rules for ENS record verification. It is for SDKs
+and clients that recompute verification from live ENS state. It is not an
+indexer trust model and it is not a mandatory singleton proof format.
 
-## Core Terms
+Verification only applies when a record claims control of an external target.
+Profile metadata such as `name`, `description`, `location`, `keywords`, and
+theme/display fields has no external authority and SHOULD be returned without
+verification.
 
-| Term | Meaning |
-| --- | --- |
-| ENS context | `chainId`, registry address, normalized name, and node. |
-| Record selector | The resolver call being verified, such as `text("url")`, `addr(60)`, or `contenthash()`. |
-| Canonical value | Method-defined canonical representation of the live resolver value. |
-| ENS authority | Current owner, wrapped owner, or explicit scoped delegate for the ENS name. |
-| Target authority | The external account, website, DNS host, social account, publisher key, or issuer being checked. |
-| Method profile | Versioned verification method, such as `url-https@1` or `addr-evm-eip712@1`. |
-| Sidecar | Optional ENS text record that anchors proof metadata for a specific claim. |
+## Record Categories
 
-## Result Levels
+| Category | Records | Verification target |
+| --- | --- | --- |
+| URL | `text("url")`, URL-valued endpoints | HTTPS origin or DNS host |
+| Address | `addr(bytes32)`, `addr(bytes32,uint256)` | Account or wallet |
+| Social | ENSIP-5 service text keys | Social account, protocol identity, or issuer |
+| Contenthash | `contenthash(bytes32)` | Publisher key, mutable namespace, Arweave owner, or issuer |
+| Avatar NFT | `text("avatar")` with CAIP NFT URI | NFT owner |
+| Display metadata | `name`, `description`, profile text | No verification |
 
-Verification clients MUST return structured levels, not a single overloaded
-boolean.
+Method profiles MAY define additional categories, but they MUST state the target
+authority and the exact live ENS record being checked.
 
-| Level | Meaning |
-| --- | --- |
-| `unverified` | The record exists, but no accepted proof was found. |
-| `ens-authorized` | Current ENS authority authorized the value, but no target confirmation was checked. |
-| `target-confirmed` | Target evidence exists, but live ENS state or ENS authorization is missing. |
-| `bidirectional` | Live ENS state and target evidence validate the same claim. |
-| `provider-mediated` | A provider or verifier attested to a claim that clients cannot independently refetch. |
-| `attested` | A third-party issuer made a structured claim. |
-| `expired` | Proof, sidecar, delegation, or attestation is past its validity window. |
-| `unsupported-method` | The client does not support the advertised method. |
-| `invalid` | A proof exists but fails validation. |
+## Result Model
 
-## Canonical Verification Context
+Clients MUST NOT mix verification status with errors. The only verification
+statuses are:
 
-Every method profile MUST bind at least the following fields:
+```ts
+type VerificationStatus = "none" | "verified";
+type VerificationKind = "control" | "attestation";
 
-```json
-{
-  "chainId": 1,
-  "registry": "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  "name": "alice.eth",
-  "node": "0x...",
-  "record": {
-    "kind": "text",
-    "key": "url",
-    "selector": "text(bytes32,string)",
-    "canonicalValue": "https://example.com",
-    "valueHash": "0x..."
-  },
-  "method": "url-https@1",
-  "issuedAt": 1783123200,
-  "expiresAt": 1790812800,
-  "nonce": "0x..."
+type VerificationResult =
+  | {
+      status: "none";
+      record: string;
+      value?: string;
+      checkedAt: number;
+      error?: VerificationError;
+    }
+  | {
+      status: "verified";
+      verification: VerificationKind;
+      method: string;
+      record: string;
+      value: string;
+      checkedAt: number;
+      expiresAt?: number;
+      evidence?: Record<string, unknown>;
+    };
+```
+
+`control` means live ENS state and the target authority both validate the same
+claim, or the method defines an equivalent deterministic ownership check such as
+CAIP NFT avatar ownership.
+
+`attestation` means an issuer made a signed or onchain claim. Clients MUST apply
+their own issuer trust policy before returning `verified`.
+
+Missing proofs, unsupported methods, malformed sidecars, stale signatures, and
+expired proofs all return `status: "none"` with an `error.code`.
+
+## Claim Binding
+
+Signed and attested methods MUST bind the following minimal claim:
+
+```solidity
+struct ENSRecordClaim {
+    bytes32 contextId;
+    bytes32 nameId;
+    bytes32 recordRef;
+    bytes32 valueHash;
+    bytes32 targetRef;
+    bytes32 methodId;
+    uint64 expiresAt;
+    bytes32 nonce;
 }
 ```
 
-The exact encoding is method-defined. EVM signatures SHOULD use EIP-712 typed
-data. Non-EVM and provider-mediated methods MAY use their native canonical
-encoding, but MUST bind the same semantic fields.
+Where:
+
+- `contextId` identifies the ENS resolution namespace.
+- `nameId` identifies the name in that namespace.
+- `recordRef` identifies the resolver record, such as `text:url`,
+  `addr:60`, or `contenthash`.
+- `valueHash` is the hash of the canonical live resolver value.
+- `targetRef` identifies the external target being verified.
+- `methodId = keccak256(bytes(method))`.
+- `expiresAt` is the latest time a positive result may be returned.
+- `nonce` prevents accidental proof reuse when two claims otherwise match.
+
+The claim hash is method-defined, but EVM methods SHOULD use EIP-712 over the
+struct above. JSON proof envelopes MAY carry the readable `method` string;
+verifiers MUST compute `methodId` from that string before checking signatures.
+Human-readable names, display URLs, proof URIs, gateway URLs, `issuedAt`, and
+`checkedAt` MUST NOT be required signed fields. They may appear as unsigned
+helpers and MUST be ignored for signature validity.
 
 ## ENS Authority
 
-Default authority resolution:
+Every positive `control` verification MUST be checked against current ENS
+authority at verification time.
 
-1. Normalize the ENS name.
-2. Compute `node = namehash(name)`.
-3. Query `ENSRegistry.owner(node)`.
-4. If owner is the canonical Name Wrapper, query wrapped ownership.
-5. If a method supports delegation, validate scoped delegation.
-6. Otherwise, the current owner or wrapped owner is the ENS authority.
+An authority adapter MUST return:
 
-Verifier behavior:
-
-- A proof signed by a previous owner MUST fail.
-- A proof signed by a resolver writer alone MUST NOT count as ENS authority.
-- A scoped delegate MUST be limited by record class, method, name/node, and
-  expiry.
-
-## Optional Sidecar Convention
-
-Method profiles MAY define sidecar text records. Sidecar keys SHOULD follow
-ENSIP-5 global-key style and ENSIP-25/26 parameter style:
-
-```text
-<category>-verification[<parameter-1>][<parameter-2>]
+```ts
+type AuthorityState = {
+  contextId: `0x${string}`;
+  nameId: `0x${string}`;
+  authority: `0x${string}` | { contract: `0x${string}` };
+  validUntil?: number;
+  stateVersion?: `0x${string}`;
+};
 ```
 
-Parameters MUST define canonical encoding and MUST NOT contain `[` or `]`
-unless percent-encoded by the method profile.
+For ENSv1, `nameId` is the ENSIP-1 namehash of the normalized name and
+`contextId` binds at least the L1 chain ID and registry address. The adapter
+MUST account for the Name Wrapper when the registry owner is the wrapper, and it
+MUST treat expired `.eth` names or expired wrapped names as unavailable for
+positive verification.
 
-Recommended compact value format:
+For ENSv2, clients SHOULD resolve records through the Universal Resolver or a
+library that uses it. The authority adapter MUST hide the hierarchical registry
+path and return the current owner or current verification delegate for the
+specific name. A record-writer role is not a verification authority unless the
+current owner explicitly grants a verification delegation. If the v2 registry
+exposes a generation, registration nonce, or equivalent remint boundary, the
+adapter MUST include it in `nameId` or `stateVersion`.
+
+Verifier rules:
+
+- A signature from a previous owner MUST fail.
+- A resolver writer or manager alone MUST NOT count as authority.
+- A delegate MUST be scoped by name, record category, method, and expiry.
+- A proof MUST fail if the authority state is expired or unavailable.
+- A transfer, expiry, remint, resolver replacement, or record value change MUST
+  invalidate cached positive results.
+
+## Proof Publication
+
+Proofs may be published in any method-defined location:
+
+- target publication, such as HTTPS well-known files or DNS TXT records;
+- ENS text sidecars;
+- onchain verifier contracts, events, attestations, or resolver-native data;
+- content manifests or protocol-native messages.
+
+The publication location is not the claim. The signed or attested material MUST
+bind the claim fields above.
+
+Method profiles MAY use this optional sidecar convention:
 
 ```text
-v=<VERSION>;method=<method-id>;digest=<proofDigest>;exp=<unix-time>;uri=<optional-uri>
+verification[<recordRef>][<valueHash>]
+```
+
+`recordRef` and `valueHash` parameters SHOULD be lowercase `0x`-prefixed hex.
+
+Recommended sidecar value:
+
+```text
+v=ENSVERIFY1;method=<method-id>;claim=<claimHash>;exp=<unix-time>;uri=<proof-ref>
 ```
 
 Parsing rules:
@@ -103,147 +169,61 @@ Parsing rules:
 - field names are case-sensitive;
 - fields are separated by semicolons;
 - duplicate fields invalidate the sidecar;
-- unknown fields MAY be ignored unless a method profile says otherwise;
-- `exp` MUST be a base-10 Unix timestamp in seconds;
-- empty or absent sidecar means no sidecar is available.
+- unknown fields MAY be ignored unless the method profile forbids them;
+- `exp` MUST equal the claim `expiresAt`;
+- `uri` grammar is method-defined.
 
-Sidecars are optional publication modes. A method profile may instead use a
-resolver-native response, attestation reference, or target-only proof.
+Sidecars are hints. A client MUST still resolve live ENS state and verify the
+method proof before returning `verified`.
 
-## EIP-712 ENS Authorization
+## SDK Verification Algorithm
 
-When a method needs explicit ENS authority authorization, the recommended typed
-message is:
+An SDK verifier MUST:
 
-```solidity
-EIP712Domain(
-  string name,
-  string version,
-  uint256 chainId,
-  address verifyingContract
-)
+1. Normalize the name according to ENS name processing rules.
+2. Resolve the live record value through the supported ENS resolution path.
+3. Classify the record category and select supported method profiles.
+4. Read current authority state through the ENSv1 or ENSv2 adapter.
+5. Build the claim from live state.
+6. Discover candidate proofs from deterministic target locations, sidecars, or
+   caller-supplied proof references.
+7. Validate signatures, attestations, target evidence, expiry, and revocation.
+8. Return `verified` only if all method requirements pass; otherwise return
+   `none` with an error code.
 
-ENSRecordVerification(
-  bytes32 node,
-  string name,
-  string recordKind,
-  string recordKey,
-  bytes32 valueHash,
-  string method,
-  bytes32 targetHash,
-  uint64 issuedAt,
-  uint64 expiresAt,
-  bytes32 nonce
-)
-```
+Indexers, APIs, and subgraphs MAY supply candidate proof references, but SDKs
+MUST treat those references as untrusted hints.
 
-Domain values:
+## Error Codes
 
-```text
-name = "ENS Record Verification"
-version = "1"
-chainId = ENS registry chain ID
-verifyingContract = ENS registry address or method-specific verifier contract
-```
-
-Contract-account signatures MUST use ERC-1271:
-
-```solidity
-isValidSignature(bytes32 hash, bytes signature) returns (bytes4)
-```
-
-The magic value is `0x1626ba7e`.
-
-## Generic User Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant App
-    participant Wallet
-    participant ENS
-    participant Target
-
-    User->>App: Choose ENS record to verify
-    App->>ENS: Resolve live record and owner
-    ENS-->>App: Record value and authority
-    App->>App: Canonicalize value and build claim
-    App->>Wallet: Request ENS authorization signature
-    Wallet-->>App: Signature
-    App->>Target: Run method-native target proof flow
-    Target-->>App: Target proof or attestation
-    App->>ENS: Optional sidecar write
-    ENS-->>App: Transaction confirmed
-    App-->>User: Verification ready with expiry
-```
-
-## Generic Verifier Flow
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant ENS
-    participant Target
-    participant Issuer
-
-    Client->>ENS: Resolve record and sidecar or discovery record
-    ENS-->>Client: Live value and proof metadata
-    Client->>ENS: Resolve current owner or wrapped owner
-    ENS-->>Client: Current ENS authority
-    Client->>Client: Canonicalize live record
-    alt Public target proof
-        Client->>Target: Fetch method-native proof
-        Target-->>Client: Proof data
-    else Provider-mediated attestation
-        Client->>Issuer: Fetch or resolve attestation
-        Issuer-->>Client: Attestation and revocation state
-    end
-    Client->>Client: Validate signatures, expiry, target, and live ENS match
-    Client-->>Client: Return structured result
-```
+| Code | Meaning |
+| --- | --- |
+| `record_missing` | The ENS record is absent or empty. |
+| `unsupported_record` | No verification category is defined for the record. |
+| `unsupported_method` | The client does not implement the advertised method. |
+| `proof_missing` | No candidate proof was found. |
+| `proof_malformed` | Proof or sidecar parsing failed. |
+| `signature_invalid` | Signature recovery or ERC-1271 validation failed. |
+| `authority_mismatch` | Signer is not current ENS authority or delegate. |
+| `target_mismatch` | Target proof binds a different claim. |
+| `target_unavailable` | Target evidence could not be fetched or checked. |
+| `issuer_untrusted` | Attestation issuer is outside verifier policy. |
+| `revoked` | Attestation or delegation has been revoked. |
+| `expired` | Proof, delegation, name, or attestation expired. |
 
 ## Cache Rules
 
 Positive results MUST NOT be cached past the earliest of:
 
-- proof `expiresAt`;
+- claim `expiresAt`;
 - sidecar `exp`;
 - delegate expiry;
 - attestation expiry or revocation;
 - DNS TTL for DNS methods;
 - HTTP cache lifetime for HTTPS methods;
-- next observed ENS record, owner, resolver, or wrapper ownership change.
+- ENS authority `validUntil`;
+- authority `stateVersion` change;
+- observed ENS owner, resolver, wrapper, subregistry, or record change.
 
-Negative results MAY be cached briefly, but clients SHOULD allow manual refresh
-because target proofs can be published after the ENS record is set.
-
-## Failure Handling
-
-Verification failure MUST NOT hide the underlying ENS record. Clients SHOULD
-display the record as unverified and include a machine-readable failure reason:
-
-```json
-{
-  "level": "invalid",
-  "reason": "target_signature_mismatch",
-  "record": "text:url",
-  "method": "url-https@1"
-}
-```
-
-## Common Failure Reasons
-
-| Reason | Meaning |
-| --- | --- |
-| `record_missing` | Resolver returned empty or unsupported record. |
-| `sidecar_missing` | Method requires a sidecar and none was found. |
-| `sidecar_malformed` | Sidecar parsing failed. |
-| `owner_changed` | Proof signer is no longer current ENS authority. |
-| `delegate_invalid` | Delegate is missing, expired, or out of scope. |
-| `target_missing` | Target proof could not be found. |
-| `target_mismatch` | Target proof binds a different name, value, or method. |
-| `signature_invalid` | EOA recovery or ERC-1271 validation failed. |
-| `attestation_revoked` | Issuer attestation was revoked. |
-| `expired` | Expiry boundary has passed. |
-| `unsupported_method` | Client does not implement the method profile. |
-
+Negative results MAY be cached briefly, but clients SHOULD allow refresh because
+target proofs can be published after the ENS record is set.

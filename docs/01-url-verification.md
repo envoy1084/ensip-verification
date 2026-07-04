@@ -1,136 +1,116 @@
-# URL and Web Origin Verification
+# URL Verification
 
-URL verification applies to ENS records that point to a web origin:
+URL verification applies to records that point to a web origin, primarily
+`text("url")` and URL-valued endpoint records. It verifies control of the ENS
+name and control of the web origin or DNS host. It does not verify site safety,
+trademark ownership, legal ownership, or endorsement by ENS.
 
-- `text("url")`
-- URL-valued agent endpoints such as `agent-endpoint[web]`
-- URL-valued media records when the URL itself is the identity target
+## Methods
 
-This profile verifies control of a web origin or DNS host. It does not verify
-site safety, trademark ownership, or legal identity.
-
-## Method Profiles
-
-| Method | Target Authority | Result Level |
+| Method | Verification | Target |
 | --- | --- | --- |
-| `url-https@1` | HTTPS origin | `bidirectional` |
-| `url-dns-txt@1` | DNS host | `bidirectional` |
-| `url-dnssec@1` | DNSSEC-validated host | `bidirectional` with stronger evidence |
+| `url-https@1` | `control` | HTTPS origin |
+| `url-dns-txt@1` | `control` | DNS host |
+| `url-dnssec@1` | `control` | DNS host with DNSSEC validation |
 
-## ENS Record and Sidecar
+DNSSEC is method evidence, not a separate status. All successful methods return
+`status: "verified"` and `verification: "control"`.
 
-Canonical record:
+## Claim Fields
 
-```text
-text(node, "url") = https://example.com/path?x=1
-```
-
-Sidecar key:
+For `text("url")`:
 
 ```text
-url-verification[<originHash>]
+recordRef = keccak256("text:url")
+valueHash = keccak256(bytes(liveTextValue))
+targetRef = keccak256(bytes(canonicalOrigin))
 ```
 
-Where:
+`liveTextValue` is the exact UTF-8 value returned by the resolver.
 
-```text
-originHash = keccak256(bytes(canonicalOrigin))
-```
-
-Sidecar value:
-
-```text
-v=ENSURL1;method=url-https@1,url-dns-txt@1;digest=<proofDigest>;exp=<unix-time>
-```
-
-Rules:
-
-- The sidecar is REQUIRED for `bidirectional` URL verification.
-- The live `url` record remains canonical and MUST still match.
-- `digest` is the digest of the URL proof object.
-- `exp` MUST equal `proof.expiresAt`.
-- A missing or invalid sidecar returns `unverified`, not record failure.
+`canonicalOrigin` is derived from the live URL. The signed claim MUST use the
+kernel `ENSRecordClaim` fields and MUST NOT separately sign the human-readable
+name, path, query, proof URL, or sidecar key.
 
 ## URL Canonicalization
 
-The verifier MUST parse the live `url` value and derive `canonicalOrigin`.
+A valid URL MUST:
 
-Valid URL requirements:
-
-- absolute URL;
-- `https` scheme;
-- host present;
-- no username or password;
-- no IP literal;
-- no `localhost`;
-- no empty host.
+- be absolute;
+- use the `https` scheme;
+- contain a DNS host;
+- not contain username or password;
+- not use an IP literal;
+- not be `localhost`.
 
 Canonical origin algorithm:
 
-1. Lowercase scheme to `https`.
-2. Convert host to DNS A-label using IDNA.
-3. Lowercase host.
-4. Remove one trailing dot.
-5. Omit port `443`.
-6. Include non-default ports.
-7. Drop path, query, and fragment.
+1. Parse the live value as a URL.
+2. Lowercase the scheme to `https`.
+3. Convert the host to DNS A-label form using IDNA.
+4. Lowercase the host.
+5. Remove one trailing dot.
+6. Omit port `443`.
+7. Preserve any non-default port.
+8. Drop path, query, and fragment.
 
 Examples:
 
-| URL | Canonical Origin |
+| Live URL | Canonical origin |
 | --- | --- |
 | `https://Example.COM/` | `https://example.com` |
 | `https://example.com:443/a` | `https://example.com` |
 | `https://example.com:8443/a` | `https://example.com:8443` |
 
-## Proof Object
+## Proof Payload
 
-HTTPS and DNS methods use the same proof object.
+The target proof payload is intentionally small:
 
 ```json
 {
-  "type": "ENSURLVerification",
-  "version": 1,
-  "chainId": 1,
-  "registry": "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  "name": "alice.eth",
-  "node": "0x...",
-  "recordKey": "url",
-  "origin": "https://example.com",
-  "method": "url-https@1",
-  "ensAuthority": "0x1111111111111111111111111111111111111111",
-  "issuedAt": 1783123200,
-  "expiresAt": 1790812800,
-  "nonce": "0x2222222222222222222222222222222222222222222222222222222222222222",
+  "v": "ENSVERIFY1",
+  "claim": {
+    "contextId": "0x...",
+    "nameId": "0x...",
+    "recordRef": "0x...",
+    "valueHash": "0x...",
+    "targetRef": "0x...",
+    "method": "url-https@1",
+    "expiresAt": 1790812800,
+    "nonce": "0x..."
+  },
   "signature": "0x..."
 }
 ```
 
-Signature:
+`signature` MUST cover the claim hash and MUST be produced by the current ENS
+authority or a valid verification delegate. Contract authorities MUST validate
+with ERC-1271.
 
-- EOA authority: EIP-712 signature by `ensAuthority`.
-- Contract authority: ERC-1271 validation on `ensAuthority`.
-- Signed fields MUST include `chainId`, `registry`, `node`, `recordKey`,
-  `origin`, `method`, `issuedAt`, `expiresAt`, and `nonce`.
+The proof MAY include unsigned helper fields such as `name`, `origin`, or
+`proofUrl`, but verifiers MUST recompute claim fields from live ENS state and
+ignore helpers for signature validity.
 
 Maximum validity: 90 days.
 
 ## HTTPS Publication
 
-For `url-https@1`, publish proof at:
+For `url-https@1`, publish the proof at:
 
 ```text
 <canonicalOrigin>/.well-known/ens-url-verification
 ```
 
-Response requirements:
+The response MUST:
 
-- HTTPS with normal WebPKI validation;
-- HTTP status `200`;
-- UTF-8 JSON body;
-- body size at most 64 KiB;
-- no redirect to a different origin;
-- same-origin redirects MAY be followed.
+- use HTTPS with normal WebPKI validation;
+- return HTTP status `200`;
+- have a UTF-8 JSON body no larger than 64 KiB;
+- not redirect to a different origin.
+
+Same-origin redirects MAY be followed. The JSON body MAY be a single proof or an
+object containing a `proofs` array. A verifier accepts the first proof that
+validates the live claim.
 
 Recommended content type:
 
@@ -138,12 +118,12 @@ Recommended content type:
 application/ens-url-verification+json
 ```
 
-## DNS TXT Publication
+## DNS Publication
 
 For `url-dns-txt@1`, publish:
 
 ```text
-_ens-url-verification.<host>. TXT "ENSURL1 <base64url-json-proof>"
+_ens-url-verification.<host>. TXT "ENSVERIFY1 <base64url-json-proof>"
 ```
 
 Rules:
@@ -151,105 +131,41 @@ Rules:
 - Concatenate multiple TXT character strings in order.
 - If multiple TXT records exist, any one valid proof is enough.
 - DNS TXT MUST NOT verify a URL with a non-default HTTPS port.
-- DNSSEC validation upgrades method result to `url-dnssec@1`.
+- If the verifier validates the DNSSEC chain, it MAY report method
+  `url-dnssec@1`.
 
-## User Setup Flow
+## ENS Sidecar
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant App
-    participant Wallet
-    participant ENS
-    participant Website
-    participant DNS
+A sidecar is optional because URL proofs have deterministic target locations.
+When used, the sidecar key SHOULD be:
 
-    User->>App: Enter url record
-    App->>ENS: Resolve current owner and url value
-    ENS-->>App: Owner and current url
-    App->>App: Canonicalize origin and compute originHash
-    App->>Wallet: Sign ENSURLVerification
-    Wallet-->>App: Authority signature
-    alt HTTPS method
-        App->>Website: Publish /.well-known/ens-url-verification
-        Website-->>App: Proof available
-    else DNS method
-        App->>DNS: Publish _ens-url-verification TXT
-        DNS-->>App: TXT available
-    end
-    App->>ENS: Set url and url-verification[originHash]
-    ENS-->>App: Confirmed
-    App-->>User: URL verification active until expiry
+```text
+verification[<recordRef>][<valueHash>]
 ```
 
-## Independent Verification Flow
+The sidecar MAY point to the HTTPS proof, DNS proof, or an onchain proof. A
+missing sidecar does not prevent verification if the deterministic target proof
+is valid.
 
-```mermaid
-sequenceDiagram
-    participant Verifier
-    participant ENS
-    participant Website
-    participant DNS
+## Verification
 
-    Verifier->>ENS: Resolve text("url")
-    ENS-->>Verifier: URL value
-    Verifier->>Verifier: Canonicalize origin and originHash
-    Verifier->>ENS: Resolve url-verification[originHash]
-    ENS-->>Verifier: Sidecar
-    Verifier->>ENS: Resolve current owner or wrapped owner
-    ENS-->>Verifier: ENS authority
-    alt url-https@1
-        Verifier->>Website: GET /.well-known/ens-url-verification
-        Website-->>Verifier: Proof JSON
-    else url-dns-txt@1 or url-dnssec@1
-        Verifier->>DNS: Query _ens-url-verification TXT
-        DNS-->>Verifier: TXT proof and optional DNSSEC chain
-    end
-    Verifier->>Verifier: Check live URL, sidecar digest, expiry, authority signature, and target publication
-    Verifier-->>Verifier: Return bidirectional or failure reason
-```
+A verifier MUST:
 
-## API and Indexer Verification
-
-An API or indexer can precompute candidates from ENS events:
-
-- `TextChanged(node, "url", value)`;
-- `TextChanged(node, "url-verification[...]", value)`;
-- registry owner changes;
-- Name Wrapper transfers;
-- resolver changes.
-
-The indexer MUST still fetch live HTTPS or DNS evidence before returning a
-positive result. A stale database row is not a verification result.
-
-Recommended API response:
-
-```json
-{
-  "name": "alice.eth",
-  "record": "text:url",
-  "value": "https://example.com/",
-  "canonicalTarget": "https://example.com",
-  "level": "bidirectional",
-  "method": "url-https@1",
-  "expiresAt": 1790812800,
-  "checkedAt": 1783200000,
-  "evidence": {
-    "sidecarKey": "url-verification[0x...]",
-    "proofUrl": "https://example.com/.well-known/ens-url-verification"
-  }
-}
-```
-
-Cache until the earliest of proof expiry, sidecar expiry, HTTP cache expiry,
-DNS TTL, or next relevant ENS event.
+1. Resolve the live URL record.
+2. Validate and canonicalize the URL.
+3. Build the claim from live ENS state and current authority state.
+4. Fetch the HTTPS or DNS proof.
+5. Check `method`, `expiresAt`, and all claim fields.
+6. Verify the ENS authority signature or delegate authorization.
+7. Return `verified/control` only if target publication and ENS authority both
+   validate the same claim.
 
 ## Security Notes
 
-- A verified URL proves control of the ENS name and origin/host at validation
-  time. It does not prove the website is safe.
-- Shared origins cannot be verified for user-specific paths.
-- DNS TXT without DNSSEC depends on resolver trust.
-- HTTPS proof fetches leak verification interest to the website.
-- Clients should display the verified origin, not arbitrary URL text.
-
+- A verified URL proves current control of an ENS name and an origin or DNS host
+  at verification time.
+- It does not prove website safety.
+- Shared hosting origins are risky because the origin, not a path, is the
+  target authority.
+- HTTPS verification leaks lookup interest to the website.
+- DNS TXT without DNSSEC depends on the verifier's DNS resolution trust model.

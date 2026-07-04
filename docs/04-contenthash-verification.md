@@ -1,231 +1,154 @@
 # Contenthash Verification
 
-Contenthash verification applies to:
+Contenthash verification applies to `contenthash(bytes32)` and content
+references in records that use the same content-addressed semantics. ENS
+contenthashes commonly point to IPFS, Swarm, Arweave, IPNS, DNSLink-backed
+namespaces, or future multicodec targets.
 
-- `contenthash(bytes32 node)`;
-- content references embedded in text records;
-- IPFS, Swarm, IPNS, DNSLink, or future content-addressed targets.
+Content addressing proves byte integrity. It does not prove publisher identity,
+current ENS endorsement, safety, or mutable namespace control. Those properties
+require a method-specific proof.
 
-Contenthash already verifies content integrity when the protocol is
-content-addressed. The missing properties are current ENS endorsement, publisher
-authorship, mutable namespace control, and optional safety review. These MUST be
-reported as different levels.
+## Methods
 
-## Method Profiles
-
-| Method | Target Authority | Result Level |
+| Method | Verification | Target |
 | --- | --- | --- |
-| `contenthash-owner@1` | Current ENS authority | `ens-authorized` |
-| `contenthash-publisher@1` | Publisher key or manifest signer | `bidirectional` or `attested` |
-| `contenthash-dnslink@1` | DNS host for DNSLink target | `target-confirmed` or `bidirectional` |
-| `contenthash-security-attestation@1` | Security issuer | `attested` |
+| `contenthash-manifest@1` | `control` | Publisher key that signs a content manifest |
+| `contenthash-arweave@1` | `control` | Arweave transaction or data-item owner |
+| `contenthash-dnslink@1` | `control` | DNS host for a mutable content namespace |
+| `contenthash-attestation@1` | `attestation` | Issuer claim about content or publisher |
 
-## ENS Record and Sidecar
+There is no standalone ENS-only contenthash verification. A live contenthash
+record already expresses current ENS resolution state. Positive verification
+requires a target proof or a trusted attestation.
 
-Canonical record:
-
-```text
-contenthash(node) = <multicodec bytes>
-```
-
-Sidecar key:
+## Claim Fields
 
 ```text
-contenthash-verification[<contenthashHash>]
+recordRef = keccak256("contenthash")
+valueHash = keccak256(contenthashBytes)
+targetRef = method-defined target authority hash
 ```
 
-Where:
+`contenthashBytes` are the raw bytes returned by the resolver. Gateway URLs,
+rendered `ipfs://` strings, and HTTP mirrors MUST NOT be signed as content
+identity.
 
-```text
-contenthashHash = keccak256(contenthashBytes)
-```
+Method target references:
 
-Sidecar value:
+| Method | `targetRef` |
+| --- | --- |
+| `contenthash-manifest@1` | Hash of publisher public key or DID |
+| `contenthash-arweave@1` | Hash of Arweave owner address or public key |
+| `contenthash-dnslink@1` | Hash of canonical DNS name |
+| `contenthash-attestation@1` | Hash of issuer and attestation subject |
 
-```text
-v=ENSCONTENT1;method=contenthash-owner@1,contenthash-publisher@1;digest=<proofDigest>;exp=<unix-time>;uri=<optionalManifestUri>
-```
+## Generic Manifest
 
-Rules:
-
-- The live `contenthash()` return value MUST equal the proof contenthash bytes.
-- `contenthash-owner@1` does not require a target-side proof.
-- `contenthash-publisher@1` requires a publisher manifest or signature.
-- Security attestations MUST be labeled separately from authorship or ENS
-  endorsement.
-
-## Canonicalization
-
-The verifier MUST operate on resolver-returned bytes, not a gateway URL.
-
-Canonical fields:
-
-- `contenthashBytes`: raw resolver bytes;
-- `contenthashHash`: `keccak256(contenthashBytes)`;
-- `protocol`: decoded multicodec protocol, if supported;
-- `displayUri`: user-facing URI, derived only for display;
-- `gatewayUrl`: optional transport URL, not part of content identity unless the
-  method profile says so.
-
-## Owner Authorization Proof
-
-`contenthash-owner@1` proves that the current ENS authority authorized the
-current contenthash.
-
-Proof:
-
-```json
-{
-  "type": "ENSContenthashOwnerVerification",
-  "version": 1,
-  "chainId": 1,
-  "registry": "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  "name": "alice.eth",
-  "node": "0x...",
-  "contenthash": "0xe301...",
-  "contenthashHash": "0x...",
-  "method": "contenthash-owner@1",
-  "ensAuthority": "0x...",
-  "issuedAt": 1783123200,
-  "expiresAt": 1790812800,
-  "nonce": "0x...",
-  "signature": "0x..."
-}
-```
-
-Result level: `ens-authorized`.
-
-This does not prove that a publisher authored the content or that the content is
-safe.
-
-## Publisher Manifest Proof
-
-`contenthash-publisher@1` proves that a publisher key signed a manifest binding
-content to the ENS name.
-
-Manifest location options:
-
-- content root path `/.well-known/ens-content-verification.json` for directory
-  content;
-- content-addressed manifest URI in sidecar `uri`;
-- application-specific manifest path defined by method profile.
+`contenthash-manifest@1` is the general proof for IPFS, Swarm, Arweave, and
+future content-addressed systems.
 
 Manifest:
 
 ```json
 {
-  "type": "ENSContentPublisherManifest",
-  "version": 1,
-  "name": "alice.eth",
-  "node": "0x...",
-  "contenthashHash": "0x...",
-  "publisher": "did:key:z...",
-  "issuedAt": 1783123200,
-  "expiresAt": 1790812800,
-  "claims": {
-    "title": "Alice Site",
-    "build": "2026-07-04"
+  "v": "ENSVERIFY1",
+  "claim": {
+    "contextId": "0x...",
+    "nameId": "0x...",
+    "recordRef": "0x...",
+    "valueHash": "0x...",
+    "targetRef": "0x...",
+    "method": "contenthash-manifest@1",
+    "expiresAt": 1790812800,
+    "nonce": "0x..."
   },
-  "signature": "..."
+  "publisher": "did:key:z...",
+  "publisherSignature": "...",
+  "ensSignature": "0x..."
 }
 ```
 
 Rules:
 
-- The manifest MUST bind the contenthash hash, not only a gateway URL.
-- The publisher key trust model MUST be explicit.
-- If the publisher key is itself listed in ENS, that record MUST be verified
-  separately.
+- `publisherSignature` MUST cover the claim hash and verify against the
+  publisher key in `targetRef`.
+- `ensSignature` MUST cover the same claim hash and verify against current ENS
+  authority or a current verification delegate.
+- A current ENS authority MAY delegate the publisher key onchain or through a
+  signed delegation instead of signing each manifest.
+- The manifest MUST bind raw contenthash bytes through `valueHash`.
 
-## User Setup Flow
+Manifest locations:
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant App
-    participant Wallet
-    participant Publisher
-    participant Storage
-    participant ENS
+- inside a directory root, such as `/.well-known/ens-content-verification.json`;
+- content-addressed URI referenced by the ENS sidecar;
+- onchain proof reference;
+- protocol-native metadata defined by a method profile.
 
-    User->>App: Set contenthash
-    App->>Storage: Publish content
-    Storage-->>App: Contenthash bytes or URI
-    App->>App: Decode and hash contenthash
-    App->>Wallet: Sign ENS owner authorization
-    Wallet-->>App: ENS signature
-    opt Publisher proof
-        App->>Publisher: Sign publisher manifest
-        Publisher-->>App: Signed manifest
-        App->>Storage: Publish manifest
-    end
-    App->>ENS: Set contenthash and optional sidecar
-    ENS-->>App: Confirmed
-    App-->>User: Contenthash verification active
-```
+For existing immutable content that cannot be changed, publish the manifest as a
+separate content-addressed object, onchain proof, or sidecar-referenced object.
+Because the claim binds `contenthashBytes`, the manifest does not need to be
+inside the original content root.
 
-## Independent Verification Flow
+## Arweave
 
-```mermaid
-sequenceDiagram
-    participant Verifier
-    participant ENS
-    participant Storage
-    participant Publisher
-    participant Issuer
+`contenthash-arweave@1` applies when the contenthash points to an Arweave
+transaction or data item with a verifiable owner.
 
-    Verifier->>ENS: Resolve contenthash()
-    ENS-->>Verifier: Raw contenthash bytes
-    Verifier->>Verifier: Decode protocol and compute contenthashHash
-    Verifier->>ENS: Resolve contenthash-verification[contenthashHash]
-    ENS-->>Verifier: Optional sidecar
-    Verifier->>ENS: Resolve current authority
-    ENS-->>Verifier: ENS authority
-    Verifier->>Verifier: Validate owner authorization if present
-    opt Publisher manifest
-        Verifier->>Storage: Fetch manifest by content path or sidecar URI
-        Storage-->>Verifier: Manifest
-        Verifier->>Publisher: Validate publisher signature or DID
-    end
-    opt Security attestation
-        Verifier->>Issuer: Fetch attestation and revocation
-        Issuer-->>Verifier: Attestation status
-    end
-    Verifier-->>Verifier: Return ens-authorized, bidirectional, attested, or failure
-```
+A verifier MUST:
 
-## API and Indexer Verification
+1. Decode the Arweave target from `contenthashBytes`.
+2. Fetch the transaction or data item.
+3. Verify the Arweave signature and owner address or public key.
+4. Check that transaction tags or adjacent Arweave proof data bind the claim
+   hash.
+5. Verify current ENS authority signature or delegation.
 
-Indexers can discover:
+If the original Arweave transaction cannot carry the claim, an adjacent Arweave
+data item, ENS sidecar, or onchain proof MAY bind the same contenthash bytes.
 
-- `ContenthashChanged(node, bytes)`;
-- `TextChanged(node, "contenthash-verification[...]", value)`;
-- owner, resolver, and wrapper changes;
-- attestation events.
+## DNSLink and Mutable Namespaces
 
-Workers SHOULD fetch manifests and attestations. A subgraph can store
-contenthash bytes and sidecar references, but should not claim publisher
-verification unless a worker has validated signatures and revocation state.
+`contenthash-dnslink@1` applies when the content target depends on DNSLink or a
+DNS-controlled mutable namespace.
 
-Recommended response:
+A verifier MUST:
 
-```json
-{
-  "name": "alice.eth",
-  "record": "contenthash",
-  "contenthash": "ipfs://bafy...",
-  "level": "ens-authorized",
-  "methods": ["contenthash-owner@1"],
-  "expiresAt": 1790812800,
-  "checkedAt": 1783200000
-}
-```
+1. Canonicalize the DNS name.
+2. Fetch the DNSLink TXT record and proof record defined by the method profile.
+3. Verify the DNS proof binds the claim hash and current content target.
+4. Apply DNS TTL and DNSSEC policy.
+5. Verify current ENS authority signature or delegation.
+
+DNSSEC support is evidence in the method result, not a separate verification
+status.
+
+## Attestations
+
+`contenthash-attestation@1` is for issuer claims such as publisher verification,
+malware review, build provenance, or moderation. A verifier MUST check issuer
+trust policy, subject, expiry, and revocation before returning
+`verified/attestation`.
+
+## Verification
+
+A verifier MUST:
+
+1. Resolve live `contenthash()` bytes.
+2. Compute `valueHash` from the raw bytes.
+3. Decode the protocol only to select supported method profiles.
+4. Build the claim from live ENS state and current authority state.
+5. Fetch the manifest, Arweave proof, DNS proof, or attestation.
+6. Verify target evidence and ENS authority or issuer policy.
+7. Return `verified` only for the property proven by the method.
 
 ## Security Notes
 
-- Do not label contenthash as safe solely because it is verified.
-- Gateway URLs are transports and can be malicious or stale.
-- IPNS and DNSLink are mutable namespaces; verify their own authority if used.
-- Publisher identity requires a trust model.
-- Security scans are third-party attestations and can expire or be revoked.
-
+- IPFS CIDs do not have account owners by default; use a manifest, delegation,
+  DNSLink proof, or attestation.
+- Gateway URLs are transports and can be stale or malicious.
+- Mutable namespaces such as IPNS and DNSLink require their own authority
+  checks.
+- Verification does not imply content safety.
+- Publisher identity is only as strong as the publisher key and trust model.
