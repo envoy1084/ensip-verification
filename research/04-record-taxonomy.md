@@ -2,8 +2,8 @@
 
 ENS record verification cannot be one-size-fits-all at the evidence layer. Each
 record type has a different target authority and a different failure mode. The
-singleton part should be the claim envelope and validation flow, not the proof
-method.
+shared part should be verification semantics and client result states, not a
+mandatory singleton proof object.
 
 ## Taxonomy
 
@@ -104,8 +104,8 @@ semantics. An NFT avatar can be considered validated only if the resolved
 address owns the referenced token under the rules in ENSIP-12. A web-hosted
 avatar has a different trust boundary from an NFT avatar.
 
-This supports a broader architecture where the singleton envelope dispatches to
-record-type adapters.
+This supports a broader architecture where an SDK dispatches to record-type
+adapters while the protocol preserves record-native proof semantics.
 
 ## Private or Sensitive Records
 

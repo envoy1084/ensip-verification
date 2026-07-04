@@ -15,9 +15,10 @@ The research is organized to separate evidence from proposal:
 4. [Record taxonomy](./04-record-taxonomy.md)
 5. [Threat model](./05-threat-model.md)
 6. [Architecture options](./06-architecture-options.md)
-7. [Proposed singleton verification model](./07-singleton-verification-model.md)
+7. [Layered native verification model](./07-layered-native-verification-model.md)
 8. [Developer UX and adoption](./08-developer-ux-and-adoption.md)
 9. [Open questions and evaluation checklist](./09-open-questions.md)
+10. [Singleton reassessment](./10-singleton-reassessment.md)
 
 ## Working Conclusions
 
@@ -26,15 +27,17 @@ The research is organized to separate evidence from proposal:
 - The base relationship worth standardizing is bidirectional record control:
   the current ENS authority still publishes the record, and the target authority
   still publishes or signs a matching proof.
-- A single generic verification envelope is preferable to one unrelated ENSIP
-  per record type, but the evidence methods must remain record-specific.
+- A mandatory singleton proof envelope is not the best fit. The better model is
+  a small base ENSIP for shared semantics plus native method profiles for URLs,
+  socials, addresses, contenthashes, attestations, and future records.
 - Verification should be versioned, short-lived, replay-resistant, and checked
   against live ENS state. Static badges and indefinite cached results are not
   enough.
 - Third-party attestations can be useful, but they should be an optional layer
   above record-control verification rather than the root trust model.
-- Developer adoption depends on a one-signature flow, deterministic proof
-  locations, method adapters, and an SDK that returns explicit result semantics.
+- Developer adoption depends on Ethereum-native signatures where appropriate,
+  method-native integrations such as OAuth or DNSSEC, optional discovery, and an
+  SDK that hides adapter complexity while returning explicit result semantics.
 
 ## Source Policy
 
@@ -42,4 +45,3 @@ Primary sources are preferred: ENS documentation and ENSIPs, protocol
 specifications, EIPs, RFCs, W3C recommendations, and official protocol
 documentation. Secondary sources are only useful when they document behavior not
 covered by a primary source.
-

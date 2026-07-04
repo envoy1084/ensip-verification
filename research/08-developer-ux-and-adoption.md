@@ -11,9 +11,11 @@ For a user verifying one ENS record:
 1. The app reads the current ENS record.
 2. The app explains the exact relationship being verified.
 3. The user signs one typed message authorizing the claim or delegate.
-4. The app helps publish target evidence, such as a well-known file, DNS TXT
-   record, social post, or address signature.
-5. The app writes the ENS sidecar record, ideally batched with the record update.
+4. The app runs the native method flow, such as publishing a well-known file,
+   adding a DNS TXT record, completing OAuth, signing from an address, or
+   producing an attestation.
+5. The app writes ENS-side data only when the method profile needs it, ideally
+   batched with the record update.
 6. The app shows the proof expiry and renewal path.
 
 The user should not manually calculate hashes. The UI should show human-readable
@@ -24,15 +26,15 @@ claim text and method-specific instructions.
 "One click" can mean different things. The realistic target is:
 
 - one wallet signature to authorize the verification claim or delegate;
-- one transaction or resolver write to publish ENS-side data, unless the app is
-  only preparing an offchain proof;
+- one transaction or resolver write when ENS-side data is required by the
+  method profile;
 - one guided target publication step, which may be automatic for some targets
   and manual for DNS or static hosting.
 
 For web proofs, a hosting integration can publish the file automatically. For
 DNS proofs, the user may still need to add a TXT record unless their registrar
-or DNS provider is integrated. For social accounts, a post/OAuth/API flow may be
-required.
+or DNS provider is integrated. For social accounts, OAuth or provider APIs often
+produce an attestation rather than a public proof every client can refetch.
 
 ## SDK Shape
 
@@ -46,7 +48,7 @@ const claim = await createEnsRecordClaim({
 
 const proof = await createVerificationProof({
   claim,
-  method: "https-well-known@1",
+  method: "url-https@1",
   signer: wallet
 });
 
@@ -65,8 +67,11 @@ Verifier results should include:
 - expiry;
 - failure reason;
 - whether live ENS state, ENS authority, and target evidence each passed.
+- whether the result is independently refetchable or provider-mediated.
 
 This lets apps render accurate UI without reverse-engineering proof internals.
+The SDK should look like a singleton to developers, but internally it should be
+adapter-based and method-native.
 
 ## Developer Defaults
 
@@ -98,9 +103,10 @@ while revalidating before high-value actions.
 
 ### ENS Profile Apps
 
-Profile apps need discovery. They should use the optional manifest to show all
-available verifications, but still validate sidecars and target evidence before
-displaying a verified state.
+Profile apps need discovery. They can use an optional manifest, sidecars,
+resolver-native data, or attestation references to show available
+verifications. Discovery is not the trust root; each method still validates its
+native evidence.
 
 ### Indexers
 
@@ -113,6 +119,11 @@ time. A stale indexer result should not be treated as final proof.
 Verification services can help with provider APIs, OAuth, DNS integrations, and
 attestations. They should output verifiable proof material or attestations,
 instead of only serving a private badge API.
+
+For OAuth methods, a verification service may be unavoidable because OAuth
+tokens are bearer credentials and should not be published in ENS. The service
+should publish a revocable attestation with the provider account ID, handle,
+ENS name, method, expiry, and issuer.
 
 ## Renewal and Expiry
 
@@ -148,15 +159,19 @@ failed.
 
 ## Adoption Path
 
-1. Generalize the current URL draft into the `ENSVERIFY1` envelope.
-2. Keep the web-origin method as the first concrete adapter.
-3. Add address verification for EVM addresses using EIP-712 and ERC-1271.
-4. Add DNS TXT and DNSSEC result semantics.
-5. Add social adapters only where proofs are public and stable, such as AT
-   Protocol and Nostr.
-6. Add optional attestation adapters for provider-mediated platforms.
-7. Build a reference SDK and command-line verifier.
-8. Integrate with ENS profile managers as a guided publish and renew flow.
+1. Write a small base ENSIP for semantics, authority, delegation, expiry,
+   caching, and result states.
+2. Keep the existing URL draft as a `url-https@1` and `url-dnssec@1` method
+   profile, not as the general architecture.
+3. Add `addr-evm@1` for EIP-712 and ERC-1271 address-control verification.
+4. Add `social-public-proof@1` for public protocol proofs such as AT Protocol,
+   Nostr, Farcaster, Mastodon, and `rel="me"` where applicable.
+5. Add `social-oauth@1` for provider-mediated OAuth/OIDC flows that produce
+   revocable attestations.
+6. Add contenthash profiles for ENS-owner authorization and publisher manifests.
+7. Build a reference SDK and command-line verifier that expose one API over
+   native method adapters.
+8. Integrate with ENS profile managers as guided publish and renew flows.
 
 ## Sources
 
@@ -164,7 +179,9 @@ failed.
 - [ERC-1271: Standard signature validation method for contracts](https://eips.ethereum.org/EIPS/eip-1271)
 - [EIP-4361: Sign-In with Ethereum](https://eips.ethereum.org/EIPS/eip-4361)
 - [RFC 8555: ACME](https://datatracker.ietf.org/doc/html/rfc8555)
+- [RFC 8615: Well-Known URIs](https://datatracker.ietf.org/doc/html/rfc8615)
+- [RFC 6749: OAuth 2.0](https://datatracker.ietf.org/doc/html/rfc6749)
+- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html)
 - [AT Protocol handle specification](https://atproto.com/specs/handle)
 - [Nostr NIP-05](https://github.com/nostr-protocol/nips/blob/master/05.md)
 - [W3C Verifiable Credentials Data Model](https://www.w3.org/TR/vc-data-model-2.0/)
-

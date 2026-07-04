@@ -1,8 +1,9 @@
 # Architecture Options
 
 This file evaluates possible architectures for ENS record verification. The
-goal is a singleton verification system for many record types without pretending
-that every record can use the same proof method.
+revised conclusion is that a mandatory singleton proof system is too rigid. ENS
+should standardize shared semantics and Ethereum-native authority rules while
+letting each record class use native proof methods.
 
 ## Evaluation Criteria
 
@@ -41,8 +42,9 @@ Problems:
 - shared concepts such as expiry, signature, and authority are duplicated;
 - future records may choose incompatible semantics.
 
-Assessment: useful as a deployment shape, but too fragmented as the core
-architecture unless all sidecars share one envelope and validation model.
+Assessment: useful for URL and other records where an ENS-side opt-in anchor is
+valuable. It should not be the only publication shape, and it should not force
+every method into one envelope.
 
 ## Option B: Single Verification Manifest
 
@@ -163,21 +165,72 @@ Problems:
 Assessment: acceptable as an app-specific overlay or attestation issuer. It
 should not be the ENSIP base layer.
 
+## Option G: Layered Native Method Profiles
+
+Example:
+
+```text
+Base ENSIP:
+  authority, delegation, expiry, cache rules, result states
+
+Method profiles:
+  url-https@1
+  url-dnssec@1
+  social-oauth@1
+  social-public-proof@1
+  addr-evm@1
+  contenthash-owner@1
+  attestation@1
+```
+
+Benefits:
+
+- keeps URL, DNSSEC, OAuth, address signatures, contenthash, and attestations
+  native to their ecosystems;
+- fits Ethereum patterns such as EIP-712, ERC-1271, resolver profiles, CCIP-Read,
+  and attestations;
+- allows public proofs where possible and provider-mediated attestations where
+  necessary;
+- avoids a central proof envelope becoming a bottleneck for future records;
+- still gives clients consistent result semantics.
+
+Problems:
+
+- more method profiles to specify and test;
+- SDKs need adapter dispatch and method capability metadata;
+- governance needs a lightweight way to prevent method-name collisions;
+- clients must decide which methods they support and trust.
+
+Assessment: best fit. It preserves native integrations without giving up
+interoperability at the client and UI layer.
+
 ## Recommended Architecture
 
-Use a hybrid:
+Use a layered native architecture, or "verification kernel plus method
+profiles":
 
-1. A generic claim envelope and verification result model.
-2. Deterministic sidecar records keyed by a claim hash.
-3. Optional manifest record for batching and discovery.
-4. Method adapters for target-specific evidence.
-5. Optional attestation methods for provider-mediated or private claims.
-6. Future resolver interface as an optimization, not a dependency.
+1. A base ENSIP for semantics, authority, delegation, expiry, cache rules, and
+   result states.
+2. Native method profiles for each record class and proof family.
+3. Optional sidecars, manifests, resolver-native data, or attestation references
+   as publication modes.
+4. A reference SDK with a single `verifyEnsRecord()` interface that dispatches
+   to method adapters.
+5. Future resolver interfaces and CCIP-Read profiles as optimizations, not
+   dependencies.
 
 This keeps the base decentralized while allowing real-world integrations that
-cannot be fully public or cryptographic.
+cannot be forced into a public file, DNS record, or universal signed envelope.
 
 ## Cross-Questioning the Recommendation
+
+### Why Not a Singleton Envelope?
+
+A singleton envelope improves consistency but becomes a common-denominator
+format. OAuth, DNSSEC, EIP-712 address signatures, ERC-1271 smart accounts,
+contenthash manifests, and attestations each have native semantics. Forcing them
+into one proof object risks either weakening those semantics or making the base
+standard too complex. The SDK can still expose one result format.
 
 ### Why Not Only a Manifest?
 
@@ -192,12 +245,13 @@ Pure sidecars create discovery problems. A wallet that wants to show all
 verified records would need to know every possible key. A manifest solves that
 for profile pages and batch verification.
 
-### Why Require ENS-Side Proof Data?
+### When Should ENS-Side Proof Data Be Required?
 
-Target-only proofs are cheaper, but the ENS sidecar proves the current ENS
-authority opted into this verification relationship and gives clients a digest
-to compare. It prevents a target from unilaterally claiming a relationship with
-an ENS name without current ENS-side participation.
+Target-only proofs are cheaper. ENS sidecars are valuable when the method needs
+explicit current ENS opt-in or a digest anchor, such as URL verification. They
+are less natural for OAuth-based social verification or address signatures where
+the proof may be an attestation or native wallet signature. The method profile
+should decide.
 
 ### Why Not Make EAS Mandatory?
 
@@ -215,9 +269,14 @@ for every external account. Explicit scoped delegation is cleaner.
 ## Sources
 
 - [ENS records](https://docs.ens.domains/web/records/)
+- [ENSIP-1: ENS](https://docs.ens.domains/ensip/1/)
 - [ENS resolvers](https://docs.ens.domains/resolvers/)
+- [ENS CCIP-Read documentation](https://docs.ens.domains/resolvers/ccip-read)
 - [EIP-634: Storage of text records in ENS](https://eips.ethereum.org/EIPS/eip-634)
+- [ERC-3668: CCIP Read](https://eips.ethereum.org/EIPS/eip-3668)
+- [EIP-712: Typed structured data hashing and signing](https://eips.ethereum.org/EIPS/eip-712)
+- [ERC-1271: Standard signature validation method for contracts](https://eips.ethereum.org/EIPS/eip-1271)
 - [Ethereum Attestation Service documentation](https://docs.attest.org/docs/welcome)
 - [W3C Verifiable Credentials Data Model](https://www.w3.org/TR/vc-data-model-2.0/)
 - [RFC 8555: ACME](https://datatracker.ietf.org/doc/html/rfc8555)
-
+- [RFC 6749: OAuth 2.0](https://datatracker.ietf.org/doc/html/rfc6749)

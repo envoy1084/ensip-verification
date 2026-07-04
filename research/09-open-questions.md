@@ -30,22 +30,24 @@ gas and are easier for some records.
 
 Recommended direction:
 
-- sidecar required for `bidirectional` verified status;
-- target-only proofs can return `target-controlled` or a weaker status;
-- optional manifest improves discovery.
+- sidecar required only for method profiles that need ENS-side digest anchoring
+  or explicit opt-in, such as URL verification;
+- resolver-native data, attestation references, or target-only proofs may be
+  valid for other method profiles;
+- optional manifest improves discovery but is not the trust root.
 
-### 3. How Should Canonical Claims Be Encoded?
+### 3. Should There Be One Canonical Claim Envelope?
 
-JSON is readable but risky unless canonicalization is fully specified. EIP-712
-is wallet-friendly for EVM signatures but less natural for non-EVM target
-proofs.
+A single canonical claim envelope is attractive, but may become an accidental
+singleton. EIP-712 is wallet-friendly for EVM signatures but less natural for
+OAuth attestations, DNSSEC proofs, non-EVM addresses, and content manifests.
 
 Recommended direction:
 
-- use EIP-712 for ENS authority signatures;
-- define canonical byte encodings for claim hashes;
-- include JSON examples only as examples;
-- keep method evidence formats separate.
+- use EIP-712 for EVM authority signatures and EVM address verification;
+- define minimum common context fields every method must bind to;
+- let method profiles define their canonical evidence and hash rules;
+- include JSON examples only as examples.
 
 ### 4. How Much Should the Base ENSIP Standardize?
 
@@ -54,10 +56,11 @@ and forces weak common denominators.
 
 Recommended direction:
 
-- base ENSIP: envelope, sidecar, authority, expiry, result semantics, method
-  registry rules;
-- initial method ENSIPs: web-origin HTTPS/DNS, EVM address signatures;
-- later method ENSIPs: social protocols, VC/EAS attestations, non-EVM address
+- base ENSIP: semantics, authority, delegation, expiry, cache rules, result
+  states, and method profile requirements;
+- initial method ENSIPs: URL HTTPS/DNSSEC and EVM address signatures;
+- later method ENSIPs: OAuth/OIDC attestations, public social proofs,
+  contenthash publisher manifests, VC/EAS attestations, and non-EVM address
   signatures.
 
 ### 5. How Should Social Platforms Be Handled?
@@ -109,15 +112,15 @@ Recommended direction:
 - target method revocation must be method-specific;
 - indexers must expose last checked time and expiry.
 
-### 9. What Governance Controls Method Names?
+### 9. What Governance Controls Method Profile Names?
 
-A method registry prevents collisions, but a heavily governed registry can slow
-experimentation.
+A profile namespace prevents collisions, but a heavily governed registry can
+slow experimentation.
 
 Recommended direction:
 
-- method names include version suffixes, such as `https-well-known@1`;
-- base ENSIP defines registration criteria;
+- method names include version suffixes, such as `url-https@1`;
+- base ENSIP defines profile requirements and collision-avoidance rules;
 - experimental methods use a reserved prefix;
 - clients choose which methods they trust.
 
@@ -154,29 +157,34 @@ Use this checklist before accepting a design decision:
 - Are privacy leaks documented?
 - Does UI language avoid implying safety or legal identity?
 - Can future record types plug in without changing the base envelope?
+- Can future record types plug in without changing a mandatory global envelope?
 
 ## Suggested ENSIP Work Plan
 
 1. Rename the current URL-only draft into a method draft, not the base standard.
-2. Write a base `ENSVERIFY1` ENSIP covering claims, sidecars, proof envelope,
-   authority, delegation, expiry, and result semantics.
-3. Write `https-well-known@1` and `dns-txt@1` as the first method profile.
-4. Write `evm-eip712@1` and `evm-erc1271@1` as address method profiles.
-5. Build a reference verifier with test vectors for canonical claims.
-6. Add optional manifest support after the sidecar model is stable.
-7. Add social methods only after each platform's stable target authority is
+2. Write a base ENSIP covering semantics, authority, delegation, expiry, cache
+   rules, result states, and method profile requirements.
+3. Write `url-https@1` and `url-dnssec@1` as the first method profiles.
+4. Write `addr-evm@1` using EIP-712 and ERC-1271 as the first address profile.
+5. Build a reference verifier with test vectors for each method profile rather
+   than one universal claim envelope.
+6. Add optional manifest or discovery support after method publication modes are
    clear.
+7. Add social methods only after each platform's stable target authority and
+   public/OAuth proof model are clear.
 
 ## Sources
 
 - [ENS records](https://docs.ens.domains/web/records/)
+- [ENSIP-1: ENS](https://docs.ens.domains/ensip/1/)
 - [EIP-634: Storage of text records in ENS](https://eips.ethereum.org/EIPS/eip-634)
 - [EIP-1577: contenthash field for ENS](https://eips.ethereum.org/EIPS/eip-1577)
 - [EIP-2304: Multicoin support for ENS](https://eips.ethereum.org/EIPS/eip-2304)
 - [EIP-712: Typed structured data hashing and signing](https://eips.ethereum.org/EIPS/eip-712)
 - [ERC-1271: Standard signature validation method for contracts](https://eips.ethereum.org/EIPS/eip-1271)
+- [ERC-3668: CCIP Read](https://eips.ethereum.org/EIPS/eip-3668)
 - [RFC 8555: ACME](https://datatracker.ietf.org/doc/html/rfc8555)
+- [RFC 6749: OAuth 2.0](https://datatracker.ietf.org/doc/html/rfc6749)
 - [W3C DID Core](https://www.w3.org/TR/did-core/)
 - [W3C Verifiable Credentials Data Model](https://www.w3.org/TR/vc-data-model-2.0/)
 - [Ethereum Attestation Service documentation](https://docs.attest.org/docs/welcome)
-
