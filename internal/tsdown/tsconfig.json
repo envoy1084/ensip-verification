@@ -1,7 +1,9 @@
 {
   "extends": "@repo/tsconfig/nx.json",
   "compilerOptions": {
-    "rootDir": "src"
+    "outDir": "../../dist/typecheck/internal/tsdown",
+    "rootDir": "src",
+    "tsBuildInfoFile": "../../dist/typecheck/internal/tsdown/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*.ts"]
 }
