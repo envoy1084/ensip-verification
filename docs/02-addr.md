@@ -1,25 +1,31 @@
-# Address Verification
+# Addr Record Verification
 
-Address verification applies to:
+Addr verification applies to ENSIP-9 address records:
 
 ```text
 addr(node)
 addr(node, coinType)
 ```
 
-It proves that the current ENS owner authorized the live address record and that
-the target account controls the corresponding private key or contract account.
+The verification record is:
 
-## Records
+```text
+text(node, "verification[addr][<coinType>]")
+```
 
-| Item | Value |
-| --- | --- |
-| ENS record | `addr(node)` or `addr(node, coinType)` |
-| Discovery record | `text(node, "verification[addr][<coinType>]")` |
-| Methods | `addr:evm`, `addr:attestation` |
-| Result | `verified/control` or `verified/attestation` |
+For `addr(node)`, `<coinType>` is `60`.
 
-## Canonical Values
+## Verification Record
+
+Examples:
+
+```text
+verification[addr][60] = v=ENS-VERIFY-1;method=account-signature;uri=ipfs://...
+verification[addr][0] = v=ENS-VERIFY-1;method=issuer-attestation;uri=eas:...
+verification[addr][60] = v=ENS-VERIFY-1;method=none
+```
+
+## Canonical Claim
 
 ```text
 record = "addr:<coinType>"
@@ -30,7 +36,15 @@ target = method-defined account identifier
 For EVM addresses, `nativeAddressBytes` are the 20 raw address bytes. Display
 checksum is not signed.
 
-## 0-to-1 Setup Flow
+## Initial Addr Methods
+
+| Method | Verification |
+| --- | --- |
+| `none` | No proof advertised. |
+| `account-signature` | Current owner signature plus target account signature. |
+| `issuer-attestation` | Trusted issuer attestation. |
+
+## 0-to-1 Flow
 
 ```mermaid
 sequenceDiagram
@@ -40,7 +54,7 @@ sequenceDiagram
     participant TargetWallet
     participant ENS
 
-    Owner->>App: Select address record
+    Owner->>App: Select addr record and coinType
     App->>ENS: Resolve live addr and owner
     ENS-->>App: address bytes, owner
     App->>App: Build ENSRecordVerification
@@ -49,10 +63,10 @@ sequenceDiagram
     App->>TargetWallet: Sign same claim
     TargetWallet-->>App: targetSignature
     App->>ENS: Set addr record
-    App->>ENS: Optional verification[addr][coinType]
+    App->>ENS: Set verification[addr][coinType]
 ```
 
-## EVM Proof Object
+## Proof Object
 
 ```json
 {
@@ -64,8 +78,8 @@ sequenceDiagram
 }
 ```
 
-The target signature covers the same EIP-712 digest as the owner signature. For
-contract accounts, the verifier calls ERC-1271 on the target account.
+Both signatures cover the same `ENSRecordVerification` digest. For contract
+owners or contract target accounts, the verifier calls ERC-1271.
 
 ## Verification Flow
 
@@ -77,7 +91,9 @@ sequenceDiagram
     participant OwnerContract
 
     SDK->>ENS: Resolve addr(node, coinType)
-    ENS-->>SDK: address bytes
+    ENS-->>SDK: native address bytes
+    SDK->>ENS: Resolve verification[addr][coinType]
+    ENS-->>SDK: method and proof reference
     SDK->>ENS: Resolve owner and expiry
     ENS-->>SDK: owner, ownerContract, nameExpiry
     SDK->>SDK: Build ENSRecordVerification
@@ -96,9 +112,6 @@ sequenceDiagram
 
 ## Attestation Flow
 
-Use `addr:attestation` when the target account cannot produce a public
-signature, such as some custody or chain-specific accounts.
-
 ```mermaid
 sequenceDiagram
     participant User
@@ -108,7 +121,7 @@ sequenceDiagram
 
     User->>Issuer: Complete issuer account check
     Issuer-->>User: Signed or onchain attestation
-    User->>ENS: Publish proof reference
+    User->>ENS: Publish verification[addr][coinType]
     SDK->>ENS: Resolve live address and proof reference
     SDK->>Issuer: Check attestation and revocation
     SDK->>SDK: Apply local issuer trust policy
@@ -116,10 +129,10 @@ sequenceDiagram
 
 ## SDK Checklist
 
-- Use ENSIP-9 binary address bytes, not display strings, for `valueHash`.
-- Include `coinType` in `record`.
-- Require owner signature for `addr:evm`.
-- Require target signature for `addr:evm`.
+- Use ENSIP-9 binary address bytes for `valueHash`.
+- Include `coinType` in the signed `record`.
+- Require owner signature for `account-signature`.
+- Require target signature for `account-signature`.
 - Use ERC-1271 for contract owners and contract target accounts.
 - Revalidate before high-value transfers.
 
@@ -128,8 +141,9 @@ sequenceDiagram
 | Case | Error |
 | --- | --- |
 | Empty address | `record_missing` |
+| Verification record missing | none |
+| `method=none` | none |
 | Unsupported coin type | `unsupported_method` |
 | Owner signature fails | `signature_invalid` |
 | Target signature fails | `target_signature_invalid` |
 | Attestation issuer untrusted | `issuer_untrusted` |
-| Proof expired | `expired` |

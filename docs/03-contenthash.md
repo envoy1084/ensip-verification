@@ -1,27 +1,32 @@
 # Contenthash Verification
 
-Contenthash verification applies to:
+Contenthash verification applies to ENSIP-7 records:
 
 ```text
 contenthash(node)
 ```
 
-It verifies publisher or namespace control for content-addressed or
-content-routed targets such as IPFS, Arweave, Swarm, IPNS, and DNSLink.
+The verification record is:
+
+```text
+text(node, "verification[contenthash]")
+```
 
 Content addressing proves byte integrity. It does not prove publisher identity
 or safety.
 
-## Records
+## Verification Record
 
-| Item | Value |
-| --- | --- |
-| ENS record | `contenthash(node)` |
-| Discovery record | `text(node, "verification[contenthash]")` |
-| Methods | `contenthash:manifest`, `contenthash:arweave`, `contenthash:dnslink`, `contenthash:attestation` |
-| Result | `verified/control` or `verified/attestation` |
+Examples:
 
-## Canonical Values
+```text
+verification[contenthash] = v=ENS-VERIFY-1;method=publisher-manifest;uri=ipfs://...
+verification[contenthash] = v=ENS-VERIFY-1;method=arweave-owner;uri=ar://...
+verification[contenthash] = v=ENS-VERIFY-1;method=dnslink;uri=dns:_dnslink.example.com
+verification[contenthash] = v=ENS-VERIFY-1;method=none
+```
+
+## Canonical Claim
 
 ```text
 record = "contenthash"
@@ -31,6 +36,16 @@ target = publisher key, Arweave owner, DNS name, or issuer subject
 
 `contenthashBytes` are the raw bytes returned by the resolver. Gateway URLs are
 transport and MUST NOT be signed as content identity.
+
+## Initial Contenthash Methods
+
+| Method | Verification |
+| --- | --- |
+| `none` | No proof advertised. |
+| `publisher-manifest` | Current owner signature plus publisher manifest signature. |
+| `arweave-owner` | Current owner signature plus Arweave transaction or data-item owner proof. |
+| `dnslink` | Current owner signature plus DNSLink proof. |
+| `issuer-attestation` | Trusted issuer attestation. |
 
 ## 0-to-1 Manifest Flow
 
@@ -53,7 +68,7 @@ sequenceDiagram
     Publisher-->>App: publisherSignature
     App->>Storage: Publish manifest
     App->>ENS: Set contenthash
-    App->>ENS: Optional verification[contenthash]
+    App->>ENS: Set verification[contenthash]
 ```
 
 ## Manifest Proof
@@ -61,7 +76,7 @@ sequenceDiagram
 ```json
 {
   "v": "ENS-VERIFY-1",
-  "method": "contenthash:manifest",
+  "method": "publisher-manifest",
   "expiry": 1790812800,
   "nonce": "0x...",
   "publisher": "did:key:z...",
@@ -70,15 +85,8 @@ sequenceDiagram
 }
 ```
 
-The manifest MAY live:
-
-- inside the content root;
-- as a separate content-addressed object;
-- behind the discovery record URI;
-- in onchain data.
-
-Existing immutable content can be verified by publishing a separate manifest
-that binds the live `contenthash(node)` bytes.
+The manifest MAY live inside the content root, as a separate content-addressed
+object, behind the verification record URI, or in onchain data.
 
 ## Arweave Flow
 
@@ -88,15 +96,14 @@ sequenceDiagram
     participant ENS
     participant Arweave
 
-    SDK->>ENS: Resolve contenthash and owner
-    ENS-->>SDK: contenthash bytes, owner
+    SDK->>ENS: Resolve contenthash and verification[contenthash]
+    ENS-->>SDK: contenthash bytes and method
+    SDK->>ENS: Resolve owner and expiry
+    ENS-->>SDK: owner and nameExpiry
     SDK->>Arweave: Fetch transaction or data item
     Arweave-->>SDK: Owner, tags, signature
     SDK->>SDK: Check Arweave owner and ENS owner signature
 ```
-
-`contenthash:arweave` verifies the Arweave transaction or data-item owner and a
-claim binding that owner to the live ENS contenthash.
 
 ## DNSLink Flow
 
@@ -106,8 +113,8 @@ sequenceDiagram
     participant ENS
     participant DNS
 
-    SDK->>ENS: Resolve contenthash and owner
-    ENS-->>SDK: contenthash bytes, owner
+    SDK->>ENS: Resolve contenthash and verification[contenthash]
+    ENS-->>SDK: contenthash bytes and method
     SDK->>DNS: Fetch DNSLink and verification TXT
     DNS-->>SDK: DNS records and optional DNSSEC evidence
     SDK->>SDK: Check DNS target and owner signature
@@ -126,8 +133,8 @@ sequenceDiagram
 
     SDK->>ENS: Resolve contenthash()
     ENS-->>SDK: raw bytes
-    SDK->>ENS: Resolve owner and discovery record
-    ENS-->>SDK: owner and proof reference
+    SDK->>ENS: Resolve verification[contenthash]
+    ENS-->>SDK: method and proof reference
     alt Manifest or native proof
         SDK->>ProofStore: Fetch proof
         ProofStore-->>SDK: Proof object
@@ -152,8 +159,9 @@ sequenceDiagram
 | Case | Error |
 | --- | --- |
 | Empty contenthash | `record_missing` |
+| Verification record missing | none |
+| `method=none` | none |
 | Unsupported protocol | `unsupported_method` |
 | Missing manifest | `proof_missing` |
 | Publisher signature fails | `target_signature_invalid` |
 | Issuer revoked | `revoked` |
-| Gateway mismatch only | `target_mismatch` |
