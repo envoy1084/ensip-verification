@@ -1,0 +1,24 @@
+{
+  "name": "@repo/oxc",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    "./fmt": "./src/fmt.ts",
+    "./lint": "./src/lint.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "format": "oxfmt . --write --no-error-on-unmatched-pattern",
+    "format:check": "oxfmt . --check --no-error-on-unmatched-pattern",
+    "lint": "oxlint . --no-error-on-unmatched-pattern",
+    "lint:fix": "oxlint . --fix --no-error-on-unmatched-pattern"
+  },
+  "dependencies": {
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:"
+  }
+}

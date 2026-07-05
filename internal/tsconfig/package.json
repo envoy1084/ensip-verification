@@ -1,0 +1,21 @@
+{
+  "name": "@repo/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    "./base.json": "./src/base.json",
+    "./library.json": "./src/library.json",
+    "./nx.json": "./src/nx.json",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "format": "oxfmt . --write --no-error-on-unmatched-pattern",
+    "format:check": "oxfmt . --check --no-error-on-unmatched-pattern",
+    "lint": "oxlint . --no-error-on-unmatched-pattern",
+    "lint:fix": "oxlint . --fix --no-error-on-unmatched-pattern"
+  }
+}

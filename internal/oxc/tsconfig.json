@@ -1,0 +1,7 @@
+{
+  "extends": "@repo/tsconfig/nx.json",
+  "compilerOptions": {
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -1,0 +1,58 @@
+const commitTypes = [
+  "build",
+  "chore",
+  "ci",
+  "docs",
+  "feat",
+  "fix",
+  "perf",
+  "refactor",
+  "revert",
+  "style",
+  "test",
+] as const;
+
+const commitScopes = [
+  "apps",
+  "ci",
+  "commitlint",
+  "deps",
+  "docs",
+  "hooks",
+  "internal",
+  "nx",
+  "oxc",
+  "packages",
+  "release",
+  "root",
+  "sdk",
+  "tsconfig",
+  "tsdown",
+] as const;
+
+export default {
+  extends: ["@commitlint/config-conventional"],
+  defaultIgnores: true,
+  helpUrl: "https://www.conventionalcommits.org/en/v1.0.0/",
+  rules: {
+    "body-leading-blank": [2, "always"],
+    "body-max-line-length": [2, "always", 100],
+    "breaking-change-exclamation-mark": [2, "always"],
+    "footer-leading-blank": [2, "always"],
+    "footer-max-line-length": [2, "always", 100],
+    "header-max-length": [2, "always", 100],
+    "header-trim": [2, "always"],
+    "scope-case": [2, "always", "kebab-case"],
+    "scope-enum": [2, "always", commitScopes],
+    "subject-case": [
+      2,
+      "never",
+      ["sentence-case", "start-case", "pascal-case", "upper-case"],
+    ],
+    "subject-empty": [2, "never"],
+    "subject-full-stop": [2, "never", "."],
+    "type-case": [2, "always", "lower-case"],
+    "type-empty": [2, "never"],
+    "type-enum": [2, "always", commitTypes],
+  },
+};

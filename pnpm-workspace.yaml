@@ -1,0 +1,27 @@
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - "@repo/*"
+  - "@effect/*"
+  - "effect"
+blockExoticSubdeps: true
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "internal/*"
+allowBuilds:
+  lefthook: true
+  msgpackr-extract: true
+  nx: true
+catalog:
+  "@commitlint/cli": "21.0.1"
+  "@commitlint/config-conventional": "21.0.1"
+  "lefthook": "2.1.9"
+  "oxfmt": "0.56.0"
+  "oxlint": "1.71.0"
+  "effect": "4.0.0-beta.91"
+  "@effect/platform": "4.0.0-beta.91"
+  "@effect/platform-node": "4.0.0-beta.91"
+  "typescript": "6.0.3"
+  "tsx": "4.22.4"
+  "tsdown": "0.22.3"
+  "@types/node": "26.0.1"
