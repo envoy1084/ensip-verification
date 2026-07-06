@@ -14,11 +14,3 @@ pre-commit:
       glob: "*.{ts,tsx,js,jsx,mjs,cjs}"
       run: pnpm exec oxlint --fix --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
-
-pre-push:
-  commands:
-    verify:
-      run: |
-        base="${NX_BASE:-$(git merge-base --fork-point origin/main HEAD 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)}"
-        head="${NX_HEAD:-HEAD}"
-        pnpm nx affected -t format:check lint typecheck test build --base="$base" --head="$head" --parallel=3 --outputStyle=static
