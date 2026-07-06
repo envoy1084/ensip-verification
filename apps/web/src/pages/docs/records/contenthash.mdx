@@ -1,0 +1,74 @@
+---
+title: Contenthash Records
+description: Verify contenthash bindings.
+---
+
+# Record Flow: Contenthash Records
+
+## Target record
+
+```text
+contenthash = ipfs://bafy...
+```
+
+## Verification key
+
+```text
+verification[contenthash]
+```
+
+## Recommended method
+
+```text
+contenthash-binding
+```
+
+## Flow
+
+Publisher sets the contenthash and then publishes an external proof:
+
+```text
+text("verification[contenthash]") = "ensrv1 m=contenthash-binding u=ipfs://bafyProof..."
+```
+
+The proof claim uses:
+
+```json
+{
+  "recordType": "contenthash",
+  "recordKey": "",
+  "method": "contenthash-binding",
+  "target": "ipfs://bafyContent..."
+}
+```
+
+The `valueHash` is computed over the raw `contenthash` bytes returned by the resolver.
+
+## Why the proof is external
+
+An in-root manifest can create a circular authoring problem for immutable content roots:
+
+```text
+manifest signs contenthash
+contenthash includes manifest
+manifest bytes change contenthash
+```
+
+The first production method therefore uses an external signed binding proof. Future manifest methods can be added if deterministic tooling and test vectors exist.
+
+## Result
+
+A successful result means:
+
+```text
+The current ENS authority signed a binding to the current contenthash value.
+```
+
+It does not mean:
+
+```text
+safe content
+official website
+trusted publisher
+legal content
+```

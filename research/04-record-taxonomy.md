@@ -7,17 +7,17 @@ mandatory singleton proof object.
 
 ## Taxonomy
 
-| Record Class | Examples | Target Authority | Best Evidence | Verification Semantics |
-| --- | --- | --- | --- | --- |
-| Web origin | `text("url")` | HTTPS origin or DNS host | HTTPS well-known file, DNS TXT, DNSSEC | The origin or host agrees with the ENS claim. |
-| Social account | `com.twitter`, `com.github`, `com.discord`, `org.telegram` | Platform account | Platform post, profile metadata, API, OAuth, or provider attestation | The platform account participated in the claim, with method-specific strength. |
-| Cryptographic address | `addr(60)`, `addr(0)`, `addr(501)` | Private key or account contract | Chain-specific signed message or contract signature | The address or account controller signed the claim. |
-| Contract or smart account | EVM contract addresses, account-abstraction wallets | Contract validation logic | ERC-1271 or chain equivalent | The contract accepted the claim digest. |
-| Content pointer | `contenthash()` | Usually none; sometimes publisher key or DNS/IPNS authority | ENS authority signature, content manifest signature, DNS/IPNS evidence | The ENS authority selected the content; optional publisher control can be verified separately. |
-| Avatar | `text("avatar")` | URL, NFT contract, token owner, or media host | ENSIP-12 avatar resolution and ownership checks | Record-specific validation, not generic profile verification. |
-| Email or contact | `email`, `phone`, contact URLs | Inbox, domain, or provider account | Challenge response, domain verification, or provider attestation | High privacy risk; public proofs are often inappropriate. |
-| Personal or legal attributes | name, location, organization, role | Real-world authority or issuer | Verifiable credential, attestation, or KYC provider | Attested fact, not target-control proof. |
-| Future resolver records | New interfaces, offchain resolver data | Record-defined | Method registry adapter | Must be extensible without changing the base envelope. |
+| Record Class                 | Examples                                                   | Target Authority                                            | Best Evidence                                                          | Verification Semantics                                                                         |
+| ---------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Web origin                   | `text("url")`                                              | HTTPS origin or DNS host                                    | HTTPS well-known file, DNS TXT, DNSSEC                                 | The origin or host agrees with the ENS claim.                                                  |
+| Social account               | `com.twitter`, `com.github`, `com.discord`, `org.telegram` | Platform account                                            | Platform post, profile metadata, API, OAuth, or provider attestation   | The platform account participated in the claim, with method-specific strength.                 |
+| Cryptographic address        | `addr(60)`, `addr(0)`, `addr(501)`                         | Private key or account contract                             | Chain-specific signed message or contract signature                    | The address or account controller signed the claim.                                            |
+| Contract or smart account    | EVM contract addresses, account-abstraction wallets        | Contract validation logic                                   | ERC-1271 or chain equivalent                                           | The contract accepted the claim digest.                                                        |
+| Content pointer              | `contenthash()`                                            | Usually none; sometimes publisher key or DNS/IPNS authority | ENS authority signature, content manifest signature, DNS/IPNS evidence | The ENS authority selected the content; optional publisher control can be verified separately. |
+| Avatar                       | `text("avatar")`                                           | URL, NFT contract, token owner, or media host               | ENSIP-12 avatar resolution and ownership checks                        | Record-specific validation, not generic profile verification.                                  |
+| Email or contact             | `email`, `phone`, contact URLs                             | Inbox, domain, or provider account                          | Challenge response, domain verification, or provider attestation       | High privacy risk; public proofs are often inappropriate.                                      |
+| Personal or legal attributes | name, location, organization, role                         | Real-world authority or issuer                              | Verifiable credential, attestation, or KYC provider                    | Attested fact, not target-control proof.                                                       |
+| Future resolver records      | New interfaces, offchain resolver data                     | Record-defined                                              | Method registry adapter                                                | Must be extensible without changing the descriptor namespace.                                  |
 
 ## Web Origins
 
@@ -25,7 +25,7 @@ Website verification is the cleanest case. The target has a natural control
 boundary: origin for HTTPS, host for DNS. A bidirectional proof can require:
 
 1. the ENS `url` record still resolves to the canonical origin;
-2. an ENS verification sidecar still binds the proof digest;
+2. an ENS verification descriptor still advertises the method;
 3. the origin or host still publishes a matching proof;
 4. the current ENS authority signed the proof.
 
@@ -77,7 +77,7 @@ Important constraints:
   receive funds for all purposes.
 - Requiring address proofs can create privacy leaks by linking accounts.
 
-The protocol should allow `unverified` payment records to remain usable. It
+The protocol should allow `none` payment records to remain usable. It
 should not make address verification mandatory for all ENS resolution.
 
 ## Contenthash

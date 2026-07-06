@@ -15,12 +15,6 @@ pre-commit:
       run: pnpm exec oxlint --fix --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
 
-    typecheck:
-      glob: "*.{ts,tsx,mts,cts,json}"
-      run: |
-        files="$(git diff --cached --name-only --diff-filter=ACMR | paste -sd, -)"
-        [ -z "$files" ] || pnpm nx affected -t typecheck --files="$files" --parallel=3 --outputStyle=static
-
 pre-push:
   commands:
     verify:

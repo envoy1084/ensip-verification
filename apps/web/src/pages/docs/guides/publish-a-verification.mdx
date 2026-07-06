@@ -1,0 +1,117 @@
+---
+title: Publish a Verification
+description: General publisher flow for ENS record verification.
+---
+
+# Publish a Verification
+
+This guide describes the publisher flow common to all methods.
+
+## 1. Choose the Target Record
+
+Identify the exact resolver record:
+
+```text
+text("url")
+text("com.github")
+addr(60)
+contenthash
+```
+
+## 2. Choose the Method
+
+Examples:
+
+| Target | Method |
+| --- | --- |
+| HTTPS URL | `https-origin` |
+| Domain proof | `dns-txt` |
+| Address record | `account-signature` |
+| GitHub account | `service-account.github` |
+| Contenthash | `contenthash-binding` |
+| Issuer-backed claim | `issuer-attestation` |
+
+## 3. Set the Target Record
+
+Set or confirm the target resolver record first. The proof will bind to the exact live value.
+
+## 4. Compute `valueHash`
+
+Use raw resolver-value bytes:
+
+```text
+text:        UTF-8 bytes
+addr:        native binary address bytes
+contenthash: raw contenthash bytes
+data:        raw data bytes
+```
+
+## 5. Create the Common Claim
+
+Set:
+
+```text
+name
+node
+recordType
+recordKey
+valueHash
+method
+target
+authorityProfile
+validUntil
+nonce
+```
+
+## 6. Sign with Current ENS Authority
+
+For `ens-mainnet-v1`, the signer is:
+
+```text
+wrapped name: Name Wrapper owner
+unwrapped .eth 2LD: Base Registrar registrant
+other unwrapped exact name: ENS Registry owner
+```
+
+EOAs sign EIP-712. Contract authorities use ERC-1271.
+
+## 7. Publish Proof Material
+
+Publish according to the method profile:
+
+```text
+HTTPS well-known file
+DNS TXT record
+provider proof surface
+content-addressed proof object
+issuer proof endpoint
+```
+
+## 8. Set Verification Descriptor
+
+Examples:
+
+```text
+ensrv1 m=https-origin
+ensrv1 m=account-signature u=ipfs://bafy...
+ensrv1 m=issuer-attestation u=https://issuer.example/proof h=0x...
+```
+
+## 9. Test Verification
+
+Run an SDK verifier in direct-fetch mode, then test privacy mode and cache behavior.
+
+## 10. Revoke
+
+Any of the following revokes positive verification:
+
+```text
+delete descriptor
+change descriptor method/u/h
+change target resolver value
+remove live target proof
+transfer name
+let claim expire
+let name or wrapper expire
+issuer revokes attestation
+```

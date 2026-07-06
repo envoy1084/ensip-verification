@@ -1,0 +1,82 @@
+---
+title: Claims and Signatures
+description: Common claim, EIP-712 signing, ERC-1271 validation, and value hashing.
+---
+
+# Claims and Signatures
+
+Every method that uses an ENS-authority signature signs a common claim.
+
+## Common Claim
+
+```solidity
+struct ENSRecordVerification {
+    string name;
+    bytes32 node;
+    string recordType;
+    string recordKey;
+    bytes32 valueHash;
+    string method;
+    string target;
+    string authorityProfile;
+    uint64 validUntil;
+    bytes32 nonce;
+}
+```
+
+## Field Rules
+
+| Field | Rule |
+| --- | --- |
+| `name` | Normalized ENS name. |
+| `node` | `namehash(name)`. |
+| `recordType` | `text`, `addr`, `contenthash`, `data`, or registered future type. |
+| `recordKey` | Text key, coin type string, data key, or empty string for `contenthash`. |
+| `valueHash` | Hash of exact live resolver bytes. |
+| `method` | Descriptor method identifier. |
+| `target` | Method-defined canonical target. |
+| `authorityProfile` | Authority profile used for signer lookup. |
+| `validUntil` | First Unix timestamp at which the claim is invalid. |
+| `nonce` | 32-byte replay-resistant value. |
+
+A verifier MUST require:
+
+```text
+now < validUntil
+```
+
+## EIP-712 Domain
+
+For `authorityProfile = ens-mainnet-v1`:
+
+```text
+name:              "ENS Record Verification"
+version:           "1"
+chainId:           1
+verifyingContract: 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
+```
+
+Future authority profiles MUST define their own domain separation.
+
+## ERC-1271
+
+If the current ENS authority is a contract, the verifier MUST validate the EIP-712 digest using ERC-1271 `isValidSignature`.
+
+If the authority is an EOA, the verifier MUST recover the signer by ECDSA and compare it to the current authority.
+
+## Value Hashing
+
+The base specification uses raw resolver-value hashing:
+
+```text
+valueHash = keccak256(valueBytes)
+```
+
+| Record type | `valueBytes` |
+| --- | --- |
+| `text` | UTF-8 bytes of the exact text value. |
+| `addr` | Native binary address bytes returned by `addr(node, coinType)`. |
+| `contenthash` | Raw bytes returned by `contenthash(node)`. |
+| `data` | Raw bytes returned by `data(node, key)`. |
+
+Method profiles MAY define semantic target canonicalization. They MUST NOT replace raw resolver-value binding.

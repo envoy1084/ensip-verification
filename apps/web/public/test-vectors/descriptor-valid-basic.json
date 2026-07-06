@@ -1,0 +1,8 @@
+{
+  "name": "valid basic descriptor",
+  "descriptor": "ensrv1 m=https-origin",
+  "expected": {
+    "ok": true,
+    "method": "https-origin"
+  }
+}

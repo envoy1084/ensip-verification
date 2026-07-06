@@ -1,0 +1,124 @@
+---
+title: Authority and Lifecycle
+description: Current ENS authority, invalidation, expiry, and cache rules.
+---
+
+# Authority and Lifecycle
+
+Verification is live-state based. A proof that was valid in the past MUST fail when current ENS state, resolver state, target proof state, or applicable expiry no longer matches.
+
+## Current ENS Authority
+
+For `authorityProfile = ens-mainnet-v1`, use these mainnet contracts:
+
+```text
+ENS Registry:    0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
+Base Registrar: 0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85
+Name Wrapper:   0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401
+```
+
+| Name type | Authority |
+| --- | --- |
+| Wrapped name | Name Wrapper owner of `uint256(namehash(name))`. |
+| Unwrapped `.eth` second-level name | Base Registrar registrant of `uint256(labelhash(label))`. |
+| Other unwrapped exact name | ENS Registry owner of `namehash(name)`. |
+
+The verifier checks the exact name. Parent ownership is not authority for a child name.
+
+Do not accept the following as base authority:
+
+```text
+resolver writer
+resolver delegate
+profile manager
+approved operator
+gateway signer
+unverified gateway owner field
+indexer result
+parent owner for an exact child name
+old owner after transfer
+owner after name expiry
+```
+
+## Expiry Bound
+
+A positive result MUST NOT outlive the earliest applicable expiry:
+
+```text
+effectiveValidUntil = min(
+  claim.validUntil,
+  authorityValidUntil,
+  targetProofValidUntil,
+  issuerAttestationValidUntil,
+  methodValidUntil
+)
+```
+
+Inapplicable bounds are ignored.
+
+The returned positive result MUST use:
+
+```text
+validUntil = effectiveValidUntil
+```
+
+## Invalidation Events
+
+A previously positive result MUST fail after any of the following:
+
+```text
+target resolver record removed
+target resolver value changed
+verification descriptor removed
+verification descriptor changed so it no longer selects the proof
+required descriptor u changed
+descriptor h mismatch
+ENS authority changed
+ENS name expired
+wrapped name expired
+live-publication proof disappeared or changed
+issuer attestation revoked
+applicable expiry reached now
+```
+
+Descriptor deletion is ENS-side revocation.
+
+## Cache Bound
+
+Cached positive results MUST NOT be reused after:
+
+```text
+cacheUntil = min(
+  effectiveValidUntil,
+  checkedAt + clientPositiveCacheMaxAge,
+  liveEnsFreshUntil,
+  proofFreshUntil,
+  revocationFreshUntil
+)
+```
+
+High-trust actions MUST revalidate.
+
+Examples of high-trust actions:
+
+```text
+payment routing
+transaction approval
+sign-in
+account binding
+agent connection
+security-sensitive display
+```
+
+## Freshness Classes
+
+Every method profile declares one freshness class:
+
+| Class | Rule |
+| --- | --- |
+| `live-publication` | Current target publication is required. Removal revokes. |
+| `portable-signed` | Cached proof bytes may be reused if integrity and live ENS checks pass. |
+| `issuer-revocable` | Issuer signature, trust policy, and revocation check are required. |
+| method-defined | The method defines stricter rules. |
+
+HTTP cache headers and DNS TTLs are hints. They MUST NOT extend validity beyond `effectiveValidUntil`.

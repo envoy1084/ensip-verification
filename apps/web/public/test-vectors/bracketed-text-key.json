@@ -1,0 +1,6 @@
+{
+  "name": "agent endpoint bracketed key",
+  "recordType": "text",
+  "recordKey": "agent-endpoint[mcp]",
+  "verificationKey": "verification[text][agent-endpoint[mcp]]"
+}

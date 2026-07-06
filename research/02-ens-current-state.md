@@ -4,13 +4,13 @@
 
 ENS records are resolved through resolver contracts. Common records include:
 
-| Record | Standard or Source | Verification Today |
-| --- | --- | --- |
-| `addr()` / `addr(coinType)` | ENS resolver profiles and EIP-2304 | Self-asserted by the resolver authority. |
-| `text(key)` | EIP-634 and ENSIP-5 conventions | Self-asserted, except where clients implement record-specific checks. |
-| `contenthash()` | EIP-1577 | Content-addressed value, but not proof of author, safety, or website control. |
-| `name()` reverse record | ENS reverse resolution and ENSIP-19 | Usually validated by forward-confirmed reverse resolution. |
-| `avatar` text record | ENSIP-12 | Can include extra validation, such as NFT ownership checks. |
+| Record                      | Standard or Source                  | Verification Today                                                            |
+| --------------------------- | ----------------------------------- | ----------------------------------------------------------------------------- |
+| `addr()` / `addr(coinType)` | ENS resolver profiles and EIP-2304  | Self-asserted by the resolver authority.                                      |
+| `text(key)`                 | EIP-634 and ENSIP-5 conventions     | Self-asserted, except where clients implement record-specific checks.         |
+| `contenthash()`             | EIP-1577                            | Content-addressed value, but not proof of author, safety, or website control. |
+| `name()` reverse record     | ENS reverse resolution and ENSIP-19 | Usually validated by forward-confirmed reverse resolution.                    |
+| `avatar` text record        | ENSIP-12                            | Can include extra validation, such as NFT ownership checks.                   |
 
 The existing resolver model answers "what does this name currently resolve to?"
 It does not answer "does the referenced target agree?"
@@ -104,10 +104,11 @@ bind the proof, but should not try to store all evidence onchain.
   cases.
 - Text, address, and contenthash records remain self-asserted unless a client
   adds extra semantics.
-- The next standard should define a generic proof envelope, not a single
-  hardcoded `url` mechanism.
-- Authority delegation needs explicit design. It should not be an accidental
-  consequence of resolver write permissions.
+- The next standard should define compact per-record discovery descriptors,
+  common claim fields, and method-profile requirements, not a single hardcoded
+  `url` mechanism.
+- Authority delegation remains an explicit future design question. It should
+  not be an accidental consequence of resolver write permissions.
 
 ## Sources
 
@@ -120,4 +121,3 @@ bind the proof, but should not try to store all evidence onchain.
 - [ENSIP-19: Multichain primary names](https://docs.ens.domains/ensip/19)
 - [ENS DNSSEC documentation](https://docs.ens.domains/dns-registrar/guide)
 - [ENS Name Wrapper documentation](https://docs.ens.domains/wrapper/)
-

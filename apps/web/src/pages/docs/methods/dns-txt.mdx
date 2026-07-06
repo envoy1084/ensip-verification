@@ -1,0 +1,147 @@
+---
+title: "Method: dns-txt"
+description: Verify DNS publication for domain-backed ENS records.
+---
+
+# Method: `dns-txt`
+
+`dns-txt` verifies that a DNS name currently publishes proof material for a specific ENS resolver record.
+
+## Properties
+
+| Property | Value |
+| --- | --- |
+| Method | `dns-txt` |
+| Kind | `control` |
+| Freshness class | `live-publication` |
+| Descriptor | `ensrv1 m=dns-txt ...` |
+| `h` policy | Required for pointer mode; optional for inline mode. |
+| DNSSEC | Optional assurance metadata. |
+
+## Supported Records
+
+This method is intended for records that imply a DNS host or domain:
+
+```text
+text("url")
+text("email")
+text("agent-endpoint[web]")
+```
+
+A method profile or SDK integration MUST define how the DNS name is derived from the resolver value.
+
+## DNS Owner Name
+
+The DNS TXT owner name is:
+
+```text
+_ens-record-verification.<domain>
+```
+
+`<domain>` is the method-derived DNS name.
+
+## Pointer Form
+
+Pointer form is recommended for production because proof envelopes may exceed practical DNS TXT sizes.
+
+ENS descriptor:
+
+```text
+ensrv1 m=dns-txt u=ipfs://bafyProof h=0xproofhash
+```
+
+DNS TXT value:
+
+```text
+ensrv1 h=0xproofhash
+```
+
+Verifier requirements:
+
+```text
+DNS currently publishes the same h
+proof bytes fetched from u hash to h
+proof envelope validates
+```
+
+## Inline Form
+
+Inline form publishes the proof envelope directly in DNS.
+
+DNS TXT value:
+
+```text
+ensrv1 p=<base64url-json-proof-envelope>
+```
+
+If multiple TXT string fragments are returned for one TXT RDATA, the verifier uses the DNS-concatenated value.
+
+## Publisher Flow
+
+1. Set the target resolver record.
+2. Set the verification descriptor.
+3. Create the common claim.
+4. Sign the claim with the current ENS authority.
+5. Publish either:
+   - a DNS TXT record containing `p=<base64url proof>`, or
+   - a DNS TXT record containing `h=<proof hash>` and a descriptor `u` pointing to the proof bytes.
+6. Keep the DNS record published while the proof should verify.
+
+## Verifier Flow
+
+1. Resolve the live target record and descriptor.
+2. Derive the DNS name.
+3. Query `_ens-record-verification.<domain>` TXT.
+4. Select a TXT value beginning with `ensrv1 `.
+5. Resolve proof bytes from inline `p` or pointer `u` + `h`.
+6. Check descriptor `h`, if present.
+7. Parse and validate the proof envelope.
+8. Check common claim fields, value hash, target, authority, and expiry.
+9. Return `verified/control`.
+
+## DNSSEC Assurance
+
+Unsigned DNS TXT can produce `verified/control` under the ordinary DNS trust model.
+
+If the verifier validates DNSSEC for the TXT response, it SHOULD include:
+
+```json
+{
+  "assurance": {
+    "dnssec": true
+  }
+}
+```
+
+If DNSSEC is not validated:
+
+```json
+{
+  "assurance": {
+    "dnssec": false
+  }
+}
+```
+
+DNSSEC metadata MUST NOT create a third public status.
+
+## Revocation
+
+Removing or changing the DNS TXT record revokes the live-publication proof after resolver and DNS freshness bounds expire.
+
+## UI Copy
+
+Allowed:
+
+```text
+DNS TXT verified
+DNS TXT verified with DNSSEC
+```
+
+Forbidden:
+
+```text
+Domain owner verified
+Official domain
+Safe domain
+```

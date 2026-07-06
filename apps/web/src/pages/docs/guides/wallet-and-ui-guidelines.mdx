@@ -1,0 +1,89 @@
+---
+title: Wallet and UI Guidelines
+description: Display, privacy, and overclaiming rules.
+---
+
+# Wallet and UI Guidelines
+
+Wallets and profile clients must present verification narrowly.
+
+## Allowed Statuses
+
+Display only:
+
+```text
+verified
+none
+```
+
+Do not create public states such as:
+
+```text
+self verified
+trusted
+safe
+official
+likely scam
+```
+
+## Good Copy
+
+```text
+Website verified for this ENS record
+Address control verified
+DNS TXT verified
+DNS TXT verified with DNSSEC
+Contenthash binding verified
+Verified by <issuer>
+Agent endpoint origin verified
+```
+
+## Forbidden Copy
+
+```text
+Official
+Trusted
+Safe
+Not a scam
+Legal owner verified
+Identity verified
+Sole account owner
+```
+
+## Privacy Defaults
+
+Passive profile display SHOULD NOT directly fetch every external proof.
+
+Recommended defaults:
+
+| Context | Fetch behavior |
+| --- | --- |
+| Passive profile | cached hints or privacy proxy |
+| User clicks verify | fetch-on-action |
+| Payment or sign-in | live revalidation |
+| Developer tools | direct-fetch acceptable |
+
+## Failure Display
+
+Most failures should display as no badge. Detailed errors are useful in developer tools but can confuse end users.
+
+Examples:
+
+| Error | User display |
+| --- | --- |
+| `not_configured` | no badge |
+| `unsupported_method` | no badge or unsupported badge in dev mode |
+| `privacy_blocked` | verification not checked |
+| `expired` | no badge |
+| `untrusted_issuer` | issuer not trusted by this client |
+
+## Assurance Display
+
+Assurance metadata can refine copy but must not create new public statuses.
+
+Example:
+
+```text
+Verified by DNS TXT
+Verified by DNS TXT with DNSSEC
+```

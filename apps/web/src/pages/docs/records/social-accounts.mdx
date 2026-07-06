@@ -1,0 +1,93 @@
+---
+title: Social and Service Accounts
+description: Verify service-account text records using provider-specific methods.
+---
+
+# Record Flow: Social and Service Accounts
+
+## Target records
+
+Examples:
+
+```text
+text("com.github") = "alice"
+text("com.twitter") = "alice"
+text("org.telegram") = "alice"
+```
+
+## Verification keys
+
+```text
+verification[text][com.github]
+verification[text][com.twitter]
+verification[text][org.telegram]
+```
+
+## Method model
+
+Use provider-specific method identifiers.
+
+```text
+service-account.github
+service-account.farcaster
+service-account.lens
+service-account.x
+service-account.discord
+```
+
+The base specification intentionally does not define a generic `public-account` method. Provider rules differ too much.
+
+## GitHub example
+
+Publisher sets:
+
+```text
+text("com.github") = "alice"
+text("verification[text][com.github]") = "ensrv1 m=service-account.github u=https://... h=0x..."
+```
+
+The proof claim uses:
+
+```json
+{
+  "recordType": "text",
+  "recordKey": "com.github",
+  "method": "service-account.github",
+  "target": "github:user:1234567"
+}
+```
+
+The verifier resolves the GitHub login to a stable provider account ID and verifies that the proof surface is controlled by that account under the provider profile.
+
+## Provider profile requirements
+
+A provider profile must define:
+
+```text
+stable account identifier
+handle reuse behavior
+proof surface
+organization semantics
+collaborator/write-access risk
+proof URI mutability
+revocation behavior
+API dependency
+allowed UI copy
+```
+
+## Result
+
+A successful result means:
+
+```text
+The provider account proof passed for this ENS record.
+```
+
+It does not mean:
+
+```text
+real-world identity verified
+official account
+trusted developer
+no impersonation risk
+```

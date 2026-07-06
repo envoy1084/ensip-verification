@@ -10,12 +10,13 @@ For a user verifying one ENS record:
 
 1. The app reads the current ENS record.
 2. The app explains the exact relationship being verified.
-3. The user signs one typed message authorizing the claim or delegate.
+3. The user signs one typed message authorizing the claim when the method
+   requires ENS-authority consent.
 4. The app runs the native method flow, such as publishing a well-known file,
-   adding a DNS TXT record, completing OAuth, signing from an address, or
-   producing an attestation.
-5. The app writes ENS-side data only when the method profile needs it, ideally
-   batched with the record update.
+   adding a DNS TXT record, signing from an address, publishing a content
+   manifest, or producing an issuer attestation.
+5. The app writes the compact verification descriptor, ideally batched with the
+   record update.
 6. The app shows the proof expiry and renewal path.
 
 The user should not manually calculate hashes. The UI should show human-readable
@@ -25,16 +26,18 @@ claim text and method-specific instructions.
 
 "One click" can mean different things. The realistic target is:
 
-- one wallet signature to authorize the verification claim or delegate;
-- one transaction or resolver write when ENS-side data is required by the
-  method profile;
+- one wallet signature to authorize the verification claim, with delegation only
+  if a future scoped-delegation profile defines it;
+- one transaction or resolver write for the verification descriptor;
 - one guided target publication step, which may be automatic for some targets
   and manual for DNS or static hosting.
 
 For web proofs, a hosting integration can publish the file automatically. For
 DNS proofs, the user may still need to add a TXT record unless their registrar
-or DNS provider is integrated. For social accounts, OAuth or provider APIs often
-produce an attestation rather than a public proof every client can refetch.
+or DNS provider is integrated. For service accounts, the user may need to place
+a proof file in a provider-specific public location. For mailbox or private
+provider flows, an issuer attestation is usually more realistic than a public
+proof every client can refetch.
 
 ## SDK Shape
 
@@ -43,25 +46,26 @@ A reference SDK should expose small, explicit functions:
 ```typescript
 const claim = await createEnsRecordClaim({
   name: "alice.eth",
-  record: { kind: "text", key: "url" }
+  record: { type: "text", key: "url" },
+  method: "https-origin",
 });
 
 const proof = await createVerificationProof({
   claim,
-  method: "url-https@1",
-  signer: wallet
+  method: "https-origin",
+  signer: wallet,
 });
 
-const result = await verifyEnsRecord({
+const result = await verifyRecord({
   name: "alice.eth",
-  record: { kind: "text", key: "url" }
+  record: { type: "text", key: "url" },
 });
 ```
 
 Verifier results should include:
 
 - status;
-- level;
+- kind for positive results;
 - method;
 - target;
 - expiry;
@@ -79,11 +83,11 @@ Recommended defaults:
 
 - verify specific records on demand;
 - do not block resolution when verification fails;
-- show unverified records plainly;
+- show `none` records plainly;
 - cache positive results only until the earliest expiry boundary;
 - avoid showing the same badge for bidirectional proof and third-party safety
   review;
-- treat unsupported methods as `unverified` or `unsupported-method`, not as
+- treat unsupported methods as `none/unsupported_method`, not as
   invalid.
 
 ## Integrator Profiles
@@ -103,10 +107,11 @@ while revalidating before high-value actions.
 
 ### ENS Profile Apps
 
-Profile apps need discovery. They can use an optional manifest, sidecars,
-resolver-native data, or attestation references to show available
-verifications. Discovery is not the trust root; each method still validates its
-native evidence.
+Profile apps need discovery. The current architecture gives deterministic
+per-record descriptor keys such as `verification[text][url]` and
+`verification[addr][60]`. A future optional manifest can help enumerate
+available verifications, but discovery is not the trust root; each method still
+validates its native evidence.
 
 ### Indexers
 
@@ -132,13 +137,13 @@ users constantly renew records.
 
 Suggested starting points:
 
-| Record Class | Suggested Max Validity |
-| --- | --- |
-| Web/DNS proofs | 90 days |
-| Social account proofs | 30 to 90 days, depending on handle-recycle risk |
-| Address signatures | 90 to 365 days, depending on wallet UX and risk |
-| Delegations | 30 to 180 days, scoped by method and record class |
-| Third-party attestations | Issuer-defined, but clients need expiry or revocation checks |
+| Record Class             | Suggested Max Validity                                        |
+| ------------------------ | ------------------------------------------------------------- |
+| Web/DNS proofs           | 90 days                                                       |
+| Social account proofs    | 30 to 90 days, depending on handle-recycle risk               |
+| Address signatures       | 90 to 365 days, depending on wallet UX and risk               |
+| Delegations              | 30 to 180 days, scoped by method and record class             |
+| Third-party attestations | Issuer-defined, but clients need expiry and revocation checks |
 
 The standard should set maximums for base methods and allow stricter client
 policy.
@@ -159,16 +164,17 @@ failed.
 
 ## Adoption Path
 
-1. Write a small base ENSIP for semantics, authority, delegation, expiry,
-   caching, and result states.
-2. Keep the existing URL draft as a `url-https@1` and `url-dnssec@1` method
-   profile, not as the general architecture.
-3. Add `addr-evm@1` for EIP-712 and ERC-1271 address-control verification.
-4. Add `social-public-proof@1` for public protocol proofs such as AT Protocol,
-   Nostr, Farcaster, Mastodon, and `rel="me"` where applicable.
-5. Add `social-oauth@1` for provider-mediated OAuth/OIDC flows that produce
-   revocable attestations.
-6. Add contenthash profiles for ENS-owner authorization and publisher manifests.
+1. Finalize the base ENSIP around resolver-class verification keys, compact
+   descriptors, raw live-value hashing, current-authority rules, common claim
+   fields, and `verified`/`none` results.
+2. Keep `https-origin` and `dns-txt` as text-record method profiles, not as the
+   general architecture.
+3. Add `account-signature` for EIP-712, ERC-1271, BIP-322, Solana Ed25519, and
+   future chain-family address proofs.
+4. Use `service-account` for public provider proof surfaces and
+   `issuer-attestation` for provider-mediated or private claims.
+5. Keep `email-domain` separate from `email-attestation`.
+6. Use `content-manifest` only when the manifest is inside the content root.
 7. Build a reference SDK and command-line verifier that expose one API over
    native method adapters.
 8. Integrate with ENS profile managers as guided publish and renew flows.

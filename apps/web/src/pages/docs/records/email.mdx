@@ -1,0 +1,68 @@
+---
+title: Email Records
+description: Verify email text records by domain proof or issuer attestation.
+---
+
+# Record Flow: Email Records
+
+## Target record
+
+```text
+text("email") = "alice@example.com"
+```
+
+## Verification key
+
+```text
+verification[text][email]
+```
+
+## Recommended methods
+
+| Method | What it proves |
+| --- | --- |
+| `dns-txt` | Control of the email domain, such as `example.com`. |
+| `issuer-attestation` | An issuer claims mailbox or account control under client trust policy. |
+
+## Domain-control flow
+
+Publisher sets:
+
+```text
+text("email") = "alice@example.com"
+text("verification[text][email]") = "ensrv1 m=dns-txt"
+```
+
+DNS publishes:
+
+```text
+_ens-record-verification.example.com TXT "ensrv1 u=ipfs://bafy... h=0x..."
+```
+
+This verifies domain control only. It does not prove that the ENS authority controls the mailbox `alice@example.com`.
+
+## Mailbox-attestation flow
+
+Publisher sets:
+
+```text
+text("verification[text][email]") = "ensrv1 m=issuer-attestation u=https://issuer.example/p/123 h=0x..."
+```
+
+The issuer profile defines mailbox verification, issuer identity, revocation, and trust policy.
+
+## Result
+
+A successful `dns-txt` result means:
+
+```text
+The email domain proof passed for this ENS record.
+```
+
+A successful `issuer-attestation` result means:
+
+```text
+An accepted issuer attested to the email claim.
+```
+
+Neither result implies that the email is safe, official, or globally trusted.

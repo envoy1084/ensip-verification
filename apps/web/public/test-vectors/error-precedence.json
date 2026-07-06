@@ -1,0 +1,23 @@
+{
+  "name": "common error precedence",
+  "errors": [
+    "invalid_request",
+    "unsupported_record",
+    "record_missing",
+    "not_configured",
+    "invalid_descriptor",
+    "unsupported_method",
+    "privacy_blocked",
+    "proof_unavailable",
+    "proof_integrity_mismatch",
+    "proof_invalid",
+    "claim_mismatch",
+    "value_mismatch",
+    "target_mismatch",
+    "expired",
+    "unsupported_authority",
+    "signature_invalid",
+    "revoked",
+    "untrusted_issuer"
+  ]
+}

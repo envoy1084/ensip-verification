@@ -1,0 +1,56 @@
+---
+title: Glossary
+description: Terms used by ENS Resolver Record Verification.
+---
+
+# Glossary
+
+## Target Record
+
+The ENS resolver record being verified, such as `text("url")`, `addr(60)`, or `contenthash`.
+
+## Verification Record
+
+The ENS text record whose key begins with `verification[...]` and whose value is a compact descriptor.
+
+## Verification Descriptor
+
+The compact string stored in the verification record.
+
+Example:
+
+```text
+ensrv1 m=https-origin
+```
+
+## Method Profile
+
+A specification that defines how a method validates proof material.
+
+## Current ENS Authority
+
+The account recognized by an authority profile as controlling the exact ENS name for verification purposes.
+
+## Control Verification
+
+A positive result where the external target itself participates in the proof.
+
+## Attestation Verification
+
+A positive result where an issuer asserts the binding and clients apply trust policy.
+
+## valueHash
+
+`keccak256` hash of the exact live resolver value bytes.
+
+## target
+
+The method-defined canonical external target.
+
+## effectiveValidUntil
+
+The earliest applicable expiry for a positive result.
+
+## cacheUntil
+
+The latest time a cached positive result may be reused.

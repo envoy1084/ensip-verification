@@ -1,0 +1,87 @@
+---
+title: URL Records
+description: Verify text(url) records with HTTPS or DNS proofs.
+---
+
+# Record Flow: URL Records
+
+## Target record
+
+```text
+text("url") = "https://example.com"
+```
+
+## Verification key
+
+```text
+verification[text][url]
+```
+
+## Recommended methods
+
+| Method | Use when |
+| --- | --- |
+| `https-origin` | The website can publish `/.well-known/ens-record-verification`. |
+| `dns-txt` | DNS control is the preferred proof surface. |
+| `issuer-attestation` | A third-party issuer verifies the association under client policy. |
+
+## HTTPS flow
+
+Publisher sets:
+
+```text
+text("url") = "https://example.com"
+text("verification[text][url]") = "ensrv1 m=https-origin"
+```
+
+Publisher hosts:
+
+```text
+https://example.com/.well-known/ens-record-verification
+```
+
+The proof contains a signed claim with:
+
+```json
+{
+  "recordType": "text",
+  "recordKey": "url",
+  "method": "https-origin",
+  "target": "https://example.com"
+}
+```
+
+The verifier derives `target` from the live URL origin and hashes the exact live text value for `valueHash`.
+
+## DNS flow
+
+Publisher sets:
+
+```text
+text("verification[text][url]") = "ensrv1 m=dns-txt"
+```
+
+DNS publishes:
+
+```text
+_ens-record-verification.example.com TXT "ensrv1 u=ipfs://bafy... h=0x..."
+```
+
+The verifier checks DNS TXT, proof bytes, claim binding, current ENS authority, and expiry.
+
+## Result
+
+A successful result means:
+
+```text
+The URL record is verified for this ENS name under the selected method.
+```
+
+It does not mean:
+
+```text
+safe website
+official website
+legal domain owner
+not a scam
+```

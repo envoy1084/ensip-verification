@@ -1,0 +1,9 @@
+{
+  "overview": "Overview",
+  "https-origin": "HTTPS Origin",
+  "dns-txt": "DNS TXT",
+  "account-signature": "Account Signature",
+  "service-account": "Service Account",
+  "contenthash-binding": "Contenthash Binding",
+  "issuer-attestation": "Issuer Attestation"
+}

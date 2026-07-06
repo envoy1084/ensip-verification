@@ -1,0 +1,168 @@
+---
+title: "Method: https-origin"
+description: Verify control of an HTTPS origin for URL-like ENS text records.
+---
+
+# Method: `https-origin`
+
+`https-origin` verifies that the current ENS authority has intentionally bound a URL-like text record to an HTTPS origin that currently publishes the matching proof.
+
+## Properties
+
+| Property | Value |
+| --- | --- |
+| Method | `https-origin` |
+| Kind | `control` |
+| Freshness class | `live-publication` |
+| Descriptor | `ensrv1 m=https-origin` |
+| `h` policy | Optional. If present, check exact proof bytes. Current publication is still required. |
+
+## Supported Records
+
+This method is for text records whose value is an absolute HTTPS URL.
+
+Examples:
+
+```text
+text("url")
+text("agent-endpoint[mcp]")
+text("agent-endpoint[a2a]")
+text("agent-endpoint[web]")
+```
+
+## Publisher Flow
+
+1. Set the target text record.
+
+```text
+text("url") = "https://example.com/path"
+```
+
+2. Set the verification descriptor.
+
+```text
+text("verification[text][url]") = "ensrv1 m=https-origin"
+```
+
+3. Compute `valueHash` from the exact text value.
+
+```text
+keccak256(utf8("https://example.com/path"))
+```
+
+4. Derive the target origin.
+
+```text
+https://example.com
+```
+
+5. Create and sign the common claim with `method = "https-origin"` and `target = "https://example.com"`.
+
+6. Publish the proof envelope at:
+
+```text
+https://example.com/.well-known/ens-record-verification
+```
+
+## Proof Location
+
+The proof MUST be served over HTTPS from:
+
+```text
+<origin>/.well-known/ens-record-verification
+```
+
+The response body MUST be a JSON proof envelope.
+
+## Target Derivation
+
+The target text value MUST parse as an absolute HTTPS URL.
+
+The method target is the canonical origin:
+
+```text
+scheme://host[:port]
+```
+
+Rules:
+
+- scheme MUST be `https`;
+- host comparison is case-insensitive;
+- default HTTPS port `443` is omitted;
+- path, query, and fragment are not part of the origin target;
+- a URL with username or password MUST fail.
+
+This method verifies origin control. It does not verify path-level control.
+
+## Proof Envelope
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x...",
+    "recordType": "text",
+    "recordKey": "url",
+    "valueHash": "0x...",
+    "method": "https-origin",
+    "target": "https://example.com",
+    "authorityProfile": "ens-mainnet-v1",
+    "validUntil": "1783209600",
+    "nonce": "0x..."
+  },
+  "authoritySig": {
+    "type": "eip712",
+    "signature": "0x..."
+  }
+}
+```
+
+## Verifier Flow
+
+1. Resolve the live text record.
+2. Parse it as an absolute HTTPS URL.
+3. Compute `valueHash` from the exact live value.
+4. Resolve `verification[text][<key>]`.
+5. Require descriptor method `https-origin`.
+6. Fetch `/.well-known/ens-record-verification` from the canonical origin unless privacy mode blocks the fetch.
+7. If descriptor `h` is present, check proof-resource bytes.
+8. Parse the proof envelope.
+9. Check common claim fields.
+10. Check `claim.target` equals the canonical origin.
+11. Resolve current ENS authority.
+12. Verify the authority signature.
+13. Check expiry and lifecycle rules.
+14. Return `verified/control`.
+
+## Revocation
+
+The proof is revoked when any of the following happens:
+
+```text
+verification descriptor removed or changed
+target text value changed
+well-known proof removed or changed so it no longer verifies
+current ENS authority changes
+claim expires
+name or wrapper expires
+```
+
+## UI Copy
+
+Allowed:
+
+```text
+Website verified for this ENS record
+HTTPS origin verified
+Endpoint origin verified
+```
+
+Forbidden:
+
+```text
+Official website
+Safe website
+Trusted domain
+Legal owner verified
+```

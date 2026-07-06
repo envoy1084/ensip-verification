@@ -1,0 +1,68 @@
+---
+title: Verification Descriptor
+description: Compact ENS text-record value format.
+---
+
+# Verification Descriptor
+
+The verification descriptor is the value stored in the verification text record.
+
+It is intentionally compact. Full proof payloads are stored offchain.
+
+## Format
+
+```text
+ensrv1 m=<method> [u=<uri>] [h=<hash>] [<extension-field>=<value> ...]
+```
+
+Examples:
+
+```text
+ensrv1 m=https-origin
+ensrv1 m=dns-txt u=ipfs://bafy... h=0x5f3a...
+ensrv1 m=account-signature u=ipfs://bafy... h=0xa8d2...
+ensrv1 m=service-account.github u=https://gist.githubusercontent.com/... h=0x9b7c...
+```
+
+## Grammar
+
+```text
+descriptor  = "ensrv1" 1*(SP field)
+field       = field-name "=" field-value
+field-name  = 1*(%x61-7A / %x30-39 / "-")
+field-value = 1*(%x21-7E)
+```
+
+`field-value` MUST NOT contain spaces or control characters.
+
+## Fields
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `m` | Yes | Method identifier. |
+| `u` | No | Method-defined proof URI or pointer. |
+| `h` | No | `keccak256` of exact proof-resource bytes. |
+
+## Rules
+
+- The first token MUST be `ensrv1`.
+- `m` MUST appear exactly once.
+- Duplicate fields make the descriptor invalid.
+- Unknown fields are ignored after duplicate-field validation.
+- Empty value means no proof is advertised.
+- Invalid descriptor returns `none/invalid_descriptor`.
+- No descriptor-level expiry is defined.
+- No `kind` field is defined.
+- No `method=none` is defined.
+
+## Integrity Pin
+
+If `h` is present, the verifier computes:
+
+```text
+keccak256(proofResourceBytes)
+```
+
+The result MUST equal `h`.
+
+`h` is an integrity pin. It is not an expiry and does not replace method-specific freshness or revocation rules.

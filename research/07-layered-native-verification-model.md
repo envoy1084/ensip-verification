@@ -2,9 +2,9 @@
 
 This is the revised architecture recommendation after re-questioning the
 singleton assumption. A global singleton verification object is not the best fit
-for ENS record verification. The better target is a layered, Ethereum-native
-standard that defines common semantics while letting each record class use its
-native proof method.
+for ENS record verification. The current package implements the better target:
+a base ENSIP with compact per-record descriptors plus method profiles for
+external proof mechanics.
 
 ## Recommendation
 
@@ -12,21 +12,35 @@ Do not force all records into one singleton proof envelope.
 
 Instead, define:
 
-1. a small base ENSIP for verification semantics, authority discovery,
-   delegation, expiry, cache rules, and result states;
-2. record or method profiles for native evidence, such as `url` over
-   HTTPS/DNSSEC, social records over OAuth or public profile proofs, EVM
-   addresses over EIP-712/ERC-1271, and contenthash over publisher manifests or
-   owner authorization;
-3. optional Ethereum-native attestations for provider-mediated cases;
-4. optional discovery records so profile apps can find available verifications
-   without making discovery part of the trust root.
+1. a small base ENSIP for verification keys, descriptor parsing, method
+   identifiers, live-value hashing, current-authority discovery, common EIP-712
+   claim fields, expiry, cache rules, and result states;
+2. method profiles for native evidence, such as `https-origin`, `dns-txt`,
+   `service-account`, `account-signature`, `content-manifest`,
+   `email-domain`, `email-attestation`, and `issuer-attestation`;
+3. optional issuer attestations for provider-mediated cases;
+4. deterministic ENSIP-5 descriptor records for method discovery.
 
 The base standard should be a contract between verifiers and UIs, not a
 one-size-fits-all proof format.
 
 Another way to state the architecture is: verification kernel plus method
-profiles. The kernel is shared; proofs remain native.
+profiles. The kernel is shared; proof validation remains native.
+
+Current descriptor shape:
+
+```text
+ensrv1 m=<method> [u=<uri>] [h=<hash>]
+```
+
+Current discovery keys:
+
+```text
+verification[text][<key>]
+verification[addr][<coinType>]
+verification[contenthash]
+verification[data][<key>]
+```
 
 ## Why a Singleton Is Too Constraining
 
@@ -58,16 +72,16 @@ revocation work, and what result states mean.
 
 The base ENSIP should stay close to existing Ethereum and ENS patterns:
 
-| Concern | Recommended Native Primitive |
-| --- | --- |
-| ENS record lookup | Resolver interfaces and Universal Resolver. |
-| ENS authority | Registry owner, Name Wrapper owner, or explicit scoped delegate. |
-| EVM signatures | EIP-712 typed data. |
-| Contract accounts | ERC-1271 signature validation. |
-| EIP-712 introspection | ERC-5267 where a verification contract or attestation schema uses an EIP-712 domain. |
-| Offchain resolver data | ERC-3668/CCIP-Read validation model, when resolvers use offchain data. |
-| Address-to-name relationship | Forward-confirmed reverse resolution pattern from ERC-181 and ENS primary names. |
-| Third-party claims | Ethereum Attestation Service or compatible attestation systems as optional methods. |
+| Concern                      | Recommended Native Primitive                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| ENS record lookup            | Resolver interfaces and Universal Resolver.                                          |
+| ENS authority                | Registry owner, Name Wrapper owner, or explicit scoped delegate.                     |
+| EVM signatures               | EIP-712 typed data.                                                                  |
+| Contract accounts            | ERC-1271 signature validation.                                                       |
+| EIP-712 introspection        | ERC-5267 where a verification contract or attestation schema uses an EIP-712 domain. |
+| Offchain resolver data       | ERC-3668/CCIP-Read validation model, when resolvers use offchain data.               |
+| Address-to-name relationship | Forward-confirmed reverse resolution pattern from ERC-181 and ENS primary names.     |
+| Third-party claims           | Ethereum Attestation Service or compatible attestation systems as optional methods.  |
 
 This keeps verification aligned with how Ethereum developers already think:
 typed signatures, contract-account validation, resolver profiles, attestations,
@@ -80,12 +94,13 @@ The base ENSIP should define only what every method must share:
 - normalized ENS name and node are part of the verification context;
 - chain ID and registry are part of the verification context;
 - live resolver data must still match the value being verified;
-- the current ENS authority or scoped delegate must authorize the relationship
-  when the method claims ENS-side consent;
+- the current ENS authority must authorize the relationship when the method
+  claims ENS-side consent;
 - proofs must be time-bounded unless the method is explicitly live-only;
 - positive cache lifetime is bounded by proof expiry, resolver data freshness,
   method-specific TTLs, and revocation state;
-- clients must return structured statuses instead of a generic badge;
+- clients must return `verified` or `none` as public statuses, with failure
+  reasons as error codes;
 - UIs must not present control verification as safety, legal ownership, or ENS
   endorsement.
 
@@ -93,70 +108,65 @@ This base layer can also define a small common result object for SDKs:
 
 ```json
 {
-  "record": "text:url",
   "status": "verified",
-  "level": "bidirectional",
-  "method": "url-dnssec@1",
-  "ensAuthority": "0x...",
+  "kind": "control",
+  "method": "https-origin",
+  "name": "alice.eth",
+  "recordType": "text",
+  "recordKey": "url",
   "target": "example.com",
-  "expiresAt": 1790812800
+  "validUntil": 1790812800
 }
 ```
 
 That result object is for interoperability. It does not require every method to
-store or sign the same proof object.
+put the same external evidence in the same format.
 
-Minimum result levels:
+Public result states:
 
-| Level | Meaning |
-| --- | --- |
-| `unverified` | No accepted proof was found. |
-| `ens-authorized` | Current ENS authority authorized the record, but no target confirmation was checked. |
-| `target-confirmed` | Target proof exists, but ENS-side authorization or live ENS match is missing. |
-| `bidirectional` | Live ENS state and target evidence validate the same claim. |
-| `provider-mediated` | A provider or verifier attested to a claim that clients cannot fully refetch themselves. |
-| `attested` | A third-party issuer made a structured claim. |
-| `expired` | Proof or delegation is past its validity window. |
-| `unsupported-method` | Client does not support the method. |
-| `invalid` | Proof exists but fails validation. |
+| State      | Meaning                                                                                                                           |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `verified` | A supported method validated live ENS state, current authority, live value hash, expiry, and target proof or trusted attestation. |
+| `none`     | No positive result was produced. The optional error code explains why.                                                            |
+
+Positive results carry `kind = control` or `kind = attestation`.
 
 ## Method Profiles
 
 Method profiles should be independent ENSIPs or sub-specifications. Each method
 owns its canonicalization, evidence, failure modes, and replay boundaries.
 
-| Profile | Native Proof Shape | Why It Should Stay Native |
-| --- | --- | --- |
-| `url-https@1` | Well-known JSON file on the exact HTTPS origin plus ENS authorization. | Origin control is a web security boundary. |
-| `url-dnssec@1` | DNS TXT proof with DNSSEC validation where available. | DNS has its own authenticated data model and TTLs. |
-| `social-oauth@1` | OAuth or OpenID Connect flow completed by a verifier, producing an attestation. | OAuth is interactive and provider-mediated, not independently replayable by every client. |
-| `social-public-proof@1` | Public profile field, public post, `rel="me"`, NIP-05, AT Protocol handle proof, or protocol-specific proof. | Some social protocols expose public proof surfaces; others do not. |
-| `addr-evm@1` | EIP-712 signature from an EOA or ERC-1271 validation from a contract account. | EVM accounts have native signature standards. |
-| `addr-non-evm@1` | Chain-specific signing standard such as BIP-322 for Bitcoin. | Non-EVM chains should not be forced into EIP-712. |
-| `contenthash-owner@1` | ENS authority signs the current contenthash. | Content addressing already proves bytes; this proves current ENS endorsement. |
-| `contenthash-publisher@1` | Signed content manifest inside or adjacent to the content. | Publisher identity belongs with the content system. |
-| `attestation@1` | EAS or compatible attestation with schema, issuer, subject, expiry, and revocation. | Third-party trust is useful but issuer-specific. |
+| Profile              | Native Proof Shape                                                               | Why It Should Stay Native                                                   |
+| -------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `https-origin`       | Well-known JSON file on the canonical HTTPS origin plus ENS-authority signature. | Origin control is a web security boundary.                                  |
+| `dns-txt`            | DNS TXT proof, with DNSSEC assurance where available.                            | DNS has its own authenticated data model and TTLs.                          |
+| `service-account`    | Service-specific public proof surface, currently GitHub raw-file proof.          | Social and service platforms have different account and publication models. |
+| `account-signature`  | ENS-authority signature plus target-account signature.                           | Addresses need proof from the target account, not only the ENS owner.       |
+| `content-manifest`   | Manifest inside the content root.                                                | Content-root publication must be verified inside the content system.        |
+| `email-domain`       | DNS proof for the email domain.                                                  | Domain control and mailbox control are different claims.                    |
+| `email-attestation`  | Trusted issuer attestation for mailbox control.                                  | Mailbox proof is usually private or provider-mediated.                      |
+| `issuer-attestation` | Issuer-signed claim with revocation and client trust policy.                     | Third-party trust is useful but issuer-specific.                            |
 
 ## Optional ENS-Side Records
 
-The URL draft uses a sidecar text record. Sidecars are useful, but they should
-not be mandatory for every method.
+The current package standardizes one discovery mode first: per-record ENSIP-5
+verification descriptor records.
 
-Three publication modes should be allowed:
+Additional discovery modes can be layered later:
 
-| Mode | Example | Use When |
-| --- | --- | --- |
-| ENS sidecar | `url-verification[<originHash>]`, `addr-verification[<coinType>][<valueHash>]`, or `social-verification[<serviceKey>][<accountIdHash>]` | ENS opt-in and digest binding are important. |
-| Resolver-native verification | Future resolver interface or CCIP-Read resolver response. | Resolver can return typed verification data. |
-| Attestation reference | Text record points to EAS UID, offchain credential URI, or content-addressed proof. | Provider-mediated or third-party claims are needed. |
+| Mode                         | Example                                                          | Use When                                           |
+| ---------------------------- | ---------------------------------------------------------------- | -------------------------------------------------- |
+| ENS descriptor               | `verification[text][url] = ensrv1 m=https-origin`                | Current v1 discovery and explicit ENS-side opt-in. |
+| Resolver-native verification | Future resolver interface or CCIP-Read resolver response.        | Resolver can return typed verification data.       |
+| Optional index manifest      | Future text record or data record listing available descriptors. | Profile pages need enumeration or batching.        |
 
-The base ENSIP can define how clients evaluate these modes, but each method
-profile decides whether a sidecar is required.
+The descriptor remains the current trust entry point. A future manifest should
+help discovery, not replace live method verification.
 
-When a method profile defines a text-record sidecar, it should follow ENSIP-5,
-ENSIP-25, and ENSIP-26 practice: lowercase global-key style prefix, bracketed
-parameters for deterministic lookup, explicit parameter grammar, example keys,
-and clear value semantics.
+When a method profile uses an ENSIP-5 descriptor record, it should follow ENSIP
+text-key practice: lowercase global-key style prefix, bracketed parameters for
+deterministic lookup, explicit parameter grammar, example keys, and clear value
+semantics.
 
 ## Delegation
 
@@ -190,8 +200,9 @@ verification needs an issuer:
 4. verifier publishes an attestation with issuer, provider, stable account ID,
    handle, ENS name, expiry, and revocation rules.
 
-This should be a `social-oauth@1` method profile, not forced into the same shape
-as DNS or HTTPS. Public social proofs can be separate profiles.
+This is not part of the current base method set. The current package uses
+`service-account` for public account proof surfaces and `issuer-attestation` for
+provider-mediated claims.
 
 ## URL Verification
 
@@ -201,7 +212,7 @@ clear native control boundaries:
 - HTTPS proof at `/.well-known/...` for exact-origin control;
 - DNS TXT proof for host control;
 - DNSSEC result state when validation is available;
-- ENS-side sidecar if the method wants explicit current ENS opt-in.
+- ENS-side descriptor for explicit current ENS opt-in and method dispatch.
 
 This is a method profile. It should not define the architecture for all records.
 
@@ -213,7 +224,8 @@ EVM address verification should be Ethereum-first:
 - use ERC-1271 for contract accounts;
 - include chain ID, verifying contract or domain, ENS registry, node, resolver
   record selector, canonical address, expiry, and nonce;
-- optionally publish an attestation or sidecar reference for discovery.
+- publish a proof URI in the descriptor when the method needs an external proof
+  resource.
 
 For EVM addresses, the target-side proof is already a wallet or account
 signature. DNS-style publication adds nothing.
@@ -237,18 +249,19 @@ The revised architecture is:
 
 ```text
 Base ENSIP:
-  semantics, authority, delegation, expiry, cache rules, result states
+  resolver-class verification keys, compact descriptors, live-value hashing,
+  current authority, common claim fields, result states
 
 Method ENSIPs:
-  url-https, url-dnssec, social-oauth, social-public-proof,
-  addr-evm, addr-non-evm, contenthash-owner, contenthash-publisher,
-  attestation
+  https-origin, dns-txt, service-account, account-signature,
+  content-manifest, email-domain, email-attestation, issuer-attestation
 
 SDK:
   one verifyEnsRecord() interface that dispatches to native method adapters
 
 Optional discovery:
-  profile manifest, sidecars, resolver-native data, or attestation references
+  per-record descriptor records now; profile manifests or resolver-native data
+  later
 ```
 
 This keeps developer ergonomics simple without forcing protocols into the same
@@ -263,14 +276,15 @@ Previous recommendation:
 - deterministic `verification[<claimHash>]` sidecar;
 - method registry under the envelope.
 
-Revised recommendation:
+Current recommendation:
 
-- no mandatory global proof envelope;
-- no mandatory global sidecar key;
+- no mandatory signed JSON proof envelope;
+- no category-specific verification keys such as `verification[url]`;
+- deterministic per-record descriptor keys;
 - base ENSIP defines common verification semantics;
 - method profiles define native proof formats;
-- sidecars, manifests, attestations, and resolver-native data are publication
-  options rather than universal requirements.
+- descriptor records provide method discovery while proof bodies remain
+  method-specific and usually offchain.
 
 This is a better fit for Ethereum because Ethereum standards usually define
 small interoperable primitives and let applications compose them.

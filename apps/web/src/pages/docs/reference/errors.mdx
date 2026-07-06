@@ -1,0 +1,29 @@
+---
+title: Error Reference
+description: Common error codes and precedence.
+---
+
+# Error Reference
+
+| Order | Error | Meaning |
+| ---: | --- | --- |
+| 1 | `invalid_request` | Invalid input selector. |
+| 2 | `unsupported_record` | Unsupported record type or resolver profile. |
+| 3 | `record_missing` | Target resolver record absent. |
+| 4 | `not_configured` | Verification descriptor absent or empty. |
+| 5 | `invalid_descriptor` | Descriptor malformed. |
+| 6 | `unsupported_method` | Method unsupported. |
+| 7 | `privacy_blocked` | Required fetch blocked. |
+| 8 | `proof_unavailable` | Proof resource unavailable. |
+| 9 | `proof_integrity_mismatch` | Descriptor `h` mismatch. |
+| 10 | `proof_invalid` | Proof payload malformed. |
+| 11 | `claim_mismatch` | Claim selector fields mismatch. |
+| 12 | `value_mismatch` | Live resolver value differs from claim. |
+| 13 | `target_mismatch` | Method-derived target differs from claim. |
+| 14 | `expired` | Applicable expiry reached. |
+| 15 | `unsupported_authority` | Current ENS authority cannot be determined. |
+| 16 | `signature_invalid` | Authority or target signature invalid. |
+| 17 | `revoked` | Required revocation check reports revoked. |
+| 18 | `untrusted_issuer` | Issuer not accepted by policy. |
+
+Use the first applicable error.

@@ -20,6 +20,10 @@ The research is organized to separate evidence from proposal:
 9. [Open questions and evaluation checklist](./09-open-questions.md)
 10. [Singleton reassessment](./10-singleton-reassessment.md)
 11. [ENSIP record design practices](./11-ensip-record-design-practices.md)
+12. [Current architecture review](./12-current-architecture-review.md)
+13. [ENS authority model](./13-ens-authority-model.md)
+14. [Issue tracker](./14-issues.md)
+15. [Proof lifecycle model](./15-proof-lifecycle.md)
 
 ## Working Conclusions
 
@@ -28,9 +32,24 @@ The research is organized to separate evidence from proposal:
 - The base relationship worth standardizing is bidirectional record control:
   the current ENS authority still publishes the record, and the target authority
   still publishes or signs a matching proof.
-- A mandatory singleton proof envelope is not the best fit. The better model is
-  a small base ENSIP for shared semantics plus native method profiles for URLs,
-  socials, addresses, contenthashes, attestations, and future records.
+- The current architecture is a small base ENSIP plus method profiles. The base
+  owns discovery, descriptor parsing, raw live-value hashing, current-authority
+  binding, common claim fields, and result semantics. Method profiles own
+  external proof mechanics.
+- Current ENS authority should be resolved through the current ENS mainnet
+  authority rules. The first release should fail closed: wrapped names use the
+  Name Wrapper owner, unwrapped `.eth` second-level names use the Base Registrar
+  registrant, and other unwrapped names use the ENS Registry owner for the exact
+  node.
+- Verification discovery now follows resolver record classes:
+  `verification[text][<key>]`, `verification[addr][<coinType>]`,
+  `verification[contenthash]`, and reserved `verification[data][<key>]`.
+- The ENS-side descriptor is compact: `ensrv1 m=<method> [u=<uri>] [h=<hash>]`.
+  There is no `method=none`, descriptor-level `kind`, or descriptor-level
+  expiry.
+- Verifier output should expose only `verified` or `none` as public statuses.
+  Positive results carry kind `control` or `attestation`; failures are error
+  codes on `none`.
 - Verification should be versioned, short-lived, replay-resistant, and checked
   against live ENS state. Static badges and indefinite cached results are not
   enough.

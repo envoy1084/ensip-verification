@@ -1,0 +1,55 @@
+---
+title: Schemas
+description: Proof envelope and typed-data schemas.
+---
+
+# Schemas
+
+The common JSON schema is provided at:
+
+```text
+schemas/ens-record-verification-proof.schema.json
+```
+
+JSON Schema is not sufficient for all validation requirements. Implementations MUST reject duplicate JSON object member names before schema validation.
+
+## Common Proof Envelope
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x...",
+    "recordType": "text",
+    "recordKey": "url",
+    "valueHash": "0x...",
+    "method": "https-origin",
+    "target": "https://example.com",
+    "authorityProfile": "ens-mainnet-v1",
+    "validUntil": "1783209600",
+    "nonce": "0x..."
+  },
+  "authoritySig": {
+    "type": "eip712",
+    "signature": "0x..."
+  }
+}
+```
+
+## EIP-712 Type
+
+```solidity
+ENSRecordVerification(
+  string name,
+  bytes32 node,
+  string recordType,
+  string recordKey,
+  bytes32 valueHash,
+  string method,
+  string target,
+  string authorityProfile,
+  uint64 validUntil,
+  bytes32 nonce
+)
+```

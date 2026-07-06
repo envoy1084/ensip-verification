@@ -1,0 +1,78 @@
+---
+title: Results and Errors
+description: Verification result object, public status, assurance metadata, and error precedence.
+---
+
+# Results and Errors
+
+The public verification result is either `verified` or `none`.
+
+## Result Shape
+
+```ts
+type VerificationResult =
+  | {
+      status: "verified";
+      kind: "control" | "attestation";
+      method: string;
+      name: string;
+      node: `0x${string}`;
+      recordType: string;
+      recordKey: string;
+      target: string;
+      validUntil: number;
+      checkedAt: number;
+      cacheUntil: number;
+      assurance?: VerificationAssurance;
+      issuer?: IssuerMetadata;
+    }
+  | {
+      status: "none";
+      error?: VerificationError;
+      checkedAt?: number;
+    };
+```
+
+## Assurance Metadata
+
+Assurance metadata is optional. It MUST NOT create additional public statuses.
+
+```ts
+type VerificationAssurance = {
+  dnssec?: boolean;
+  proofIntegrity?: "none" | "hash-pinned" | "content-addressed";
+  publication?: "live" | "portable" | "issuer-revocable";
+  authority?: "eoa" | "erc1271";
+};
+```
+
+## Error Precedence
+
+Use the first applicable error in this table.
+
+| Order | Error | Condition |
+| ---: | --- | --- |
+| 1 | `invalid_request` | Invalid input name, record type, record key, or coin type. |
+| 2 | `unsupported_record` | Record type or resolver profile unsupported. |
+| 3 | `record_missing` | Live target resolver record absent. |
+| 4 | `not_configured` | Verification descriptor absent or empty. |
+| 5 | `invalid_descriptor` | Descriptor malformed or duplicate field present. |
+| 6 | `unsupported_method` | Descriptor method unknown or unsupported. |
+| 7 | `privacy_blocked` | External fetch blocked by client policy. |
+| 8 | `proof_unavailable` | Proof resource unavailable. |
+| 9 | `proof_integrity_mismatch` | Descriptor `h` mismatch. |
+| 10 | `proof_invalid` | Proof envelope malformed or method payload invalid. |
+| 11 | `claim_mismatch` | Claim name, node, record type, record key, authority profile, or method mismatch. |
+| 12 | `value_mismatch` | Claim value hash differs from live resolver value. |
+| 13 | `target_mismatch` | Claim target differs from method-derived target. |
+| 14 | `expired` | Claim, authority, proof, issuer, or method expiry reached. |
+| 15 | `unsupported_authority` | Current ENS authority cannot be determined. |
+| 16 | `signature_invalid` | ENS authority signature invalid. |
+| 17 | `revoked` | Required revocation check reports revoked. |
+| 18 | `untrusted_issuer` | Issuer not accepted by client policy. |
+
+Method-specific errors MUST map into this set.
+
+## UI Rule
+
+User interfaces SHOULD display `verified` only as a record-level verification result. They MUST NOT display it as a safety, endorsement, official-status, legal-ownership, or anti-phishing claim.

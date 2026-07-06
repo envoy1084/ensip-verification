@@ -1,0 +1,57 @@
+---
+title: Method Profiles
+description: Method profile registry and requirements.
+---
+
+# Method Profiles
+
+A method profile defines how to verify a target represented by an ENS resolver record.
+
+The base ENSIP does not define proof semantics for every external system. It dispatches to method profiles using the descriptor field `m`.
+
+## Standard Method Profiles
+
+| Method | Kind | Freshness | Primary records |
+| --- | --- | --- | --- |
+| `https-origin` | `control` | `live-publication` | URL-like text records. |
+| `dns-txt` | `control` | `live-publication` | Domain-backed text records. |
+| `account-signature` | `control` | `portable-signed` | Address records. |
+| `service-account.<provider>` | `control` | profile-defined | Public service account text records. |
+| `contenthash-binding` | `control` | `portable-signed` | `contenthash`. |
+| `issuer-attestation` | `attestation` | `issuer-revocable` | Any supported record under client policy. |
+
+## Method Requirements
+
+Every method profile MUST define:
+
+```text
+method identifier
+result kind
+supported record types and keys
+target derivation
+proof freshness class
+descriptor field requirements
+proof location or proof resource rules
+proof payload format
+h policy
+expiry sources
+revocation requirements
+cache and freshness caps
+error mappings
+privacy considerations
+allowed and forbidden UI copy
+test vectors
+```
+
+## Method Versioning
+
+Method identifiers are immutable. Incompatible changes require a new method identifier.
+
+Examples:
+
+```text
+https-origin
+https-origin.v2
+service-account.github
+service-account.github.v2
+```

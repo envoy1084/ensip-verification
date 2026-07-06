@@ -1,0 +1,8 @@
+{
+  "name": "duplicate method field",
+  "descriptor": "ensrv1 m=https-origin m=dns-txt",
+  "expected": {
+    "ok": false,
+    "error": "invalid_descriptor"
+  }
+}

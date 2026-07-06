@@ -7,16 +7,16 @@ letting each record class use native proof methods.
 
 ## Evaluation Criteria
 
-| Criterion | Why It Matters |
-| --- | --- |
-| Backwards compatibility | Existing names and resolvers should work. |
-| Deterministic verification | Independent clients should reach the same result. |
-| Extensibility | New record types and methods should not require a new base ENSIP. |
-| Minimal trust | The base protocol should not require a central verifier. |
-| Developer UX | A user should be able to authorize verification with as little friction as possible. |
-| Gas and storage cost | ENS-side data should be small. |
-| Revocation | Transfers and stale target control must invalidate proofs. |
-| Clear semantics | UI must know exactly what was verified. |
+| Criterion                  | Why It Matters                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| Backwards compatibility    | Existing names and resolvers should work.                                            |
+| Deterministic verification | Independent clients should reach the same result.                                    |
+| Extensibility              | New record types and methods should not require a new base ENSIP.                    |
+| Minimal trust              | The base protocol should not require a central verifier.                             |
+| Developer UX               | A user should be able to authorize verification with as little friction as possible. |
+| Gas and storage cost       | ENS-side data should be small.                                                       |
+| Revocation                 | Transfers and stale target control must invalidate proofs.                           |
+| Clear semantics            | UI must know exactly what was verified.                                              |
 
 ## Option A: Record-Specific Sidecar Keys
 
@@ -125,7 +125,7 @@ for record-control verification.
 ## Option E: Target-Only Proofs
 
 Example: the website or social account publishes a proof signed by the ENS
-authority, but ENS stores no verification sidecar.
+authority, but ENS stores no verification descriptor.
 
 Benefits:
 
@@ -138,7 +138,7 @@ Problems:
 - clients may probe arbitrary targets without ENS-side opt-in;
 - discovery is hard for social accounts and addresses;
 - stale proofs are easier to misinterpret;
-- no cheap ENS-side digest for indexers;
+- no cheap ENS-side method pointer or digest for indexers;
 - target compromise can surface old proofs until expiry.
 
 Assessment: useful as a fallback for some methods, but weak as the default
@@ -165,28 +165,30 @@ Problems:
 Assessment: acceptable as an app-specific overlay or attestation issuer. It
 should not be the ENSIP base layer.
 
-## Option G: Layered Native Method Profiles
+## Option G: Base ENSIP Plus Method Profiles
 
 Example:
 
 ```text
 Base ENSIP:
-  authority, delegation, expiry, cache rules, result states
+  verification keys, compact descriptors, live-value hashing,
+  current authority, common claim fields, result states
 
 Method profiles:
-  url-https@1
-  url-dnssec@1
-  social-oauth@1
-  social-public-proof@1
-  addr-evm@1
-  contenthash-owner@1
-  attestation@1
+  https-origin
+  dns-txt
+  service-account
+  account-signature
+  content-manifest
+  email-domain
+  email-attestation
+  issuer-attestation
 ```
 
 Benefits:
 
-- keeps URL, DNSSEC, OAuth, address signatures, contenthash, and attestations
-  native to their ecosystems;
+- keeps HTTPS, DNS, service accounts, address signatures, contenthash manifests,
+  email, and attestations native to their ecosystems;
 - fits Ethereum patterns such as EIP-712, ERC-1271, resolver profiles, CCIP-Read,
   and attestations;
 - allows public proofs where possible and provider-mediated attestations where
@@ -206,14 +208,16 @@ interoperability at the client and UI layer.
 
 ## Recommended Architecture
 
-Use a layered native architecture, or "verification kernel plus method
-profiles":
+Use a base ENSIP plus method profiles:
 
-1. A base ENSIP for semantics, authority, delegation, expiry, cache rules, and
-   result states.
-2. Native method profiles for each record class and proof family.
-3. Optional sidecars, manifests, resolver-native data, or attestation references
-   as publication modes.
+1. A base ENSIP for resolver-class verification keys, compact descriptor
+   parsing, method identifiers, raw live-value hashing, current-authority rules,
+   common EIP-712 claim fields, proof-envelope requirements, and result
+   semantics.
+2. Method profiles for each proof family.
+3. ENSIP-5 verification descriptor records as the current discovery mechanism:
+   `verification[text][<key>]`, `verification[addr][<coinType>]`,
+   `verification[contenthash]`, and reserved `verification[data][<key>]`.
 4. A reference SDK with a single `verifyEnsRecord()` interface that dispatches
    to method adapters.
 5. Future resolver interfaces and CCIP-Read profiles as optimizations, not
@@ -221,6 +225,16 @@ profiles":
 
 This keeps the base decentralized while allowing real-world integrations that
 cannot be forced into a public file, DNS record, or universal signed envelope.
+
+The current architecture package implements this recommendation with an
+important refinement: the descriptor record is required for discovery, but the
+large proof payload is method-specific and usually offchain. The descriptor is:
+
+```text
+ensrv1 m=<method> [u=<uri>] [h=<hash>]
+```
+
+It deliberately omits `kind`, `method=none`, and descriptor-level expiry.
 
 ## Cross-Questioning the Recommendation
 
@@ -235,23 +249,24 @@ standard too complex. The SDK can still expose one result format.
 ### Why Not Only a Manifest?
 
 A single manifest is attractive, but it becomes a large mutable object. If one
-social handle changes, the whole manifest changes. A sidecar keyed by claim hash
-lets clients verify one record independently and lets indexers track smaller
-changes. The manifest can still exist as an index.
+social handle changes, the whole manifest changes. Per-record descriptors let
+clients verify one record independently and let indexers track smaller changes.
+The manifest can still exist as an index.
 
-### Why Not Only Sidecars?
+### Why Not Only Descriptor Records?
 
-Pure sidecars create discovery problems. A wallet that wants to show all
-verified records would need to know every possible key. A manifest solves that
-for profile pages and batch verification.
+Per-record descriptors are deterministic for known target records, but they do
+not solve global enumeration. A wallet that wants to show all verified records
+still needs to know which resolver records to inspect or use an optional index.
+A future manifest can improve discovery for profile pages and batch
+verification, but it should remain an index, not the trust root.
 
 ### When Should ENS-Side Proof Data Be Required?
 
-Target-only proofs are cheaper. ENS sidecars are valuable when the method needs
-explicit current ENS opt-in or a digest anchor, such as URL verification. They
-are less natural for OAuth-based social verification or address signatures where
-the proof may be an attestation or native wallet signature. The method profile
-should decide.
+Target-only proofs are cheaper, but the current architecture chooses a compact
+ENS-side descriptor for explicit opt-in and deterministic method dispatch. The
+descriptor should stay small; proof bodies, attestations, signatures, and
+manifests remain offchain or target-native.
 
 ### Why Not Make EAS Mandatory?
 

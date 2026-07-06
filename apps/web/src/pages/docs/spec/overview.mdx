@@ -1,0 +1,69 @@
+---
+title: Specification Overview
+description: Architecture and design goals.
+---
+
+# Specification Overview
+
+ENS Resolver Record Verification is a small base protocol plus method profiles.
+
+The base protocol defines:
+
+```text
+verification key syntax
+descriptor syntax
+common signed claim
+current ENS authority
+raw resolver-value hashing
+lifecycle and cache semantics
+result and error model
+method-profile requirements
+```
+
+Method profiles define target-specific proof systems. Examples include HTTPS origins, DNS TXT records, blockchain account signatures, service-account proofs, contenthash bindings, and issuer attestations.
+
+## Design Goals
+
+1. Verify specific resolver records, not whole ENS names.
+2. Bind proofs to live resolver values.
+3. Fail closed after ownership transfer, name expiry, resolver-value change, or descriptor removal.
+4. Avoid onchain JSON and large text-record payloads.
+5. Keep public status limited to `verified` and `none`.
+6. Keep proof systems outside the base ENSIP.
+7. Support contract authorities through ERC-1271.
+8. Preserve future extension for new record classes and methods.
+
+## Non-Goals
+
+This specification does not define:
+
+```text
+brand verification
+legal ownership verification
+anti-phishing reputation
+safety scoring
+universal issuer trust
+resolver-writer delegation
+parent-owner authority for child names
+a global revocation registry
+```
+
+## Architecture
+
+```text
+ENS resolver record
+  -> verification text record
+    -> compact descriptor
+      -> method profile
+        -> proof resource
+          -> current-authority signature + target proof
+```
+
+Example:
+
+```text
+text("url") = "https://example.com"
+text("verification[text][url]") = "ensrv1 m=https-origin"
+```
+
+The descriptor selects `https-origin`. The method profile defines where the proof is published and how it is validated.

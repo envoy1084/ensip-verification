@@ -34,15 +34,15 @@ return values, events, and compatibility behavior.
 
 Examples:
 
-| ENSIP | Pattern |
-| --- | --- |
-| ENSIP-1 | Registry/resolver split, resolver interfaces, `supportsInterface`. |
-| ENSIP-3 | `name(bytes32)` reverse resolver interface and reverse registrar flow. |
-| ENSIP-7 | `contenthash` resolver profile and multicodec encoding. |
-| ENSIP-9 | `addr(bytes32,uint)` multicoin address resolver, events, encodings, tests. |
-| ENSIP-16 | Resolver metadata function and event for offchain data discovery. |
-| ENSIP-23 | Universal Resolver as an entrypoint over existing resolver profiles. |
-| ENSIP-24 | `data(bytes32,string)` arbitrary bytes resolver profile and change event. |
+| ENSIP    | Pattern                                                                    |
+| -------- | -------------------------------------------------------------------------- |
+| ENSIP-1  | Registry/resolver split, resolver interfaces, `supportsInterface`.         |
+| ENSIP-3  | `name(bytes32)` reverse resolver interface and reverse registrar flow.     |
+| ENSIP-7  | `contenthash` resolver profile and multicodec encoding.                    |
+| ENSIP-9  | `addr(bytes32,uint)` multicoin address resolver, events, encodings, tests. |
+| ENSIP-16 | Resolver metadata function and event for offchain data discovery.          |
+| ENSIP-23 | Universal Resolver as an entrypoint over existing resolver profiles.       |
+| ENSIP-24 | `data(bytes32,string)` arbitrary bytes resolver profile and change event.  |
 
 Best practice:
 
@@ -58,19 +58,19 @@ Text-record ENSIPs extend ENSIP-5 and define keys plus value formats.
 
 Examples:
 
-| ENSIP | Pattern |
-| --- | --- |
-| ENSIP-5 | Global keys and service keys for arbitrary text metadata. |
-| ENSIP-12 | `avatar` text record, URI schemes, NFT avatar verification steps. |
-| ENSIP-18 | Profile keys with description, format, example, design considerations. |
+| ENSIP    | Pattern                                                                     |
+| -------- | --------------------------------------------------------------------------- |
+| ENSIP-5  | Global keys and service keys for arbitrary text metadata.                   |
+| ENSIP-12 | `avatar` text record, URI schemes, NFT avatar verification steps.           |
+| ENSIP-18 | Profile keys with description, format, example, design considerations.      |
 | ENSIP-25 | Parameterized verification key `agent-registration[<registry>][<agentId>]`. |
-| ENSIP-26 | `agent-context` and parameterized `agent-endpoint[<protocol>]`. |
+| ENSIP-26 | `agent-context` and parameterized `agent-endpoint[<protocol>]`.             |
 
 Best practice:
 
 - use text records when existing resolver support is enough;
-- keep the original profile record intact and add sidecar records only when
-  needed;
+- keep the original profile record intact and add verification descriptor
+  records only when needed;
 - define exact key spelling;
 - define value format, including whether value content has semantic meaning;
 - define absent, empty, malformed, unsupported, and stale states;
@@ -95,8 +95,9 @@ Service keys:
 
 Verification implication:
 
-- category-level verification keys should use global-key style names, such as
-  `url-verification`, `addr-verification`, or `social-verification`;
+- verification descriptor keys should use the global `verification` prefix and
+  resolver-class parameters, such as `verification[text][url]` or
+  `verification[addr][60]`;
 - service-specific claims should bind to the service key, such as `com.github`,
   but should not squat inside the service namespace unless the service itself
   defines that key;
@@ -120,39 +121,41 @@ Practices to copy:
 
 - define every parameter;
 - define canonical encoding for parameters;
-- forbid ambiguous delimiter characters such as `[` and `]` inside free-form
-  parameters;
+- define delimiter parsing. The current verification design allows `[` and `]`
+  inside text keys by using the final `]` as the parameter terminator;
 - explain uniqueness;
 - include at least one full key example;
 - define whether the value is semantic or whether non-empty presence is enough.
 
-Verification sidecar examples that fit this pattern:
+Verification descriptor examples that fit this pattern:
 
 ```text
-url-verification[<originHash>]
-addr-verification[<coinType>][<valueHash>]
-social-verification[<serviceKey>][<accountIdHash>]
-contenthash-verification[<contenthashHash>]
-verification-manifest
+verification[text][url]
+verification[text][com.github]
+verification[text][agent-endpoint[mcp]]
+verification[addr][60]
+verification[contenthash]
+verification[data][<data-key>]
 ```
 
-These should be method-profile conventions, not mandatory base-layer keys.
+These identify the resolver record being verified. The descriptor value
+identifies the method.
 
 ## Value Format Practices
 
 Existing ENSIPs use different value strategies depending on the problem.
 
-| Strategy | Example | Use When |
-| --- | --- | --- |
-| Arbitrary UTF-8 | ENSIP-5 text values | Human-readable metadata. |
-| Structured string | ENSIP-17 `ENS1 <resolver> [context]` TXT record | Compact protocol records. |
-| URI | ENSIP-12 avatar, ENSIP-26 endpoint | Existing URI semantics are enough. |
-| Binary canonical encoding | ENSIP-7 contenthash, ENSIP-9 addresses | Typed data needs exact encoding. |
-| Presence/non-empty | ENSIP-25 agent registration | The key identity carries the claim. |
+| Strategy                  | Example                                         | Use When                            |
+| ------------------------- | ----------------------------------------------- | ----------------------------------- |
+| Arbitrary UTF-8           | ENSIP-5 text values                             | Human-readable metadata.            |
+| Structured string         | ENSIP-17 `ENS1 <resolver> [context]` TXT record | Compact protocol records.           |
+| URI                       | ENSIP-12 avatar, ENSIP-26 endpoint              | Existing URI semantics are enough.  |
+| Binary canonical encoding | ENSIP-7 contenthash, ENSIP-9 addresses          | Typed data needs exact encoding.    |
+| Presence/non-empty        | ENSIP-25 agent registration                     | The key identity carries the claim. |
 
-Verification records should not leave value semantics vague. If a sidecar uses a
-compact string, it should define field separators, duplicate-field behavior,
-unknown fields, required fields, and malformed values.
+Verification records should not leave value semantics vague. If a descriptor
+uses a compact string, it should define field separators, duplicate-field
+behavior, unknown fields, required fields, and malformed values.
 
 ## Validation Flow Practices
 
@@ -240,8 +243,8 @@ For record verification, the base rule should be:
 
 - verification failure must not make clients hide the underlying ENS record;
 - a verified state is an additional property, not a replacement record;
-- method profiles should define how old sidecars, stale records, and ownership
-  transfers are handled.
+- method profiles should define how old descriptors, stale records, and
+  ownership transfers are handled.
 
 ## Recommended ENSIP Framing for This Proposal
 
@@ -253,12 +256,15 @@ Scope:
 
 - verification terminology and result states;
 - current ENS authority rules;
-- scoped delegation rules;
+- compact descriptor grammar;
+- raw live-value hashing rules;
+- common EIP-712 claim fields;
 - expiry and cache rules;
 - requirements for method profiles;
-- optional discovery conventions.
+- resolver-class discovery keys.
 
-It should not define every key for every record category.
+It should not define separate verification categories such as `url`, `social`,
+or `email`.
 
 ### Method Profiles
 
@@ -266,9 +272,9 @@ Each profile should include:
 
 - ENS record category;
 - exact existing record selector;
-- optional verification sidecar key;
+- verification descriptor key;
 - key parameter grammar;
-- value format;
+- descriptor fields used by the method;
 - canonicalization;
 - target authority;
 - validation algorithm;
@@ -279,15 +285,15 @@ Each profile should include:
 
 Initial profiles:
 
-| Profile | Existing ENSIP Practice To Follow |
-| --- | --- |
-| `url-https@1` | ENSIP-12 URI handling, ENSIP-17 structured proof strings, RFC well-known convention. |
-| `url-dnssec@1` | ENSIP-17 DNSSEC proof and TXT-record treatment. |
-| `addr-evm@1` | ENSIP-9/11 address canonicalization plus EIP-712/ERC-1271. |
-| `social-public-proof@1` | ENSIP-5 service keys and ENSIP-18 profile service key guidance. |
-| `social-oauth@1` | Provider-mediated attestation profile, not a public proof record. |
-| `contenthash-owner@1` | ENSIP-7 contenthash encoding and live owner authorization. |
-| `attestation@1` | Optional attestation reference, with issuer and revocation semantics. |
+| Profile                              | Existing ENSIP Practice To Follow                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| `https-origin`                       | ENSIP-5 text keys, RFC well-known convention, EIP-712/ERC-1271.               |
+| `dns-txt`                            | ENSIP-5 text keys, DNS TXT proof treatment, DNSSEC assurance where available. |
+| `service-account`                    | ENSIP-5 service keys and ENSIP-18 profile service key guidance.               |
+| `account-signature`                  | ENSIP-9/11 address bytes plus EIP-712/ERC-1271 and chain-family signatures.   |
+| `content-manifest`                   | ENSIP-7 contenthash encoding and content-root manifest validation.            |
+| `email-domain` / `email-attestation` | ENSIP-18 `email` key with explicit domain-vs-mailbox semantics.               |
+| `issuer-attestation`                 | Optional attestation reference, with issuer trust and revocation semantics.   |
 
 ## Sources
 

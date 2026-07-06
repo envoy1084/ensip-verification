@@ -27,14 +27,14 @@ clients often collapse into a single "verified" badge.
 
 ## Verification Questions
 
-| Question | What It Proves | What It Does Not Prove |
-| --- | --- | --- |
-| Record integrity | The resolver currently returns a value for a name. | The value is true, safe, or controlled by the same person. |
-| ENS authorization | A current ENS authority authorized a claim. | The external target agrees with the claim. |
-| Target control | The target website, DNS zone, social account, or address participated in a proof. | Legal ownership, reputation, safety, or uniqueness. |
-| Bidirectional binding | ENS and target both publish the same claim at validation time. | That either side is trustworthy. |
-| Third-party attestation | A verifier, issuer, or registry made a statement about the claim. | That the statement is decentralized or always current. |
-| Safety/reputation | A security service believes the target is not known-bad. | Identity control or consent by the target. |
+| Question                | What It Proves                                                                    | What It Does Not Prove                                     |
+| ----------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Record integrity        | The resolver currently returns a value for a name.                                | The value is true, safe, or controlled by the same person. |
+| ENS authorization       | A current ENS authority authorized a claim.                                       | The external target agrees with the claim.                 |
+| Target control          | The target website, DNS zone, social account, or address participated in a proof. | Legal ownership, reputation, safety, or uniqueness.        |
+| Bidirectional binding   | ENS and target both publish the same claim at validation time.                    | That either side is trustworthy.                           |
+| Third-party attestation | A verifier, issuer, or registry made a statement about the claim.                 | That the statement is decentralized or always current.     |
+| Safety/reputation       | A security service believes the target is not known-bad.                          | Identity control or consent by the target.                 |
 
 An ENSIP should define which question it answers and avoid implying answers to
 the others.
@@ -76,22 +76,35 @@ not just a record type. It must include:
 Without a canonical claim object, clients cannot safely compare proofs across
 record types, chains, resolver migrations, or future resolver interfaces.
 
-## Verification Levels
+## Verification Result Semantics
 
-The research uses these terms:
+The current architecture deliberately keeps public verifier status small:
 
-| Level | Meaning |
-| --- | --- |
-| `unverified` | The record exists but no accepted verification proof was found. |
-| `ens-authorized` | The current ENS authority signed or authorized the record value. |
-| `target-controlled` | The external target published or signed a matching proof. |
-| `bidirectional` | Live ENS state and live target evidence agree on the same claim. |
-| `attested` | A third party made an explicit statement about the claim. |
-| `security-reviewed` | A safety or reputation service evaluated the target. |
+```text
+verified
+none
+```
 
-Only `bidirectional` is suitable as the base standard for verifying arbitrary
-external records. `attested` and `security-reviewed` are valuable, but they are
-different products with different trust assumptions.
+Positive results carry one kind:
+
+```text
+control
+attestation
+```
+
+Research still distinguishes the underlying evidence relationships:
+
+| Evidence Relationship       | Meaning                                                          |
+| --------------------------- | ---------------------------------------------------------------- |
+| ENS-authorized              | The current ENS authority signed or authorized the record value. |
+| Target-controlled           | The external target published or signed a matching proof.        |
+| Control verification        | Live ENS state and target evidence validate the same claim.      |
+| Attestation verification    | A trusted issuer made an explicit statement about the claim.     |
+| Safety or reputation review | A security service evaluated the target.                         |
+
+Only control verification and accepted attestation verification should produce
+`verified`. Safety or reputation review is a separate product layer and should
+not be collapsed into record verification.
 
 ## Design Implications
 
@@ -111,4 +124,3 @@ different products with different trust assumptions.
 - [EIP-2304: Multicoin support for ENS](https://eips.ethereum.org/EIPS/eip-2304)
 - [ENSIP-12: Avatar text records](https://docs.ens.domains/ensip/12)
 - [ENSIP-19: Multichain primary names](https://docs.ens.domains/ensip/19)
-

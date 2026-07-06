@@ -17,15 +17,15 @@ wallets, or resolver permissions.
 
 ## Attacker Goals
 
-| Goal | Example |
-| --- | --- |
-| Impersonate a target | Publish `text("com.twitter") = famous_account` under an unrelated ENS name. |
-| Borrow reputation | Point `url` to a legitimate website and imply endorsement. |
-| Redirect payment | Publish a payment address that the name owner does not control. |
-| Preserve stale trust | Keep a proof valid after selling the ENS name or losing the domain. |
-| Confuse UI | Make an unverified record look verified by using similar text, icons, or names. |
-| Abuse verifier infrastructure | Use a hosted verifier to create broad attestations users did not intend. |
-| Leak behavior | Observe which ENS names and URLs users are checking. |
+| Goal                          | Example                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| Impersonate a target          | Publish `text("com.twitter") = famous_account` under an unrelated ENS name.     |
+| Borrow reputation             | Point `url` to a legitimate website and imply endorsement.                      |
+| Redirect payment              | Publish a payment address that the name owner does not control.                 |
+| Preserve stale trust          | Keep a proof valid after selling the ENS name or losing the domain.             |
+| Confuse UI                    | Make an unverified record look verified by using similar text, icons, or names. |
+| Abuse verifier infrastructure | Use a hosted verifier to create broad attestations users did not intend.        |
+| Leak behavior                 | Observe which ENS names and URLs users are checking.                            |
 
 ## Threats and Required Mitigations
 
@@ -73,7 +73,8 @@ Mitigations:
 - bind proof to the normalized ENS name and node;
 - bind web proofs to exact origin, not path;
 - bind DNS proofs to exact host and method;
-- reject proofs whose digest does not match the ENS sidecar.
+- if descriptor field `h` is present, reject proof resources whose bytes do not
+  match the descriptor hash.
 
 ### Shared Hosting
 
@@ -127,7 +128,7 @@ Mitigations:
   selector, value hash, expiry, and nonce;
 - use ERC-1271 for EVM contracts;
 - use chain-specific standards such as BIP-322 for Bitcoin;
-- return `unverified` rather than failing resolution when a record cannot sign.
+- return `none` rather than failing resolution when a record cannot sign.
 
 ### Contenthash Overclaiming
 
@@ -149,7 +150,7 @@ approval.
 
 Mitigations:
 
-- return structured states and proof methods;
+- return `verified` or `none` plus method, kind, and error metadata;
 - display the verified relationship, for example "ENS and website match";
 - separate control verification from security warnings;
 - avoid badge reuse across incompatible proof levels.
@@ -191,4 +192,3 @@ A general ENS record verification protocol should require:
 - [AT Protocol handle specification](https://atproto.com/specs/handle)
 - [Mastodon link verification](https://docs.joinmastodon.org/user/profile/#verification)
 - [Nostr NIP-05](https://github.com/nostr-protocol/nips/blob/master/05.md)
-

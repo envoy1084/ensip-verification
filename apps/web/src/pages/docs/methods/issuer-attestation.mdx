@@ -1,0 +1,122 @@
+---
+title: "Method: issuer-attestation"
+description: Verify issuer-backed record claims under explicit client trust policy.
+---
+
+# Method: `issuer-attestation`
+
+`issuer-attestation` verifies that an issuer made a claim about an ENS resolver record. A positive result is valid only under a client trust policy that accepts the issuer.
+
+## Properties
+
+| Property | Value |
+| --- | --- |
+| Method | `issuer-attestation` |
+| Kind | `attestation` |
+| Freshness class | `issuer-revocable` |
+| Descriptor | `ensrv1 m=issuer-attestation u=<proof-uri> h=<hash>` |
+| `h` policy | Required for mutable proof URIs unless the issuer profile defines an equivalent immutable proof identifier. |
+
+## Supported Records
+
+Issuer attestations may apply to any supported record type if the issuer profile defines the semantics.
+
+Examples:
+
+```text
+text("email")
+text("com.github")
+addr(60)
+contenthash
+```
+
+## Trust Policy
+
+A verifier MUST NOT return `verified` for an issuer attestation unless client policy accepts the issuer.
+
+A cryptographically valid proof from an untrusted issuer returns:
+
+```text
+none/untrusted_issuer
+```
+
+not:
+
+```text
+none/proof_invalid
+```
+
+## Proof Envelope
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x...",
+    "recordType": "text",
+    "recordKey": "email",
+    "valueHash": "0x...",
+    "method": "issuer-attestation",
+    "target": "mailto:alice@example.com",
+    "authorityProfile": "ens-mainnet-v1",
+    "validUntil": "1783209600",
+    "nonce": "0x..."
+  },
+  "authoritySig": {
+    "type": "eip712",
+    "signature": "0x..."
+  },
+  "issuerAttestation": {
+    "issuer": "did:web:issuer.example",
+    "subject": "alice.eth",
+    "validUntil": "1783209600",
+    "revocation": "https://issuer.example/status/abc",
+    "signature": "..."
+  }
+}
+```
+
+## Verifier Flow
+
+1. Resolve live target record and descriptor.
+2. Fetch proof bytes from `u`.
+3. Check `h` if required.
+4. Parse proof envelope and issuer attestation.
+5. Check common claim fields, value hash, target, and expiry.
+6. Resolve current ENS authority and verify signature.
+7. Verify issuer signature under the issuer profile.
+8. Check issuer trust policy.
+9. Check revocation status if required.
+10. Return `verified/attestation` only if all checks pass.
+
+## Result Metadata
+
+A positive result SHOULD include issuer metadata:
+
+```json
+{
+  "issuer": {
+    "id": "did:web:issuer.example",
+    "policy": "wallet-default-issuer-policy"
+  }
+}
+```
+
+## UI Copy
+
+Allowed:
+
+```text
+Verified by Example Issuer
+Issuer attestation verified
+```
+
+Forbidden:
+
+```text
+Globally verified
+Trusted user
+Official identity
+Safe account
+```

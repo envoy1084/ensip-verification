@@ -1,0 +1,69 @@
+---
+title: Test Vectors
+description: Required implementation test-vector scope.
+---
+
+# Test Vectors
+
+A conforming SDK should include vectors for all P0 behavior.
+
+## Descriptor Vectors
+
+```text
+valid descriptor
+missing m
+duplicate m
+unknown extension field
+malformed h
+bracketed text key
+```
+
+## Value Hash Vectors
+
+```text
+text url exact UTF-8 bytes
+text agent-endpoint[mcp]
+addr 60 native bytes
+contenthash raw bytes
+```
+
+## Signature Vectors
+
+```text
+EIP-712 digest
+EOA authority valid
+EOA authority wrong signer
+ERC-1271 authority valid
+ERC-1271 authority invalid
+target EVM account valid
+target EVM account invalid
+```
+
+## Authority Vectors
+
+```text
+unwrapped alice.eth uses Base Registrar registrant
+unwrapped alice.eth manager differs from registrant
+wrapped alice.eth uses Name Wrapper owner
+wrapped subname uses Name Wrapper owner
+unwrapped subname uses ENS Registry owner of exact node
+imported DNS name uses ENS Registry owner
+expired .eth returns none
+zero owner returns none
+```
+
+## Lifecycle Vectors
+
+```text
+descriptor deleted
+method changed
+u changed
+h mismatch
+record value changed
+claim expired
+proof removed
+issuer revoked
+privacy blocked
+```
+
+The `test-vectors/` folder in this package contains starter JSON files.

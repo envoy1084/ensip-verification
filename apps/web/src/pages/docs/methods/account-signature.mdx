@@ -1,0 +1,150 @@
+---
+title: "Method: account-signature"
+description: Verify control of an address record by requiring the target account to sign.
+---
+
+# Method: `account-signature`
+
+`account-signature` verifies an ENS address record by requiring both ENS-side authority and target-account control.
+
+## Properties
+
+| Property | Value |
+| --- | --- |
+| Method | `account-signature` |
+| Kind | `control` |
+| Freshness class | `portable-signed` |
+| Descriptor | `ensrv1 m=account-signature u=<proof-uri> [h=<hash>]` |
+| `h` policy | Required for mutable `u`; optional for content-addressed `u`. |
+
+## Supported Records
+
+```text
+addr(node, coinType)
+```
+
+Examples:
+
+```text
+verification[addr][60]
+verification[addr][0]
+verification[addr][501]
+```
+
+## Publisher Flow
+
+1. Set the address record.
+
+```text
+addr(60) = 0x1234...
+```
+
+2. Set the verification descriptor.
+
+```text
+text("verification[addr][60]") = "ensrv1 m=account-signature u=ipfs://bafyProof"
+```
+
+3. Compute `valueHash` from the native binary address bytes returned by the resolver.
+4. Create the common claim:
+
+```json
+{
+  "recordType": "addr",
+  "recordKey": "60",
+  "method": "account-signature",
+  "target": "coin:60:0x1234..."
+}
+```
+
+5. Sign the claim with the current ENS authority.
+6. Sign the same claim hash, or a method-defined target-account challenge derived from it, with the target account.
+7. Publish the proof envelope at `u`.
+
+## Proof Envelope
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x...",
+    "recordType": "addr",
+    "recordKey": "60",
+    "valueHash": "0x...",
+    "method": "account-signature",
+    "target": "coin:60:0x1234...",
+    "authorityProfile": "ens-mainnet-v1",
+    "validUntil": "1783209600",
+    "nonce": "0x..."
+  },
+  "authoritySig": {
+    "type": "eip712",
+    "signature": "0x..."
+  },
+  "targetAccountSig": {
+    "type": "eip712-account-signature",
+    "account": "coin:60:0x1234...",
+    "signature": "0x..."
+  }
+}
+```
+
+## Target Account Rules
+
+The target account proof MUST verify control of the live address record value.
+
+For EVM accounts:
+
+- EOAs prove control by ECDSA signature recovery.
+- Contract accounts prove control through ERC-1271.
+- If the target account is also the current ENS authority, the method MAY allow one EIP-712 signature to satisfy both roles.
+
+For non-EVM accounts, the coin-type subprofile MUST define:
+
+```text
+canonical target account string
+challenge bytes
+signature algorithm
+public key or address recovery rule
+contract or script-account handling, if any
+```
+
+If a verifier does not support the coin-type subprofile, it MUST return `none/unsupported_method` or `none/unsupported_record`.
+
+## Verifier Flow
+
+1. Resolve `addr(node, coinType)`.
+2. Compute `valueHash` from native binary address bytes.
+3. Resolve and parse `verification[addr][coinType]`.
+4. Fetch proof bytes from `u`.
+5. Check `h` if present or required.
+6. Check common claim fields.
+7. Check `claim.target` matches the live address under the coin-type subprofile.
+8. Resolve current ENS authority.
+9. Verify `authoritySig`.
+10. Verify `targetAccountSig`.
+11. Check expiry and lifecycle rules.
+12. Return `verified/control`.
+
+## Security Requirement
+
+The ENS authority signature alone is not sufficient for address verification unless the method profile explicitly proves that the ENS authority is the same account as the target address. Otherwise, the target account MUST also sign.
+
+## UI Copy
+
+Allowed:
+
+```text
+Address control verified
+Account signature verified
+```
+
+Forbidden:
+
+```text
+Safe address
+Trusted wallet
+Known recipient
+Non-malicious address
+```

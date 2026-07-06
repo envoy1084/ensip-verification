@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ens.domains/schemas/ens-record-verification-proof.schema.json",
+  "title": "ENS Record Verification Proof Envelope",
+  "type": "object",
+  "required": ["v", "claim", "authoritySig"],
+  "additionalProperties": true,
+  "properties": {
+    "v": {
+      "const": "ensrv1"
+    },
+    "claim": {
+      "type": "object",
+      "required": [
+        "name",
+        "node",
+        "recordType",
+        "recordKey",
+        "valueHash",
+        "method",
+        "target",
+        "authorityProfile",
+        "validUntil",
+        "nonce"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node": {
+          "type": "string",
+          "pattern": "^0x[0-9a-f]{64}$"
+        },
+        "recordType": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "recordKey": {
+          "type": "string"
+        },
+        "valueHash": {
+          "type": "string",
+          "pattern": "^0x[0-9a-f]{64}$"
+        },
+        "method": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]{0,63}$"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorityProfile": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]{0,63}$"
+        },
+        "validUntil": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^0x[0-9a-f]{64}$"
+        }
+      }
+    },
+    "authoritySig": {
+      "type": "object",
+      "required": ["type", "signature"],
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^0x([0-9a-f]{2})+$"
+        }
+      }
+    }
+  }
+}

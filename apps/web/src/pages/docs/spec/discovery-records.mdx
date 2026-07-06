@@ -1,0 +1,97 @@
+---
+title: Discovery Records
+description: Verification text-record key syntax.
+---
+
+# Discovery Records
+
+Verification records are ENS text records. The key identifies the resolver record being verified.
+
+## Text Records
+
+For:
+
+```text
+text(node, <key>)
+```
+
+use:
+
+```text
+verification[text][<key>]
+```
+
+The key is constructed by concatenation:
+
+```text
+"verification[text][" + key + "]"
+```
+
+`<key>` is the exact text-record key. It MAY contain brackets.
+
+Examples:
+
+```text
+verification[text][url]
+verification[text][email]
+verification[text][com.github]
+verification[text][agent-endpoint[mcp]]
+```
+
+A parser MUST NOT recursively match brackets. If parsing is required, treat the final `]` as the close delimiter and everything after `verification[text][` as the text key.
+
+## Address Records
+
+For:
+
+```text
+addr(node, <coinType>)
+```
+
+use:
+
+```text
+verification[addr][<coinType>]
+```
+
+`<coinType>` is decimal, unsigned, and without leading zeroes.
+
+Examples:
+
+```text
+verification[addr][60]
+verification[addr][0]
+verification[addr][501]
+```
+
+## Contenthash Records
+
+For:
+
+```text
+contenthash(node)
+```
+
+use:
+
+```text
+verification[contenthash]
+```
+
+No parameter is used.
+
+## Data Records
+
+For:
+
+```text
+data(node, <key>)
+```
+
+use:
+
+```text
+verification[data][<key>]
+```
+
+The `data` namespace is reserved. Clients MAY return `none/unsupported_record` until concrete data-record method profiles exist.

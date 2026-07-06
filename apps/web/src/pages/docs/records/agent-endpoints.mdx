@@ -1,0 +1,79 @@
+---
+title: Agent Endpoint Records
+description: Verify agent endpoint text records.
+---
+
+# Record Flow: Agent Endpoints
+
+## Target records
+
+Examples:
+
+```text
+text("agent-endpoint[mcp]") = "https://agent.example.com/mcp"
+text("agent-endpoint[a2a]") = "https://agent.example.com/a2a"
+text("agent-endpoint[web]") = "https://agent.example.com"
+```
+
+## Verification keys
+
+```text
+verification[text][agent-endpoint[mcp]]
+verification[text][agent-endpoint[a2a]]
+verification[text][agent-endpoint[web]]
+```
+
+Bracketed text keys are valid. The verification key is constructed by exact concatenation.
+
+## Recommended methods
+
+| Method | Use when |
+| --- | --- |
+| `https-origin` | The endpoint is HTTPS and can publish the well-known proof. |
+| `dns-txt` | DNS control is preferred. |
+| `issuer-attestation` | A registry or issuer attests the endpoint. |
+
+## HTTPS flow
+
+Publisher sets:
+
+```text
+text("agent-endpoint[mcp]") = "https://agent.example.com/mcp"
+text("verification[text][agent-endpoint[mcp]]") = "ensrv1 m=https-origin"
+```
+
+The proof is served from:
+
+```text
+https://agent.example.com/.well-known/ens-record-verification
+```
+
+The claim uses:
+
+```json
+{
+  "recordType": "text",
+  "recordKey": "agent-endpoint[mcp]",
+  "method": "https-origin",
+  "target": "https://agent.example.com"
+}
+```
+
+The `valueHash` still hashes the exact live endpoint URL, including path.
+
+## Result
+
+A successful result means:
+
+```text
+The endpoint origin or method proof is verified for this ENS record.
+```
+
+It does not mean:
+
+```text
+the agent is safe
+the agent is authorized to act
+the agent follows a protocol correctly
+the endpoint is non-malicious
+```

@@ -1,0 +1,93 @@
+---
+title: Address Records
+description: Verify multichain addr records using account signatures.
+---
+
+# Record Flow: Address Records
+
+## Target records
+
+```text
+addr(60)  = Ethereum account bytes
+addr(0)   = Bitcoin address bytes
+addr(501) = Solana account bytes
+```
+
+## Verification keys
+
+```text
+verification[addr][60]
+verification[addr][0]
+verification[addr][501]
+```
+
+## Recommended method
+
+```text
+account-signature
+```
+
+## EVM address flow
+
+Publisher sets:
+
+```text
+addr(60) = 0x1234567890abcdef1234567890abcdef12345678
+text("verification[addr][60]") = "ensrv1 m=account-signature u=ipfs://bafy..."
+```
+
+The proof claim uses:
+
+```json
+{
+  "recordType": "addr",
+  "recordKey": "60",
+  "method": "account-signature",
+  "target": "eip155:1:0x1234567890abcdef1234567890abcdef12345678"
+}
+```
+
+The current ENS authority signs the claim. The target account also signs the claim under the method's target proof profile.
+
+For EVM accounts:
+
+```text
+EOA target: ECDSA recovery must equal target address.
+Contract target: ERC-1271 must validate the digest and signature.
+```
+
+## Non-EVM address flow
+
+Non-EVM address verification requires a concrete target proof profile.
+
+A profile must define:
+
+```text
+account identifier format
+message format
+signature scheme
+public key recovery or verification
+address encoding
+chain binding
+replay protection
+contract or multisig behavior, if any
+```
+
+Unsupported target proof profiles return `none/unsupported_method` or the nearest mapped method error.
+
+## Result
+
+A successful result means:
+
+```text
+The address account control proof passed for this ENS record.
+```
+
+It does not mean:
+
+```text
+safe address
+trusted wallet
+non-malicious recipient
+KYC verified
+```

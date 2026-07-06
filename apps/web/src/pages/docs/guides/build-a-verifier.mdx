@@ -1,0 +1,101 @@
+---
+title: Build a Verifier
+description: SDK verification algorithm and implementation notes.
+---
+
+# Build a Verifier
+
+A verifier returns `verified` only after common checks and method-specific checks pass.
+
+## Algorithm
+
+```ts
+async function verifyRecord(input, options) {
+  const name = normalize(input.name);
+  const node = namehash(name);
+
+  validateRecordSelector(input.recordType, input.recordKey);
+
+  const liveValue = await resolveTargetRecord(node, input.recordType, input.recordKey);
+  if (!liveValue) return none("record_missing");
+
+  const valueHash = hashResolverValue(input.recordType, liveValue);
+
+  const verificationKey = buildVerificationKey(input.recordType, input.recordKey);
+  const descriptorValue = await resolveText(node, verificationKey);
+  if (!descriptorValue) return none("not_configured");
+
+  const descriptor = parseDescriptor(descriptorValue);
+  if (!descriptor.ok) return none("invalid_descriptor");
+
+  const method = registry.get(descriptor.m);
+  if (!method) return none("unsupported_method");
+
+  if (method.requiresFetch && options.fetchMode === "local-only") {
+    return none("privacy_blocked");
+  }
+
+  return method.verify({
+    name,
+    node,
+    recordType: input.recordType,
+    recordKey: input.recordKey,
+    liveValue,
+    valueHash,
+    descriptor,
+    options
+  });
+}
+```
+
+## Descriptor Parser Requirements
+
+The parser MUST reject:
+
+```text
+wrong version token
+duplicate fields
+missing m
+empty field name
+field value with spaces or controls
+malformed h
+```
+
+Unknown fields are ignored after duplicate-field validation.
+
+## Proof JSON Parser Requirements
+
+The proof JSON parser MUST reject duplicate object member names before schema validation.
+
+Do not rely on JSON Schema alone for duplicate-key detection.
+
+## Authority Validation
+
+For `ens-mainnet-v1`:
+
+```text
+wrapped name -> Name Wrapper owner
+unwrapped .eth 2LD -> Base Registrar registrant
+other unwrapped name -> ENS Registry owner
+```
+
+Use ECDSA for EOAs. Use ERC-1271 for contract authorities.
+
+## Caching
+
+Do not cache positive results beyond `cacheUntil`.
+
+High-trust actions must revalidate live.
+
+## Privacy Modes
+
+Implement at least:
+
+```text
+local-only
+fetch-on-action
+privacy-proxy
+direct-fetch
+```
+
+Return `none/privacy_blocked` when the configured mode forbids a required fetch.

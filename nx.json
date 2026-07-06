@@ -68,12 +68,5 @@
       }
     }
   ],
-  "neverConnectToCloud": true,
-  "release": {
-    "changelog": {
-      "workspaceChangelog": {
-        "createRelease": "github"
-      }
-    }
-  }
+  "neverConnectToCloud": true
 }

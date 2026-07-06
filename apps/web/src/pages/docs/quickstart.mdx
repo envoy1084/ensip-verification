@@ -1,0 +1,76 @@
+---
+title: Quickstart
+description: Minimal publisher and verifier flows.
+---
+
+# Quickstart
+
+This page shows the minimal flow. Method pages define complete validation rules.
+
+## Publish a Verified URL
+
+Set the target resolver record:
+
+```text
+text("url") = "https://example.com"
+```
+
+Set the verification descriptor:
+
+```text
+text("verification[text][url]") = "ensrv1 m=https-origin"
+```
+
+Generate an EIP-712 claim:
+
+```json
+{
+  "name": "alice.eth",
+  "node": "0x...",
+  "recordType": "text",
+  "recordKey": "url",
+  "valueHash": "0x...",
+  "method": "https-origin",
+  "target": "https://example.com",
+  "authorityProfile": "ens-mainnet-v1",
+  "validUntil": "1783209600",
+  "nonce": "0x..."
+}
+```
+
+Sign the claim with the current ENS authority.
+
+Publish the proof at:
+
+```text
+https://example.com/.well-known/ens-record-verification
+```
+
+## Verify a Record
+
+A verifier performs these steps:
+
+```text
+1. Normalize the ENS name.
+2. Resolve the live target record.
+3. Compute valueHash from the exact live resolver value.
+4. Resolve the matching verification descriptor.
+5. Parse descriptor and select method verifier.
+6. Fetch or read proof material under the configured privacy mode.
+7. Check descriptor h, if present.
+8. Check claim fields, valueHash, target, and expiry.
+9. Resolve current ENS authority.
+10. Verify the authority signature by ECDSA or ERC-1271.
+11. Run method-specific target proof checks.
+12. Return verified or none.
+```
+
+## Minimal SDK Result
+
+```ts
+type VerificationResult =
+  | { status: "verified"; kind: "control" | "attestation"; method: string; target: string; validUntil: number }
+  | { status: "none"; error?: string };
+```
+
+`verified` is not a safety, endorsement, legal ownership, or anti-phishing claim.
