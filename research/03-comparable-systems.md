@@ -6,22 +6,22 @@ extract constraints that apply to ENS record verification.
 
 ## Summary Table
 
-| System | What Is Verified | Proof Location | Main Lesson |
-| --- | --- | --- | --- |
-| ACME | Control of a DNS identifier for certificate issuance | HTTP, DNS, or TLS challenge | Short-lived challenges and precise identifier scope. |
-| DNSSEC | Authenticity of DNS data from a signed zone | DNS records and signatures | Authentication of records is not the same as safety. |
-| AT Protocol handles | A domain handle maps to a DID | DNS TXT or HTTPS well-known file | Deterministic bidirectional handle resolution. |
-| Mastodon verified links | Profile links back to the Mastodon profile | Website `rel="me"` link | Simple reciprocal proof, weak against page compromise. |
-| Nostr NIP-05 | Internet identifier maps to a public key | HTTPS well-known JSON | Easy discovery, target-side host is the trust anchor. |
-| Keybase | User controls social, web, DNS, or crypto accounts | Public posts, DNS TXT, website files | Proof graph with service-specific adapters. |
-| DID Core | DID document defines verification methods and services | DID method resolution | Verification method and service endpoint are separate concepts. |
-| Verifiable Credentials | Issuer makes a claim about a subject | Credential exchange or registry | Attestation is distinct from target control. |
-| Ethereum Attestation Service | Structured attestations by issuers | Onchain or offchain attestations | Useful optional trust layer, not neutral base verification. |
-| Farcaster | FIDs, signers, usernames, and verified addresses | Protocol messages and contracts | Good model for scoped signers and address-control proofs. |
-| Unstoppable Domains | Domain records resolve to wallets/profile data | UD resolution | Records are useful, but target control is app-specific. |
-| OpenAlias | DNS TXT maps names to cryptocurrency addresses | DNS TXT, optionally DNSSEC | DNS can publish payment records but does not prove recipient identity. |
-| Handshake | Decentralized DNS root zone | Handshake blockchain and DNS records | Decentralized namespace control is still not arbitrary record verification. |
-| Namecoin | Blockchain key/value names for DNS and identities | Namecoin blockchain | Secure publication of values does not make the values true. |
+| System                       | What Is Verified                                       | Proof Location                       | Main Lesson                                                                 |
+| ---------------------------- | ------------------------------------------------------ | ------------------------------------ | --------------------------------------------------------------------------- |
+| ACME                         | Control of a DNS identifier for certificate issuance   | HTTP, DNS, or TLS challenge          | Short-lived challenges and precise identifier scope.                        |
+| DNSSEC                       | Authenticity of DNS data from a signed zone            | DNS records and signatures           | Authentication of records is not the same as safety.                        |
+| AT Protocol handles          | A domain handle maps to a DID                          | DNS TXT or HTTPS well-known file     | Deterministic bidirectional handle resolution.                              |
+| Mastodon verified links      | Profile links back to the Mastodon profile             | Website `rel="me"` link              | Simple reciprocal proof, weak against page compromise.                      |
+| Nostr NIP-05                 | Internet identifier maps to a public key               | HTTPS well-known JSON                | Easy discovery, target-side host is the trust anchor.                       |
+| Keybase                      | User controls social, web, DNS, or crypto accounts     | Public posts, DNS TXT, website files | Proof graph with service-specific adapters.                                 |
+| DID Core                     | DID document defines verification methods and services | DID method resolution                | Verification method and service endpoint are separate concepts.             |
+| Verifiable Credentials       | Issuer makes a claim about a subject                   | Credential exchange or registry      | Attestation is distinct from target control.                                |
+| Ethereum Attestation Service | Structured attestations by issuers                     | Onchain or offchain attestations     | Useful optional trust layer, not neutral base verification.                 |
+| Farcaster                    | FIDs, signers, usernames, and verified addresses       | Protocol messages and contracts      | Good model for scoped signers and address-control proofs.                   |
+| Unstoppable Domains          | Domain records resolve to wallets/profile data         | UD resolution                        | Records are useful, but target control is app-specific.                     |
+| OpenAlias                    | DNS TXT maps names to cryptocurrency addresses         | DNS TXT, optionally DNSSEC           | DNS can publish payment records but does not prove recipient identity.      |
+| Handshake                    | Decentralized DNS root zone                            | Handshake blockchain and DNS records | Decentralized namespace control is still not arbitrary record verification. |
+| Namecoin                     | Blockchain key/value names for DNS and identities      | Namecoin blockchain                  | Secure publication of values does not make the values true.                 |
 
 ## ACME
 

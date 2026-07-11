@@ -10,14 +10,14 @@ resolver value. It does not claim external target participation.
 
 ## Profile
 
-| Property | Value |
-| --- | --- |
-| Relationship | `authorization` |
-| Records | Any supported selector |
-| Freshness | `portable-signed` |
-| Descriptor | `ensrv1 a=1 m=authority-signature.v1 u=<uri> [h=<hash>]` |
-| Maximum claim lifetime | 90 days |
-| Target | Empty string |
+| Property               | Value                                                    |
+| ---------------------- | -------------------------------------------------------- |
+| Relationship           | `authorization`                                          |
+| Records                | Any supported selector                                   |
+| Freshness              | `portable-signed`                                        |
+| Descriptor             | `ensrv1 a=1 m=authority-signature.v1 u=<uri> [h=<hash>]` |
+| Maximum claim lifetime | 90 days                                                  |
+| Target                 | Empty string                                             |
 
 The method is useful when resolver-writing authority is delegated but exact-name
 authority must explicitly approve a security-sensitive value. It is also the

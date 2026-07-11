@@ -9,7 +9,7 @@ type Page =
   | { path: '/docs/guides/publish-a-verification'; render: 'static' }
   | { path: '/docs/guides/wallet-and-ui-guidelines'; render: 'static' }
   | { path: '/docs/methods/account-signature'; render: 'static' }
-  | { path: '/docs/methods/contenthash-binding'; render: 'static' }
+  | { path: '/docs/methods/authority-signature'; render: 'static' }
   | { path: '/docs/methods/dns-txt'; render: 'static' }
   | { path: '/docs/methods/https-origin'; render: 'static' }
   | { path: '/docs/methods/issuer-attestation'; render: 'static' }
