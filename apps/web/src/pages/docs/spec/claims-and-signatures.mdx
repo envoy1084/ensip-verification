@@ -1,69 +1,42 @@
 ---
 title: Claims and Signatures
-description: Strict EIP-712 claim, raw value hashing, proof keys, and CAIP targets.
+description: Common EIP-712 claim, proof key, and signature encodings.
 ---
 
 # Claims and Signatures
 
-## Strict Common Claim
+Every concrete method uses the same common claim. Method-specific evidence
+commits to its EIP-712 digest.
 
-Every proof uses exactly this EIP-712 type:
+## Common Claim
 
-```solidity
-ENSRecordVerification(
-  string name,
-  bytes32 node,
-  string recordType,
-  string recordKey,
-  bytes32 valueHash,
-  uint32 authorityVersion,
-  string method,
-  string target,
-  uint64 issuedAt,
-  uint64 validUntil
-)
-```
-
-The type MUST NOT be extended, reordered, renamed, or partially signed. A method
-that needs additional signed data defines a separate signature that binds the
-common claim digest.
-
-## Field Rules
-
-| Field              | Rule                                                                                    |
-| ------------------ | --------------------------------------------------------------------------------------- |
-| `name`             | ENSIP-15 normalized name. Invalid names fail before resolution.                         |
-| `node`             | `namehash(name)`.                                                                       |
-| `recordType`       | `text`, `addr`, `contenthash`, `data`, or a future registered type.                     |
-| `recordKey`        | Text/data key, canonical decimal coin type, or empty for contenthash.                   |
-| `valueHash`        | `keccak256` of exact live resolver bytes.                                               |
-| `authorityVersion` | Descriptor `a` as an unsigned integer.                                                  |
-| `method`           | Exact descriptor method.                                                                |
-| `target`           | Method-defined canonical target; empty only when the method defines no external target. |
-| `issuedAt`         | Signer-asserted Unix issuance time used to bound the signed validity interval.          |
-| `validUntil`       | First Unix timestamp at which the proof is invalid.                                     |
-
-The base maximum claim lifetime is 90 days. Methods MAY define a lower maximum.
-Verifiers allow at most 5 minutes of future clock skew for `issuedAt`.
-
-## Raw Resolver-value Hashing
+The exact EIP-712 type string is:
 
 ```text
-valueHash = keccak256(valueBytes)
+ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,string method,string target,uint64 issuedAt,uint64 validUntil)
 ```
 
-| Record type   | `valueBytes`                                            |
-| ------------- | ------------------------------------------------------- |
-| `text`        | Exact UTF-8 bytes returned by `text`.                   |
-| `addr`        | Native binary bytes returned by `addr(node, coinType)`. |
-| `contenthash` | Raw bytes returned by `contenthash`.                    |
-| `data`        | Raw bytes returned by `data`.                           |
+The type is closed. Do not add, remove, rename, or reorder fields.
 
-Target canonicalization never replaces raw value binding.
+| Field              | Source                                             |
+| ------------------ | -------------------------------------------------- |
+| `name`             | ENSIP-15 normalized input name.                    |
+| `node`             | `namehash(name)`.                                  |
+| `recordType`       | Selected resolver record type.                     |
+| `recordKey`        | Exact selector key or canonical numeric parameter. |
+| `valueHash`        | Keccak-256 of exact live resolver return bytes.    |
+| `authorityVersion` | Descriptor field `a`.                              |
+| `method`           | Descriptor field `m`.                              |
+| `target`           | Canonical value derived by the method.             |
+| `issuedAt`         | Signer-asserted Unix time in seconds.              |
+| `validUntil`       | First invalid Unix time in seconds.                |
 
-## EIP-712 Domain
+`issuedAt` and `validUntil` are JSON decimal strings and EIP-712 unsigned
+integers. Reject signs, whitespace, leading zeroes, and values outside `uint64`.
 
-For ENS on Ethereum mainnet:
+## Domain
+
+Authority Algorithm 1 on Ethereum mainnet uses:
 
 ```text
 name:              ENS Record Verification
@@ -72,24 +45,21 @@ chainId:           1
 verifyingContract: 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
 ```
 
-`verifyingContract` is the long-lived Universal Resolver proxy used as stable
-domain separation. It does not execute signature verification and no new
-contract is required. Future authority semantics allocate a new signed
-`authorityVersion`; old clients reject unsupported versions.
+The Universal Resolver address is a domain-separation anchor. It does not
+validate the signature.
 
 ## Authority Signature
 
-The envelope contains one `authoritySignature` byte string.
+For an EOA, accept only a 65-byte secp256k1 signature with canonical low `s` and
+`v` equal to 27 or 28. EIP-2098 compact signatures are not accepted by version
 
-- If current authority is an EOA, require a 65-byte secp256k1 signature over the
-  EIP-712 digest, canonical low `s`, and `v` equal to 27 or 28.
-- If current authority is a contract, call ERC-1271
-  `isValidSignature(digest, signature)` at the evaluation block and require
-  `0x1626ba7e`.
+1.
+
+For a contract, call ERC-1271 `isValidSignature(digest, signature)` at the
+evaluation block. Accept only `0x1626ba7e`. Treat a revert, malformed return, or
+other value as `authority_signature_invalid`.
 
 ## Proof Key
-
-Methods that use deterministic publication identify the record-method slot:
 
 ```solidity
 PROOF_KEY_TYPEHASH = keccak256(
@@ -99,35 +69,47 @@ PROOF_KEY_TYPEHASH = keccak256(
 proofKey = keccak256(
   abi.encode(
     PROOF_KEY_TYPEHASH,
-    eip712DomainSeparator,
+    domainSeparator,
     authorityVersion,
     node,
     keccak256(bytes(recordType)),
     keccak256(bytes(recordKey)),
     keccak256(bytes(method))
   )
-)
+);
 ```
 
-The proof key intentionally excludes value and time so the publication location
-remains stable across renewal and record rotation. Domain and authority version
-prevent cross-deployment and cross-authority-algorithm collisions.
+Encode all strings as exact UTF-8 bytes. `node` already commits to the normalized
+name. The key excludes record value and timestamps so one publication location
+can be reused for renewal and record rotation.
 
-## CAIP-10 Account Targets
+## Proof Envelope
 
-`account-signature.eip155.v1` uses a protocol-canonical CAIP-10 account ID.
-
-Initial EVM mappings:
-
-```text
-coinType 60
-  -> eip155:1:<lowercase-0x-address>
-
-coinType = 0x80000000 | chainId
-  -> eip155:<chainId>:<lowercase-0x-address>
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+    "recordType": "text",
+    "recordKey": "url",
+    "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
+    "authorityVersion": "1",
+    "method": "https-origin.v1",
+    "target": "https://example.com",
+    "issuedAt": "1783728000",
+    "validUntil": "1786320000"
+  },
+  "authoritySignature": "0x...",
+  "methodProof": {}
+}
 ```
 
-The account address is exactly `0x` plus 40 lowercase hexadecimal digits.
-Checksum display is separate. Other coin types require a registered account
-profile defining CAIP-2 chain selection, CAIP-10 canonicalization, and signature
-verification.
+The envelope and claim are closed objects. Detect duplicate members before
+constructing a map. `methodProof` is a method-defined closed object.
+
+The JSON bytes are not signed. Parse the claim, validate every field against
+live inputs, and encode the resulting values as EIP-712.
+
+See the [schema reference](../reference/schemas) and
+[cryptographic vector](../reference/test-vectors).

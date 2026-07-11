@@ -1,55 +1,60 @@
 ---
 title: Method Profiles
-description: Method registry, status, requirements, and evolution rules.
+description: Concrete method registry and common profile requirements.
 ---
 
 # Method Profiles
 
-A method defines target derivation and evidence beyond current ENS resolution.
+A method derives the claim target and validates evidence in addition to the
+common authority signature. Descriptors contain one concrete method identifier.
 
-## Initial Registry
+## Registry
 
-| Method                                                | Relationship    | Status                | Records                         |
-| ----------------------------------------------------- | --------------- | --------------------- | ------------------------------- |
-| [`authority-signature.v1`](./authority-signature)     | `authorization` | Normative             | Any supported selector          |
-| [`https-origin.v1`](./https-origin)                   | `control`       | Normative             | HTTPS URL text records          |
-| [`dns-txt.*.v1`](./dns-txt)                           | `control`       | Normative with DNSSEC | Profile-specific domain records |
-| [`account-signature.eip155.v1`](./account-signature)  | `control`       | Normative             | Unambiguous EVM address records |
-| [`service-account.<provider>`](./service-account)     | `control`       | Abstract family       | Provider account records        |
-| [`issuer-attestation.<format>`](./issuer-attestation) | `attestation`   | Abstract family       | Format-defined                  |
+| Identifier                                           | Selectors                    | Relationship    | `u`       | `h`       | Maximum lifetime |
+| ---------------------------------------------------- | ---------------------------- | --------------- | --------- | --------- | ---------------- |
+| [`authority-signature.v1`](./authority-signature)    | Any supported selector       | `authorization` | Required  | Permitted | 90 days          |
+| [`https-origin.v1`](./https-origin)                  | HTTPS URL text records       | `control`       | Forbidden | Forbidden | 30 days          |
+| [`dns-txt.url.v1`](./dns-txt)                        | `text("url")`                | `control`       | Required  | Required  | 30 days          |
+| [`dns-txt.email-domain.v1`](./dns-txt)               | `text("email")`              | `control`       | Required  | Required  | 30 days          |
+| [`dns-txt.https-endpoint.v1`](./dns-txt)             | HTTPS `agent-endpoint[...]`  | `control`       | Required  | Required  | 30 days          |
+| [`account-signature.eip155.v1`](./account-signature) | Supported EVM `addr` records | `control`       | Required  | Permitted | 90 days          |
 
-Abstract family names and unversioned names are invalid descriptor methods.
+This is a closed registry for version 1. Generic identifiers such as
+`dns-txt`, `service-account`, and `issuer-attestation` are not concrete methods.
 
-## Profile Requirements
+## Common Processing
 
-Every concrete method defines:
+Every method receives a context that has already passed:
 
-- immutable identifier and status;
-- supported record selectors;
-- relationship;
+1. ENSIP-15 name normalization;
+2. same-block target and descriptor resolution;
+3. descriptor parsing and method selection;
+4. strict proof-envelope parsing;
+5. exact common-claim comparison;
+6. current exact-name authority validation;
+7. common claim lifetime validation.
+
+The method then:
+
+1. validates selector compatibility;
+2. derives one canonical target;
+3. validates its closed `methodProof` object or live publication;
+4. returns its fixed relationship and method freshness bound.
+
+Method identifiers are immutable. An incompatible target derivation, proof
+format, or validation rule requires a new identifier.
+
+## Registering Another Method
+
+A new concrete method specification must define:
+
+- identifier and supported selectors;
 - descriptor field policy;
-- target derivation;
-- proof location and closed schema;
-- binding of every signed or attested method proof to the complete common claim
-  digest;
-- maximum claim lifetime;
-- freshness and cache limits;
+- exact target derivation;
+- proof location and closed proof schema;
+- binding to the complete common claim digest;
+- signature, issuer, or publication validation;
+- maximum lifetime and cache bounds;
 - revocation behavior;
-- fetch and privacy behavior;
 - error mapping;
-- allowed and forbidden UI language;
-- positive and negative vectors.
-
-## Version Axes
-
-These versions have separate meanings:
-
-| Version                | Controls                                          |
-| ---------------------- | ------------------------------------------------- |
-| `ensrv1`               | Descriptor and common envelope grammar.           |
-| `authorityVersion`     | Exact-name authority lookup and expiry algorithm. |
-| EIP-712 domain version | Common signature protocol.                        |
-| Method suffix          | Immutable target-evidence algorithm.              |
-
-Unknown versions fail closed. A verifier never falls back to an older method or
-descriptor interpretation.
+- conformance vectors.

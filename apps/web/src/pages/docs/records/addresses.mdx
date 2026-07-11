@@ -1,34 +1,73 @@
 ---
-title: Address Records
-description: Exact value authorization and CAIP-10 EVM account control.
+title: Verifying Address Records
+description: Complete flow for ENS address authorization and EVM account control.
 ---
 
-# Address Records
+# Verifying Address Records
 
-Example:
+## Overview
+
+Address verification binds exact native resolver bytes to current ENS authority.
+Supported EVM records may additionally require a target-account signature.
+
+## When To Use This Method
+
+Use `authority-signature.v1` for authority authorization only. Use
+`account-signature.eip155.v1` when the target EVM account can sign the complete
+common claim.
+
+## Records To Set
 
 ```text
 addr(60) = 0x1234567890abcdef1234567890abcdef12345678
-text("verification[addr][60]") =
-  "ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/p/1"
+text("verification[addr][60]") = "ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/alice-address.json"
 ```
 
-Supported methods:
+## Proof To Publish
 
-| Method                        | Relationship    | Evidence                                                                 |
-| ----------------------------- | --------------- | ------------------------------------------------------------------------ |
-| `authority-signature.v1`      | `authorization` | Current ENS authority signed exact native address bytes.                 |
-| `account-signature.eip155.v1` | `control`       | Target EVM account signed a target-chain proof binding the common claim. |
+Publish the common envelope at descriptor `u`. Include:
 
-Supported EVM mappings:
+```json
+{
+  "methodProof": {
+    "targetSignature": "0x<signature>"
+  }
+}
+```
+
+The common claim target is:
 
 ```text
-coinType 60 -> eip155:1
-coinType 0x80000000 | chainId -> eip155:<chainId>
+eip155:1:0x1234567890abcdef1234567890abcdef12345678
 ```
 
-The default EVM coin type `0x80000000`, ambiguous legacy EVM SLIP-44 types, and
-non-EVM accounts require separate future profiles.
+## Verification Flow
 
-The result proves account signing control under the profile. It does not prove
-safe recipient, identity, solvency, custody, or absence of malicious activity.
+1. Resolve the exact address bytes and descriptor.
+2. Hash the native address bytes.
+3. Map coin type 60 to `eip155:1`.
+4. Derive the CAIP-10 target.
+5. Fetch and validate the common envelope.
+6. Validate current ENS authority signature.
+7. Validate the target-account signature on Ethereum.
+8. Apply lifecycle checks and return `verified/control`.
+
+## Failure Cases
+
+| Condition                               | Result                      |
+| --------------------------------------- | --------------------------- |
+| Unsupported coin type or address length | `none/unsupported_record`   |
+| Derived CAIP-10 account differs         | `none/target_mismatch`      |
+| Target-chain RPC unavailable            | `none/proof_unavailable`    |
+| Target signature invalid                | `none/target_proof_invalid` |
+
+## Example
+
+Coin type 60 maps to Ethereum mainnet. ENSIP-11 coin type
+`0x80000001` also maps to chain ID 1. Both require exactly 20 address bytes and
+produce the same CAIP-10 account target for the same bytes.
+
+## Security Notes
+
+Account control does not establish that the account is uncompromised, safe to
+pay, or legally owned by the current ENS authority.

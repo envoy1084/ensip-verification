@@ -12,9 +12,7 @@ type Page =
   | { path: '/docs/methods/authority-signature'; render: 'static' }
   | { path: '/docs/methods/dns-txt'; render: 'static' }
   | { path: '/docs/methods/https-origin'; render: 'static' }
-  | { path: '/docs/methods/issuer-attestation'; render: 'static' }
   | { path: '/docs/methods/overview'; render: 'static' }
-  | { path: '/docs/methods/service-account'; render: 'static' }
   | { path: '/docs/quickstart'; render: 'static' }
   | { path: '/docs/records/addresses'; render: 'static' }
   | { path: '/docs/records/agent-endpoints'; render: 'static' }

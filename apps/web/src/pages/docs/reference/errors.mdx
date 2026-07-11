@@ -1,39 +1,37 @@
 ---
 title: Error Reference
-description: Stable errors, precedence, and retry behavior.
+description: Canonical verification errors, precedence, and retry categories.
 ---
 
 # Error Reference
 
-Use the first applicable observable error. Implementations may reorder internal
-work to enforce privacy and network safety.
+Every error produces public status `none`. Use the first applicable row.
 
-| Order | Error                         | Retryable             | Meaning                                                     |
-| ----: | ----------------------------- | --------------------- | ----------------------------------------------------------- |
-|     1 | `invalid_request`             | No                    | Invalid name or selector.                                   |
-|     2 | `unsupported_record`          | Capability change     | Record profile unsupported.                                 |
-|     3 | `resolution_unavailable`      | Yes                   | ENS/RPC/CCIP resolution unavailable.                        |
-|     4 | `record_missing`              | Yes                   | Live target empty or absent.                                |
-|     5 | `not_configured`              | Yes                   | Descriptor empty or absent.                                 |
-|     6 | `invalid_descriptor`          | No                    | Descriptor malformed or contains unknown/duplicate fields.  |
-|     7 | `unsupported_version`         | Capability change     | Descriptor or authority version unsupported.                |
-|     8 | `unsupported_method`          | Capability change     | Concrete method unsupported.                                |
-|     9 | `privacy_blocked`             | Policy change         | Required retrieval forbidden.                               |
-|    10 | `proof_unavailable`           | Yes                   | Proof retrieval failed.                                     |
-|    11 | `proof_integrity_mismatch`    | No                    | Pinned body hash differs.                                   |
-|    12 | `proof_invalid`               | No                    | Envelope or method object invalid.                          |
-|    13 | `claim_mismatch`              | No                    | Name, node, selector, authority version, or method differs. |
-|    14 | `value_mismatch`              | No                    | Live raw value hash differs.                                |
-|    15 | `target_mismatch`             | No                    | Canonical target differs.                                   |
-|    16 | `not_yet_valid`               | Time                  | `issuedAt` exceeds allowed skew.                            |
-|    17 | `expired`                     | Proof change          | Applicable validity bound reached.                          |
-|    18 | `unsupported_authority`       | ENS/capability change | Exact authority cannot be authenticated.                    |
-|    19 | `authority_signature_invalid` | No                    | Current exact authority rejected signature.                 |
-|    20 | `target_proof_invalid`        | No                    | Method target evidence failed.                              |
-|    21 | `insecure_dns`                | DNS configuration     | DNSSEC requirement not met.                                 |
-|    22 | `revocation_unavailable`      | Yes                   | Required revocation status unavailable.                     |
-|    23 | `revoked`                     | No                    | Required status reports revocation.                         |
-|    24 | `untrusted_issuer`            | Policy change         | Issuer rejected by client policy.                           |
+| Order | Error                         | Stage          | Retry category    | Condition                                                   |
+| ----: | ----------------------------- | -------------- | ----------------- | ----------------------------------------------------------- |
+|     1 | `invalid_request`             | Input          | Never             | Name or selector is invalid.                                |
+|     2 | `unsupported_record`          | Input          | Capability        | Target selector is unsupported.                             |
+|     3 | `resolution_unavailable`      | ENS resolution | Transient         | ENS, RPC, or CCIP resolution failed.                        |
+|     4 | `record_missing`              | ENS resolution | State change      | Target resolver record is empty.                            |
+|     5 | `not_configured`              | ENS resolution | State change      | Verification descriptor is empty.                           |
+|     6 | `invalid_descriptor`          | Descriptor     | Never             | Descriptor syntax or fields are invalid.                    |
+|     7 | `unsupported_version`         | Dispatch       | Capability        | Descriptor or authority version is unsupported.             |
+|     8 | `unsupported_method`          | Dispatch       | Capability        | Concrete method is unsupported.                             |
+|     9 | `privacy_blocked`             | Policy         | Policy            | Required retrieval is forbidden.                            |
+|    10 | `proof_unavailable`           | Retrieval      | Transient         | Required proof cannot be retrieved.                         |
+|    11 | `proof_integrity_mismatch`    | Integrity      | State change      | Proof bytes do not match descriptor `h`.                    |
+|    12 | `proof_invalid`               | Parsing        | Never             | Envelope or method proof is malformed.                      |
+|    13 | `claim_mismatch`              | Claim          | State change      | Name, node, selector, authority version, or method differs. |
+|    14 | `value_mismatch`              | Claim          | State change      | Live resolver bytes do not match `valueHash`.               |
+|    15 | `target_mismatch`             | Method         | State change      | Derived target differs from claim target.                   |
+|    16 | `not_yet_valid`               | Lifecycle      | Time              | `issuedAt` exceeds allowed clock skew.                      |
+|    17 | `expired`                     | Lifecycle      | State change      | An applicable validity bound has been reached.              |
+|    18 | `unsupported_authority`       | Authority      | ENS/capability    | Exact authority cannot be authenticated.                    |
+|    19 | `authority_signature_invalid` | Authority      | State change      | Current ENS authority rejects the signature.                |
+|    20 | `target_proof_invalid`        | Method         | State change      | Method target evidence does not validate.                   |
+|    21 | `insecure_dns`                | DNS method     | DNS configuration | Required DNSSEC validation does not succeed.                |
+|    22 | `revocation_unavailable`      | Revocation     | Transient         | Required revocation status is unavailable.                  |
+|    23 | `revoked`                     | Revocation     | State change      | Required status reports revocation.                         |
+|    24 | `untrusted_issuer`            | Policy         | Policy            | Client policy rejects the issuer.                           |
 
-Public status remains `none` for every row. Retryability and debug cause let
-applications distinguish checked-invalid from unavailable or not checked.
+Retry category is diagnostic. It does not create another public status.

@@ -1,65 +1,28 @@
 ---
 title: Glossary
-description: Normative protocol terms.
+description: Protocol terminology.
 ---
 
 # Glossary
 
-## Target Record
-
-Existing ENS resolver record being evaluated.
-
-## Record Selector
-
-Resolver profile and key or parameter, such as `text("url")`, `addr(60)`, or
-`contenthash()`.
-
-## Verification Record
-
-ENSIP-5 text record whose key identifies a target selector and whose value is a
-descriptor.
-
-## Descriptor
-
-Closed ASCII value such as:
-
-```text
-ensrv1 a=1 m=https-origin.v1
-```
-
-## Authority Version
-
-Numeric exact-name authority lookup and expiry algorithm signed by the claim.
-
-## Method
-
-Immutable target derivation and evidence algorithm.
-
-## Proof Key
-
-Stable, domain-separated publication slot for one name, selector, authority
-version, and method.
-
-## Authorization
-
-Current exact-name authority signed the exact live resolver value.
-
-## Control
-
-Authorization plus participation by the method-defined external target.
-
-## Attestation
-
-Authorization plus an issuer statement accepted by client policy.
-
-## Evaluation Block
-
-One block number/hash used for all ENS reads in an evaluation.
-
-## Effective Validity
-
-Earliest applicable claim, authority, method proof, issuer, or method expiry.
-
-## Cache Until
-
-Latest time a cached positive result may be reused for its permitted context.
+| Term                    | Definition                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| Target resolver record  | Existing ENS resolver record being evaluated.                                |
+| Record selector         | Resolver function and its exact key or numeric parameter.                    |
+| Verification record     | ENSIP-5 text record containing a verification descriptor.                    |
+| Verification descriptor | Compact value selecting authority version, method, and proof resource.       |
+| Common claim            | Closed EIP-712 claim shared by all methods.                                  |
+| Current ENS authority   | Exact-name account selected by the signed authority algorithm.               |
+| Authority version       | Numeric identifier for a current-ENS-authority algorithm.                    |
+| Method profile          | Algorithm defining target derivation and method evidence.                    |
+| Target                  | Method-canonical value bound by the common claim.                            |
+| Proof resource          | External bytes containing the common proof envelope.                         |
+| Proof key               | Deterministic publication-slot identifier for a selector and method.         |
+| Live evaluation         | Evaluation against current resolver, authority, method, and lifecycle state. |
+| Evaluation block        | Block reference used for ENS and authority reads in one evaluation.          |
+| `valueHash`             | Keccak-256 of exact live resolver return bytes.                              |
+| `effectiveValidUntil`   | Earliest applicable semantic expiry.                                         |
+| `cacheUntil`            | Latest time a completed evaluation may be reused.                            |
+| Authorization           | Current ENS authority signed the exact live record.                          |
+| Control                 | Authorization plus evidence from the method target.                          |
+| Attestation             | Authorization plus evidence from an issuer accepted by client policy.        |

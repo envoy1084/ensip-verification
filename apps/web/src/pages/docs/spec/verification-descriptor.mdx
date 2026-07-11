@@ -1,12 +1,21 @@
 ---
 title: Verification Descriptor
-description: Closed descriptor grammar, proof pointers, and integrity rules.
+description: Descriptor grammar, parsing, and proof-resource fields.
 ---
 
 # Verification Descriptor
 
-The descriptor is the compact value stored in the verification text record.
-Proof payloads remain offchain.
+A verification text record contains one descriptor:
+
+```text
+ensrv1 a=<authority-version> m=<method> [u=<uri>] [h=<hash>]
+```
+
+Example:
+
+```text
+ensrv1 a=1 m=https-origin.v1
+```
 
 ## Grammar
 
@@ -17,93 +26,49 @@ field-name  = 1*(%x61-7A / %x30-39 / "-")
 field-value = 1*(%x21-7E)
 ```
 
-The complete version-one form is:
-
-```text
-ensrv1 a=<authority-version> m=<method> [u=<uri>] [h=<hash>]
-```
-
-No other fields are defined.
+Split each field on its first `=`. Descriptors are ASCII and are not signed.
+Whitespace has no semantic meaning beyond separating fields. Generators emit
+one `SP` and field order `a`, `m`, `u`, `h`.
 
 ## Fields
 
-| Field | Rule                                                                                            |
-| ----- | ----------------------------------------------------------------------------------------------- |
-| `a`   | Required exactly once. Canonical unsigned decimal authority version. Version 1 is defined here. |
-| `m`   | Required exactly once. Immutable method identifier.                                             |
-| `u`   | Absolute proof URI under method scheme rules.                                                   |
-| `h`   | Lowercase `0x`-prefixed 32-byte `keccak256` hash.                                               |
+| Field | Format                            | Meaning                           |
+| ----- | --------------------------------- | --------------------------------- |
+| `a`   | `uint32` in canonical decimal     | Authority algorithm version.      |
+| `m`   | `[a-z0-9][a-z0-9.-]{0,63}`        | Concrete method identifier.       |
+| `u`   | Absolute URI, maximum 1,024 bytes | Method-defined proof resource.    |
+| `h`   | `0x` plus 64 lowercase hex digits | Keccak-256 of decoded body bytes. |
 
-Method identifiers match:
+`a` and `m` occur exactly once. Method profiles specify whether `u` and `h` are
+required, permitted, or forbidden.
 
-```text
-[a-z0-9][a-z0-9.-]{0,63}
-```
+## Parser Procedure
 
-## Parser Rules
+1. Reject input longer than 2,048 bytes.
+2. Reject non-ASCII input or control characters.
+3. Require the first token to equal `ensrv1`.
+4. Parse every remaining token as one `name=value` field.
+5. Reject empty names or values.
+6. Reject duplicate or unknown fields.
+7. Parse `a` as canonical decimal `uint32`.
+8. Validate `m`, `u`, and `h` lexical form.
+9. Apply the selected method's field policy.
 
-A parser MUST reject:
+Unknown descriptor versions, authority versions, and concrete methods fail
+closed. Do not ignore an unknown field or retry under an older interpretation.
 
-- a version token other than `ensrv1`;
-- missing or duplicate `a` or `m`;
-- duplicate fields;
-- unknown fields;
-- empty field names or values;
-- non-ASCII bytes;
-- control characters or spaces in values;
-- non-canonical or unsupported `a`;
-- malformed `h`;
-- a descriptor longer than 2,048 bytes;
-- a `u` value longer than 1,024 bytes.
+## Proof Hash
 
-Unknown fields are invalid. Older clients must not ignore a future
-security-critical constraint. Compatible metadata belongs in the proof payload;
-incompatible descriptor changes require a new version.
-
-## Method Requirements
-
-Each method declares one descriptor shape:
-
-| Shape     | Meaning                                                        |
-| --------- | -------------------------------------------------------------- |
-| `a m`     | Proof location is derived or no external resource is required. |
-| `a m u`   | Descriptor selects a resource authenticated by signed content. |
-| `a m u h` | Descriptor additionally selects exact resource bytes.          |
-| `a m h`   | Derived proof location with ENS-side exact-byte selection.     |
-
-Examples:
+When `h` is present:
 
 ```text
-ensrv1 a=1 m=https-origin.v1
-ensrv1 a=1 m=authority-signature.v1 u=https://proofs.example/p/123
-ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/p/456 h=0xabcd...
+keccak256(proofResourceBytes) == h
 ```
 
-## Proof Bytes
+`proofResourceBytes` is the HTTP body after transfer and content decoding and
+before UTF-8 decoding or JSON parsing. Re-serializing JSON changes these bytes
+and therefore changes `h`.
 
-`h` hashes the retrieved response body after transfer decoding and content
-decoding, before UTF-8 decoding or JSON parsing:
-
-```text
-h = keccak256(proofResourceBytes)
-```
-
-HTTP headers, chunk framing, and compressed transfer bytes are not included.
-The fetcher MUST reject transparent transformations that prevent reconstruction
-of the pinned body bytes.
-
-## Fetch Limits
-
-Common minimum requirements:
-
-- only method-approved URI schemes;
-- no loopback, private, link-local, multicast, or reserved network targets;
-- DNS rebinding checks on every connection and redirect;
-- at most 3 redirects;
-- at most 10 seconds total request time;
-- at most 256 KiB decoded proof bytes;
-- bounded decompression ratio;
-- valid TLS for HTTPS;
-- no `file:`, `data:`, or local IPC schemes.
-
-Method profiles MAY be stricter.
+See [Method Profiles](../methods/overview) for descriptor field requirements and
+[Build a Verifier](../guides/build-a-verifier#proof-retrieval) for retrieval
+limits.

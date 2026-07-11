@@ -1,108 +1,164 @@
 ---
-title: DNS TXT Methods
-description: DNSSEC-authenticated control profiles for domain-derived records.
+title: DNS TXT Method Profiles
+description: DNSSEC-authenticated publication for domain-derived records.
 ---
 
-# DNS TXT Methods
+# Method: `dns-txt.*.v1`
 
-These methods verify that current exact-name authority authorized a record and
-the record-derived DNS zone publishes the selected proof hash under DNSSEC.
+## Purpose
 
-## Concrete Profiles
+The DNS TXT profiles verify that a DNSSEC-authenticated zone publishes the hash
+of a proof for a live ENS resolver record. They produce `verified/control`.
 
-| Identifier                  | Selector and target source                                 |
-| --------------------------- | ---------------------------------------------------------- |
-| `dns-txt.url.v1`            | `text("url")`; absolute HTTPS URL DNS host                 |
-| `dns-txt.email-domain.v1`   | `text("email")`; mailbox domain                            |
-| `dns-txt.https-endpoint.v1` | `text("agent-endpoint[...]")`; absolute HTTPS URL DNS host |
+## Supported Records
 
-Common properties:
+| Method                      | Target resolver record      | Domain source          |
+| --------------------------- | --------------------------- | ---------------------- |
+| `dns-txt.url.v1`            | `text("url")`               | HTTPS URL host         |
+| `dns-txt.email-domain.v1`   | `text("email")`             | Domain after final `@` |
+| `dns-txt.https-endpoint.v1` | HTTPS `agent-endpoint[...]` | HTTPS URL host         |
 
-| Property               | Value                                     |
-| ---------------------- | ----------------------------------------- |
-| Relationship           | `control`                                 |
-| Freshness              | `live-publication`                        |
-| Descriptor             | `ensrv1 a=1 m=<profile> u=<uri> h=<hash>` |
-| Maximum claim lifetime | 30 days                                   |
-| Maximum DNS cache      | `min(validated TTL, 5 minutes)`           |
+URL profiles reject IP-address hosts. The email profile verifies only the
+domain, not the mailbox or local part.
 
-The generic identifier `dns-txt` is invalid.
+## Discovery Descriptor
 
-## Target Derivation
-
-URL and endpoint profiles use the `https-origin.v1` URL parser and require a DNS
-host; IP literals are unsupported.
-
-The email profile requires exactly one final `@`, a non-empty local part, no
-display name or comments, and a valid IDNA domain. The method verifies domain
-control, not mailbox control.
-
-Convert the domain to lowercase ASCII, remove one trailing root dot, and require
-valid DNS wire length. The claim target is:
+The descriptor requires `u` and `h`:
 
 ```text
-dns:<ascii-domain>
+ensrv1 a=1 m=dns-txt.url.v1 u=https://proofs.example/alice-url.json h=0x<64-lowercase-hex>
 ```
 
-## TXT Owner And Value
+## Publisher Flow
 
-Encode `proofKey` as lowercase RFC 4648 base32 without padding, producing 52
-characters. Query:
+1. Resolve the live target resolver record.
+2. Derive the lowercase ASCII DNS domain and claim target.
+3. Construct the common claim with a lifetime no longer than 30 days.
+4. Sign the claim with current ENS authority.
+5. Publish the envelope at descriptor `u`.
+6. Calculate `h` from the exact published body bytes.
+7. Calculate `proofKey` and its DNS owner name.
+8. Publish the TXT value in the derived DNS zone.
+9. Set the verification descriptor in ENS.
+
+## Proof Location
+
+Descriptor `u` contains the common envelope. DNS publishes its hash.
+
+Encode `proofKey` as lowercase, unpadded RFC 4648 base32 and query:
 
 ```text
-<base32-proof-key>._ens-record-verification.<ascii-domain> TXT
+<52-character-proof-key>._ens-record-verification.<ascii-domain> TXT
 ```
 
-Concatenate character strings only within each TXT RDATA. Exactly one protocol
-RDATA MUST exist:
+The protocol TXT RDATA is:
 
 ```text
-ensrv1 h=<lowercase-0x-proof-hash>
+ensrv1 h=<descriptor-h>
 ```
 
-The TXT `h` MUST equal descriptor `h`. No protocol RDATA returns
-`proof_unavailable`; conflicting or multiple protocol RDATA values return
-`proof_invalid`.
+## Proof Payload
 
-## DNSSEC
+The resource at `u` is the common envelope with an empty `methodProof`:
 
-The verifier MUST validate the entire answer and alias chain to an accepted
-DNSSEC trust anchor. Unsigned, bogus, indeterminate, or unvalidated DNS returns
-`none/insecure_dns` and cannot produce a control relationship.
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+    "recordType": "text",
+    "recordKey": "url",
+    "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
+    "authorityVersion": "1",
+    "method": "dns-txt.url.v1",
+    "target": "dns:example.com",
+    "issuedAt": "1783728000",
+    "validUntil": "1786320000"
+  },
+  "authoritySignature": "0x<65-byte-signature>",
+  "methodProof": {}
+}
+```
 
-Use the minimum TTL across the validated answer and CNAME/DNAME chain. Retry a
-truncated UDP response over TCP. Apply authenticated negative-cache TTLs only
-within the method's 5-minute cap.
+## Verifier Flow
 
-## Proof Resource
+1. Resolve the live target resolver record and descriptor at one block.
+2. Derive the ASCII domain and `dns:<domain>` target.
+3. Calculate `proofKey` and the TXT owner.
+4. Resolve the TXT RRset and validate its DNSSEC chain.
+5. Require exactly one matching protocol RDATA.
+6. Fetch descriptor `u` and require the body hash to equal `h`.
+7. Parse and compare the common claim.
+8. Resolve current ENS authority and validate its signature.
+9. Require an empty `methodProof`.
+10. Apply lifecycle and DNS freshness.
 
-Fetch descriptor `u`, enforce common fetch rules, and require decoded body hash
-equal to descriptor `h`. The body is the strict common envelope with empty
-`methodProof`.
+## Validation Rules
 
-## Verification
+Concatenate character strings only within each TXT RDATA. A protocol RDATA is a
+value beginning with `ensrv1 `. Ignore unrelated TXT RDATA. Reject multiple
+protocol values.
 
-1. Resolve live record and descriptor at one ENS block.
-2. Derive DNS target and `proofKey`.
-3. Resolve and DNSSEC-validate the claim-specific TXT RRset.
-4. Require exactly one matching proof hash.
-5. Fetch and hash proof bytes.
-6. Match the strict claim and verify current exact-name authority.
-7. Apply claim and DNS freshness.
-8. Return `verified/control` with `dnssec: "validated"`.
+Validate the answer and every CNAME or DNAME step to an accepted DNSSEC trust
+anchor.
 
-## Meaning
+| Check                                                 | Failure                    |
+| ----------------------------------------------------- | -------------------------- |
+| Domain cannot be derived                              | `target_mismatch`          |
+| `u` or `h` absent                                     | `invalid_descriptor`       |
+| DNS transport unavailable                             | `proof_unavailable`        |
+| DNSSEC unsigned, bogus, indeterminate, or unvalidated | `insecure_dns`             |
+| Protocol TXT absent                                   | `proof_unavailable`        |
+| Multiple protocol TXT values                          | `proof_invalid`            |
+| TXT hash or proof body differs from `h`               | `proof_integrity_mismatch` |
+
+## Result
+
+Successful validation returns `verified/control` for `dns:<ascii-domain>` and
+reports `dnssec: "validated"`.
+
+## Cache And Lifecycle
+
+Maximum claim lifetime is 30 days. `cacheUntil` uses the minimum validated TTL
+across the answer and alias chain, capped at five minutes and by
+`effectiveValidUntil`.
+
+Deleting the TXT value or proof resource invalidates live method evidence after
+the applicable cache period.
+
+## Security Considerations
+
+DNSSEC authenticates DNS data. It does not establish that a website, mailbox,
+or endpoint is safe. The email profile does not verify mailbox access.
+
+## UI Copy
 
 Allowed:
 
-```text
-DNSSEC-authenticated zone published a matching proof.
-```
+- `DNSSEC-authenticated domain published a matching proof.`
+- `Domain control verified for this ENS record.`
 
 Forbidden:
 
+- `Mailbox verified.`
+- `Official domain.`
+- `Safe domain.`
+
+## Examples
+
+URL record:
+
 ```text
-Mailbox control verified
-Official domain
-Safe domain
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=dns-txt.url.v1 u=https://proofs.example/alice-url.json h=0x<64-lowercase-hex>"
+target = dns:example.com
+```
+
+Email record:
+
+```text
+text("email") = "alice@example.com"
+text("verification[text][email]") = "ensrv1 a=1 m=dns-txt.email-domain.v1 u=https://proofs.example/alice-email.json h=0x<64-lowercase-hex>"
+target = dns:example.com
 ```

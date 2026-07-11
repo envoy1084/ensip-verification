@@ -1,71 +1,43 @@
 ---
 title: Schemas
-description: Common envelope, strict claim, and parser requirements.
+description: Proof-envelope schema and validation order.
 ---
 
 # Schemas
 
-Common JSON Schema:
+Machine-readable common schema:
+
+- <a href="/schemas/ens-record-verification-proof.schema.json">
+    ENS Record Verification proof schema
+  </a>
+
+The schema validates the common envelope and claim shape. Method profiles
+validate `methodProof` as a separate closed object.
+
+## Validation Order
+
+1. Enforce a 256 KiB decoded-body limit.
+2. Decode UTF-8 and reject a byte-order mark.
+3. Tokenize JSON and reject duplicate members at every depth.
+4. Enforce maximum depth 16, 128 members per object, and 8 KiB strings unless a
+   stricter field limit applies.
+5. Validate the common JSON Schema.
+6. Range-check canonical decimal `uint32` and `uint64` strings.
+7. Validate ENSIP-15 normalization and recompute `node`.
+8. Validate the selected method's closed `methodProof` schema.
+9. Compare every claim field with live derived values.
+10. Encode the claim as the exact EIP-712 type.
+
+Ordinary `JSON.parse` is insufficient for step 3 because it discards earlier
+duplicate members.
+
+## Signed Representation
+
+The exact common type string is:
 
 ```text
-/schemas/ens-record-verification-proof.schema.json
+ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,string method,string target,uint64 issuedAt,uint64 validUntil)
 ```
 
-## Envelope
-
-```json
-{
-  "v": "ensrv1",
-  "claim": {
-    "name": "alice.eth",
-    "node": "0x...",
-    "recordType": "text",
-    "recordKey": "url",
-    "valueHash": "0x...",
-    "authorityVersion": "1",
-    "method": "https-origin.v1",
-    "target": "https://example.com",
-    "issuedAt": "1783728000",
-    "validUntil": "1786320000"
-  },
-  "authoritySignature": "0x...",
-  "methodProof": {}
-}
-```
-
-## EIP-712 Type
-
-```solidity
-ENSRecordVerification(
-  string name,
-  bytes32 node,
-  string recordType,
-  string recordKey,
-  bytes32 valueHash,
-  uint32 authorityVersion,
-  string method,
-  string target,
-  uint64 issuedAt,
-  uint64 validUntil
-)
-```
-
-No extensions are permitted.
-
-## Parser Requirements Beyond JSON Schema
-
-Before schema validation:
-
-- reject invalid UTF-8 and BOM;
-- reject duplicate members at any depth;
-- enforce 256 KiB total bytes;
-- enforce depth 16, 128 members/object, and field string limits.
-
-After schema validation:
-
-- range-check decimal `uint32` and `uint64` strings;
-- validate ENSIP-15 name normalization;
-- validate method-specific closed `methodProof` schema;
-- encode parsed fields into the exact EIP-712 type.
-
-The JSON byte serialization is not signed or canonicalized.
+JSON bytes are not canonicalized or signed. Descriptor `h`, when present, binds
+the exact retrieved body bytes.

@@ -46,11 +46,6 @@ export default defineConfig({
         { text: "HTTPS Origin", link: "/docs/methods/https-origin" },
         { text: "DNS TXT", link: "/docs/methods/dns-txt" },
         { text: "Account Signature", link: "/docs/methods/account-signature" },
-        { text: "Service Account", link: "/docs/methods/service-account" },
-        {
-          text: "Issuer Attestation",
-          link: "/docs/methods/issuer-attestation",
-        },
       ],
     },
     {

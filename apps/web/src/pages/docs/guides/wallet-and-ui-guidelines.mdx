@@ -1,58 +1,62 @@
 ---
-title: Wallet and UI Guidelines
-description: Privacy defaults and exact relationship language.
+title: Wallet and UI Integration
+description: Retrieval policy, freshness, and permitted result language.
 ---
 
-# Wallet and UI Guidelines
+# Wallet and UI Integration
 
-## Fetch Defaults
+This page defines presentation guidance, not additional protocol states.
 
-| Context                            | Default                                                                          |
-| ---------------------------------- | -------------------------------------------------------------------------------- |
-| Passive profile                    | No direct third-party fetch; use no badge, fresh local result, or privacy proxy. |
-| User selects Verify                | `fetch-on-action`.                                                               |
-| Payment, sign-in, agent connection | Fresh ENS and method revalidation.                                               |
-| Developer tooling                  | Direct fetch allowed with full network protections.                              |
+## Retrieval Defaults
 
-`privacy_blocked` means verification was not performed. It is not proof failure.
+Do not fetch third-party proof resources during passive profile rendering by
+default. Direct retrieval reveals the ENS name, target record, IP address, and
+time of interest to the proof host.
 
-## Relationship Copy
+Recommended client modes:
 
-| Relationship/method | Recommended text                                      |
-| ------------------- | ----------------------------------------------------- |
-| `authorization`     | Current ENS authority authorized this record.         |
-| `https-origin.v1`   | HTTPS origin published a matching proof.              |
-| DNS TXT             | DNSSEC-authenticated zone published a matching proof. |
-| EVM account         | Target EVM account signed a matching proof.           |
-| Attestation         | `<issuer>` attested under `<policy>`.                 |
+| Mode              | Behavior                                                                |
+| ----------------- | ----------------------------------------------------------------------- |
+| `local-only`      | Perform no third-party request; return `privacy_blocked` when required. |
+| `fetch-on-action` | Retrieve only after an explicit verification action.                    |
+| `privacy-proxy`   | Route requests through a disclosed proxy.                               |
+| `direct`          | Retrieve directly after policy or user approval.                        |
 
-Do not use:
+## Display Contract
 
-```text
-Official
-Trusted
-Safe
-Not a scam
-Legal owner
-Identity verified
-Known recipient
-```
+| Relationship           | Permitted text                                            |
+| ---------------------- | --------------------------------------------------------- |
+| `authorization`        | “Current ENS authority authorized this record.”           |
+| `control` with HTTPS   | “HTTPS origin published a matching proof.”                |
+| `control` with DNS     | “DNSSEC-authenticated domain published a matching proof.” |
+| `control` with account | “Target account signed a matching proof.”                 |
+| `attestation`          | “Accepted issuer attested to this claim.”                 |
+
+Do not display “safe,” “official,” “trusted,” “verified owner,” “not phishing,”
+or “endorsed by ENS.”
+
+Always make the target record visible independently of the verification result.
+Do not hide an ordinary ENS record because its verification is absent, invalid,
+unsupported, expired, or unavailable.
 
 ## Failure Display
 
-Most `none` results produce no badge. Developer views may display exact error,
-retryability, block, authority source, proof source, and freshness.
-
-Distinguish:
+Most `none` results require no badge. When a user explicitly requests
+verification, distinguish:
 
 - not configured;
-- not checked because privacy policy blocked retrieval;
+- unsupported by this client;
 - temporarily unavailable;
-- checked and invalid;
-- unsupported by this client.
+- configured but invalid;
+- expired or revoked;
+- blocked by privacy policy.
 
-## Assurance
+Use the canonical error and retry category rather than inferring from exception
+text.
 
-Assurance metadata refines evidence but never creates another status or
-relationship. Show DNSSEC only when actually validated. An absent field means
-not checked or not applicable, not false.
+## Freshness
+
+Display `checkedAt` and do not present cached evidence after `cacheUntil`.
+Before a payment, signature, account binding, or agent connection, perform the
+live checks required by the selected method even if a passive display cache is
+still valid.

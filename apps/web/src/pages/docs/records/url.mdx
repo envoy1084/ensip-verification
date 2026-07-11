@@ -1,32 +1,82 @@
 ---
-title: URL Records
-description: Authorization, HTTPS-origin, and DNSSEC control options for text(url).
+title: Verifying URL Records
+description: Complete publication and verification flow for text(url).
 ---
 
-# URL Records
+# Verifying URL Records
 
-Target and descriptor:
+## Overview
+
+This guide verifies `text("url")`. Version 1 supports authority authorization,
+HTTPS-origin publication, and DNSSEC-authenticated domain publication.
+
+## When To Use This Method
+
+| Method                   | Use when                                                      |
+| ------------------------ | ------------------------------------------------------------- |
+| `authority-signature.v1` | Only current ENS authority authorization is required.         |
+| `https-origin.v1`        | The derived HTTPS origin can host a well-known proof.         |
+| `dns-txt.url.v1`         | The URL domain can publish a DNSSEC-authenticated TXT record. |
+
+## Records To Set
+
+Target record:
 
 ```text
 text("url") = "https://example.com/profile"
+```
+
+HTTPS-origin descriptor:
+
+```text
 text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-Supported relationships:
+## Proof To Publish
 
-| Method                   | Relationship    | Evidence                                            |
-| ------------------------ | --------------- | --------------------------------------------------- |
-| `authority-signature.v1` | `authorization` | Current ENS authority signed exact URL bytes.       |
-| `https-origin.v1`        | `control`       | HTTPS origin publishes deterministic proof.         |
-| `dns-txt.url.v1`         | `control`       | DNSSEC-authenticated URL host publishes proof hash. |
+For `https-origin.v1`, construct the common envelope and publish it at:
 
-`valueHash` always covers the complete exact URL string. HTTPS target excludes
-path, query, and fragment; changing any of them still changes `valueHash` and
-invalidates the old proof.
+```text
+https://example.com/.well-known/ens-record-verification/<proof-key-hex>
+```
 
-Use HTTPS origin when the web server can publish a well-known resource. Use DNS
-when the zone is DNSSEC-signed and DNS publication is operationally preferable.
+The claim uses the exact URL string for `valueHash` and
+`https://example.com` for `target`.
 
-A control result proves current origin or DNS-zone participation. It does not
-prove the URL path is controlled independently, the website is safe, or the
-domain is official.
+## Verification Flow
+
+1. Resolve the live URL and descriptor at one block.
+2. Hash the exact URL bytes.
+3. Parse the URL and derive its HTTPS origin.
+4. Calculate `proofKey` and fetch the well-known resource.
+5. Compare the common claim.
+6. Validate current ENS authority signature.
+7. Require current same-origin publication and valid lifecycle.
+8. Return `verified/control`.
+
+## Failure Cases
+
+| Condition                            | Result                             |
+| ------------------------------------ | ---------------------------------- |
+| URL record absent                    | `none/record_missing`              |
+| Descriptor absent                    | `none/not_configured`              |
+| URL not supported by selected method | `none/target_mismatch`             |
+| Proof unavailable                    | `none/proof_unavailable`           |
+| Live URL changed                     | `none/value_mismatch`              |
+| Authority signature invalid          | `none/authority_signature_invalid` |
+
+## Example
+
+```text
+name       = alice.eth
+valueHash  = 0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142
+target     = https://example.com
+proofKey   = 0x3e1afa3eb523cdefc3d8faa94c15e05fe1af4fb5096f71e127890e3763f5a380
+```
+
+See the complete envelope in the [Quickstart](../quickstart).
+
+## Security Notes
+
+Origin publication does not establish that the URL is safe, official, or
+operated by the legal owner of the ENS name.

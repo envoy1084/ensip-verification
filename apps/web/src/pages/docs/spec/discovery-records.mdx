@@ -1,108 +1,64 @@
 ---
 title: Resolution and Discovery
-description: Universal Resolver reads and verification record key construction.
+description: Target selectors, verification keys, and block snapshot requirements.
 ---
 
 # Resolution and Discovery
 
-## Resolution Entry Point
+This page maps resolver calls to verification text records. The normative rules
+are defined by the [ENSIP](./ensip#target-record-resolution).
 
-Clients MUST resolve the target record and verification descriptor for the same
-normalized, DNS-encoded exact name through the canonical Universal Resolver
-defined by ENSIP-23. Calls SHOULD use one Universal Resolver smart multicall.
+## Resolution Input
 
-On Ethereum mainnet, the long-lived Universal Resolver proxy is:
+A verifier starts with:
 
-```text
-0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
+```ts
+type RecordSelector =
+  | { recordType: "text"; recordKey: string }
+  | { recordType: "addr"; recordKey: string }
+  | { recordType: "contenthash"; recordKey: "" }
+  | { recordType: "data"; recordKey: string };
 ```
 
-Universal Resolver handles direct, inherited, wildcard, and CCIP Read resolver
-paths. Both records MUST be resolved for the same exact DNS-encoded name and at
-the same block reference.
+The name is ENSIP-15 normalized before constructing resolver calldata.
 
-Universal Resolver is the record-resolution boundary. It does not determine
-which account may sign a verification claim.
+## Selector Mapping
 
-The returned resolver is diagnostic metadata. A gateway, gateway signer,
-resolver writer, resolver delegate, or resolver-supplied owner value is not
-verification authority.
+| Resolver call          | `recordType`  | `recordKey`                 | Verification text key            |
+| ---------------------- | ------------- | --------------------------- | -------------------------------- |
+| `text(node, key)`      | `text`        | Exact key                   | `verification[text][<key>]`      |
+| `addr(node, coinType)` | `addr`        | Canonical decimal coin type | `verification[addr][<coinType>]` |
+| `contenthash(node)`    | `contenthash` | Empty string                | `verification[contenthash]`      |
+| `data(node, key)`      | `data`        | Exact key                   | `verification[data][<key>]`      |
 
-## Verification Keys
-
-Verification descriptors are ENSIP-5 text records. The key identifies the
-target resolver record.
-
-| Target selector        | Verification text key            |
-| ---------------------- | -------------------------------- |
-| `text(node, key)`      | `verification[text][<key>]`      |
-| `addr(node, coinType)` | `verification[addr][<coinType>]` |
-| `contenthash(node)`    | `verification[contenthash]`      |
-| `data(node, key)`      | `verification[data][<key>]`      |
-
-### Text
-
-Construct the key by exact concatenation:
+Text and data keys use exact concatenation. A key such as
+`agent-endpoint[mcp]` produces:
 
 ```text
-"verification[text][" + textKey + "]"
+verification[text][agent-endpoint[mcp]]
 ```
 
-`textKey` MUST be non-empty. It MAY contain `[` or `]`. Parsers check the fixed
-prefix and final `]`; they do not recursively match brackets.
+Do not parse nested brackets. Match the fixed prefix and final `]`.
 
-```text
-text key:         agent-endpoint[mcp]
-verification key: verification[text][agent-endpoint[mcp]]
-```
+## Resolver Return Bytes
 
-### Address
+| Record type   | Bytes hashed as `valueHash`    | Missing value     |
+| ------------- | ------------------------------ | ----------------- |
+| `text`        | UTF-8 bytes of returned string | Empty string      |
+| `addr`        | Returned native address bytes  | Zero-length bytes |
+| `contenthash` | Returned contenthash bytes     | Zero-length bytes |
+| `data`        | Returned data bytes            | Zero-length bytes |
 
-`coinType` MUST be canonical unsigned decimal: no sign and no leading zeroes
-unless the value is exactly `0`.
+Display decoding and target canonicalization occur after hashing.
 
-```text
-verification[addr][60]
-verification[addr][2147483658]
-```
+## Snapshot
 
-### Contenthash
+Resolve the target record and verification record through Universal Resolver
+for the same exact DNS-encoded name and block reference. Pin subsequent
+authority reads to that block.
 
-Contenthash uses one unparameterized key:
+If the evaluation block is reorganized before the result is consumed, discard
+the result and evaluate again.
 
-```text
-verification[contenthash]
-```
-
-### Data
-
-`verification[data][<key>]` is reserved for ENSIP-24 data records. Clients MAY
-return `unsupported_record` until a concrete data method supports the key.
-
-## Missing Values
-
-The target is missing when its resolver profile returns its defined empty
-value:
-
-| Record type   | Missing value     |
-| ------------- | ----------------- |
-| `text`        | Empty string      |
-| `addr`        | Zero-length bytes |
-| `contenthash` | Zero-length bytes |
-| `data`        | Zero-length bytes |
-
-An absent or empty verification descriptor means `none/not_configured`.
-
-## Block Consistency
-
-All onchain reads used by one evaluation MUST use one block number or block
-hash. A result SHOULD retain:
-
-```text
-ensBlockNumber
-ensBlockHash
-resolver
-```
-
-If the referenced block is removed by a reorganization, the cached result is
-invalid and MUST be re-evaluated.
+CCIP Read may obtain data offchain, but the callback is executed against the
+same pinned Ethereum state. A gateway response does not define ENS authority.

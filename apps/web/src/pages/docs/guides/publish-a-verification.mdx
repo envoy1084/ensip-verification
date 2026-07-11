@@ -1,64 +1,64 @@
 ---
 title: Publish a Verification
-description: Safe setup, renewal, rotation, and revocation order.
+description: Publication, renewal, rotation, and revocation procedure.
 ---
 
 # Publish a Verification
 
+Publish proof resources before enabling their ENS descriptor. Validate the
+complete state from an independent client after every change.
+
+## Preconditions
+
+Before signing:
+
+1. resolve the exact target record through Universal Resolver;
+2. determine current exact-name authority under the selected authority version;
+3. derive the exact selector, raw `valueHash`, method target, and proof key;
+4. choose `issuedAt` and `validUntil` within the method maximum lifetime;
+5. verify that the signer is the current authority.
+
 ## Initial Publication
 
-1. Set or confirm the final target resolver value.
-2. Resolve that value through canonical Universal Resolver.
-3. Choose one concrete method supported by the selector.
-4. Derive exact `recordType`, `recordKey`, raw `valueHash`, canonical target,
-   Authority Algorithm 1, and method maximum lifetime.
-5. Create the strict common claim.
-6. Sign with current exact-name authority.
-7. Obtain method evidence, including a target-chain signature when required.
-8. Publish proof bytes at the method location or descriptor `u`.
-9. If using `h`, hash decoded proof body bytes.
-10. Verify the external publication independently.
-11. Set the descriptor last.
-12. Run final live verification.
+1. Construct the complete common claim.
+2. Sign it with the current exact-name authority.
+3. Produce method-specific evidence.
+4. Serialize the closed proof envelope.
+5. Publish the proof at the method-defined location.
+6. If the descriptor uses `h`, hash the exact published response body bytes.
+7. Fetch and validate the proof from an independent client.
+8. Set the verification text record descriptor.
+9. Resolve and verify the final ENS state.
 
-Descriptor-last publication prevents clients from selecting a proof that is not
-yet available.
-
-## Descriptors
-
-```text
-ensrv1 a=1 m=https-origin.v1
-ensrv1 a=1 m=authority-signature.v1 u=https://proofs.example/p/123
-ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/p/456 h=0x...
-```
+Publishing the descriptor last reduces the interval in which ENS advertises an
+unavailable proof. It does not make ENS and external publication atomic.
 
 ## Renewal
 
-If proof location is stable:
+To renew an unchanged record:
 
-1. create a new claim from current live value;
-2. publish new proof bytes;
-3. update descriptor `h` when present;
-4. verify final live state.
+1. create a claim with new timestamps;
+2. obtain fresh required signatures;
+3. replace the proof resource;
+4. update descriptor `h` if present;
+5. validate the new state.
 
-For deterministic HTTPS publication, replace the proof at the stable
-`proofKey` path. Caches remain bounded to 5 minutes.
+The proof key does not change when only record value or timestamps change.
 
 ## Record Rotation
 
-When target value changes:
+A target record change changes `valueHash` and may change the method target.
+Create and publish the new proof before updating the descriptor when possible.
+Expect a temporary `none` result while distributed state converges.
 
-1. write final target record;
-2. resolve final bytes;
-3. create and publish proof for the new value;
-4. update descriptor last when it contains `u` or `h`;
-5. verify final state.
-
-Intermediate states may return `none`; they must never return a false positive
-because `valueHash` binds exact current bytes.
+Do not serve several candidate envelopes and require clients to search for one
+that validates. One descriptor and proof key select one current proof.
 
 ## Revocation
 
-Delete or empty the verification descriptor for immediate ENS-side revocation.
-Also remove live target publication when applicable. Cached positive results
-expire at their bounded `cacheUntil`; high-trust clients revalidate immediately.
+Delete the verification text record to revoke verification from ENS. Changing
+the target record, descriptor, or exact-name authority also invalidates the old
+proof after a fresh evaluation.
+
+Deleting a remote proof without deleting the descriptor changes the result to
+`proof_unavailable`; it is not a complete ENS-side revocation procedure.

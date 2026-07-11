@@ -1,126 +1,111 @@
 ---
 title: Authority and Lifecycle
-description: Exact-name authority, subname behavior, validity, revocation, and caching.
+description: Authority Algorithm 1, validity, invalidation, and cache bounds.
 ---
 
 # Authority and Lifecycle
 
+Authority identifies who may sign the common claim. It is independent of the
+resolver or account allowed to write resolver records.
+
 ## Authority Algorithm 1
 
-Descriptor `a=1` and signed `authorityVersion = 1` select this algorithm.
-Unsupported versions return `unsupported_authority`; methods cannot override or
-weaken the selected algorithm.
+Algorithm 1 applies to ENS on Ethereum mainnet.
 
-Ethereum mainnet constants:
+| Contract       | Address                                      |
+| -------------- | -------------------------------------------- |
+| ENS Registry   | `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` |
+| Base Registrar | `0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85` |
+| Name Wrapper   | `0xD4416b13d2b3a9Bae7AcD5D6C2BbDBE25686401`  |
 
-```text
-ENS Registry:    0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
-Base Registrar: 0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85
-Name Wrapper:   0xD4416b13d2b3a9Bae7AcD5D6C2BbDBE25686401
-```
+Use the evaluation block for every call and its block timestamp for expiry.
 
-At the evaluation block:
+1. Read `ENSRegistry.owner(node)`.
+2. If it equals the Name Wrapper address:
+   1. read the exact node with `NameWrapper.getData`;
+   2. require a nonzero wrapped owner and unexpired wrapper expiry;
+   3. select the wrapped owner;
+   4. for a wrapped `.eth` second-level name, also require an unexpired Base
+      Registrar registration and use the earlier expiry.
+3. Otherwise, for an unwrapped `.eth` second-level name:
+   1. calculate `tokenId = uint256(keccak256(bytes(label)))`;
+   2. read `BaseRegistrar.ownerOf(tokenId)` and `nameExpires(tokenId)`;
+   3. require a nonzero registrant and unexpired registration;
+   4. select the registrant.
+4. For every other exact name, require and select the nonzero Registry owner.
 
-1. Read Registry owner for the exact node.
-2. If Registry owner is Name Wrapper, read wrapper owner and exact-name expiry.
-   Require a nonzero owner and `now < wrapperExpiry`. For a wrapped `.eth`
-   second-level name only, also require the Base Registrar registration to be
-   unexpired.
-3. Otherwise, for an unwrapped `.eth` second-level name, use the unexpired Base
-   Registrar registrant.
-4. Otherwise, use Registry owner for the exact node.
-5. Reject zero or indeterminate authority.
-
-Do not accept resolver writers, profile managers, parent owners, Universal
-Resolver operators, gateway signers, gateway owner fields, or indexers as exact
-name authority.
+Do not fall back to an ancestor, resolver writer, Universal Resolver, wildcard
+resolver, or CCIP Read gateway. If no exact authenticated authority is
+available, return `unsupported_authority`.
 
 ## Subnames
 
-Unwrapped Registry subnames do not automatically expire when a parent `.eth`
-registration expires. Parent re-registration does not recursively delete child
-Registry records. The new parent owner can replace the child, but until then the
-existing exact child Registry owner remains authority.
+An unwrapped Registry child does not inherit parent expiry. Parent transfer,
+expiry, or re-registration does not delete the child owner. The current parent
+owner can replace the child, but until then the exact child owner remains the
+authority.
 
-Wrapped subnames have explicit expiry. The verifier rejects them at expiry even
-if raw wrapper storage still contains an address.
+A wrapped child uses its own wrapper expiry. Do not apply an ancestor registrar
+expiry to that child. A wrapped `.eth` second-level name itself remains bounded
+by Base Registrar expiry.
 
-Do not apply a `.eth` ancestor's registrar expiry to an exact wrapped subname.
-An unexpired wrapped child can remain operational while its parent second-level
-name is in registrar grace. The exact child's wrapper expiry is its bound.
+## Validity
 
-This protocol verifies the exact name. It does not imply current parent
-endorsement of an independently owned child.
-
-Wildcard or offchain record resolution does not imply inherited authority. If
-the exact name has no authenticated nonzero authority under Algorithm 1, return
-`unsupported_authority` instead of falling back to a parent or gateway value.
-
-## Validity Predicate
-
-At evaluation time `now`, require:
+Using local evaluation time `now`, require:
 
 ```text
-claim.issuedAt <= now + 300
-claim.issuedAt < claim.validUntil
-now < claim.validUntil
-claim.validUntil - claim.issuedAt <= methodMaxLifetime
+issuedAt <= now + 300
+issuedAt < validUntil
+now < validUntil
+validUntil - issuedAt <= methodMaxLifetime
 ```
 
-Then compute:
+`issuedAt` is not a trusted timestamp. It bounds the signed interval and rejects
+future-dated claims beyond the allowed clock skew.
+
+The semantic expiry is the earliest applicable bound:
 
 ```text
 effectiveValidUntil = min(
   claim.validUntil,
-  authorityValidUntil,
-  targetProofValidUntil,
-  issuerValidUntil,
-  methodValidUntil
+  authorityValidUntil?,
+  methodEvidenceValidUntil?,
+  issuerValidUntil?
 )
 ```
 
-Ignore inapplicable bounds. A positive result returns the effective bound, not
-only the claim expiry.
+Omit a bound only when the selected authority or method does not define it.
 
 ## Invalidation
 
-A previous positive result becomes invalid when any of the following occurs:
+Re-evaluation returns a non-positive result after any of these changes:
 
-- target record is removed or its exact bytes change;
-- descriptor is removed, emptied, or changed;
-- descriptor `h` no longer matches selected proof bytes;
-- exact-name authority changes or expires;
-- method evidence disappears or changes for a live-publication method;
-- target account signature no longer validates under required live account
-  rules;
-- issuer attestation expires or is revoked;
-- any applicable validity bound is reached;
-- the referenced ENS block is reorganized out.
+- target record changed;
+- verification descriptor changed or was deleted;
+- exact authority changed or expired;
+- live method publication was removed;
+- required status reports revocation;
+- effective validity expired;
+- evaluation block was reorganized.
 
-Descriptor deletion is ENS-side revocation.
-
-## Freshness Classes
-
-| Class              | Rule                                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------------------- |
-| `live-publication` | Current HTTPS, DNS, or provider publication is required. Removal revokes after bounded freshness. |
-| `portable-signed`  | Pinned proof bytes may be reused while live ENS state and expiry remain valid.                    |
-| `issuer-revocable` | Issuer trust and sufficiently fresh revocation status are required.                               |
+Descriptor deletion is the common ENS-side revocation action. It takes effect
+when a verifier performs a fresh ENS read.
 
 ## Caching
+
+`effectiveValidUntil` is the semantic bound. `cacheUntil` is the earlier time at
+which a client must re-evaluate:
 
 ```text
 cacheUntil = min(
   effectiveValidUntil,
-  checkedAt + clientPositiveCacheMaxAge,
-  liveEnsFreshUntil,
-  proofFreshUntil,
-  revocationFreshUntil
+  ENS freshness bound,
+  method freshness bound,
+  HTTP or DNS freshness bound?,
+  revocation next-update bound?,
+  client policy bound
 )
 ```
 
-Recommended default positive cache maximum for passive display is 15 minutes.
-Negative results should normally be cached for at most 5 minutes.
-
-Payment routing, transaction approval, sign-in, account binding, and agent
-connection MUST revalidate instead of using a passive-display result.
+Live-publication methods cap positive caching at five minutes. HTTP freshness
+and DNS TTLs may shorten that period but cannot extend it.

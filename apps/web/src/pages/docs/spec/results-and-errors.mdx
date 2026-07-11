@@ -1,11 +1,11 @@
 ---
-title: Results and Errors
-description: Public result, evidence relationships, errors, and retry behavior.
+title: Results
+description: Verification result semantics and evidence metadata.
 ---
 
-# Results and Errors
+# Results
 
-## Result
+A verifier exposes two public statuses:
 
 ```ts
 type VerificationResult =
@@ -21,80 +21,49 @@ type VerificationResult =
       validUntil: number;
       checkedAt: number;
       cacheUntil: number;
-      assurance?: VerificationAssurance;
-      issuer?: IssuerMetadata;
     }
   | {
       status: "none";
-      error?: VerificationError;
-      retryable?: boolean;
-      checkedAt?: number;
+      error: VerificationError;
+      retryable: boolean;
+      checkedAt: number;
     };
 ```
 
-There are no intermediate public trust states. Errors explain why no positive
-result was produced.
+The TypeScript shape is an SDK interface, not a wire format. Implementations in
+other languages expose equivalent fields.
 
-## Error Precedence
+## Relationships
 
-Use the first applicable error that can be determined without performing work
-blocked by client policy:
+| Relationship    | Required evidence                           | Permitted display meaning                     |
+| --------------- | ------------------------------------------- | --------------------------------------------- |
+| `authorization` | Current exact-name authority signature      | Authority authorized this exact record.       |
+| `control`       | Authorization plus method target evidence   | Target published or signed matching evidence. |
+| `attestation`   | Authorization plus accepted issuer evidence | Accepted issuer attested to this claim.       |
 
-| Order | Error                         | Retryable                                     |
-| ----: | ----------------------------- | --------------------------------------------- |
-|     1 | `invalid_request`             | No                                            |
-|     2 | `unsupported_record`          | No, until client support changes              |
-|     3 | `resolution_unavailable`      | Yes                                           |
-|     4 | `record_missing`              | Yes                                           |
-|     5 | `not_configured`              | Yes                                           |
-|     6 | `invalid_descriptor`          | No                                            |
-|     7 | `unsupported_version`         | No, until client support changes              |
-|     8 | `unsupported_method`          | No, until client support changes              |
-|     9 | `privacy_blocked`             | No, until policy changes                      |
-|    10 | `proof_unavailable`           | Yes                                           |
-|    11 | `proof_integrity_mismatch`    | No                                            |
-|    12 | `proof_invalid`               | No                                            |
-|    13 | `claim_mismatch`              | No                                            |
-|    14 | `value_mismatch`              | No                                            |
-|    15 | `target_mismatch`             | No                                            |
-|    16 | `not_yet_valid`               | Yes                                           |
-|    17 | `expired`                     | No, until proof changes                       |
-|    18 | `unsupported_authority`       | No, until ENS state or client support changes |
-|    19 | `authority_signature_invalid` | No                                            |
-|    20 | `target_proof_invalid`        | No                                            |
-|    21 | `insecure_dns`                | No, until authenticated DNS is available      |
-|    22 | `revocation_unavailable`      | Yes                                           |
-|    23 | `revoked`                     | No                                            |
-|    24 | `untrusted_issuer`            | No, until policy changes                      |
+Do not infer safety, reputation, legal ownership, or ENS endorsement.
 
-Method-specific errors map into this set.
+## Errors
 
-## Assurance
+Every non-positive evaluation returns `status: "none"`. The error explains the
+failed stage and does not alter the underlying resolver record.
 
-Assurance metadata records checked evidence; it never changes public status.
+The canonical error codes, precedence, and retry categories are defined in the
+[Error Reference](../reference/errors). Method pages identify the errors
+specific to their validation step.
+
+## Evidence Metadata
+
+An implementation may expose diagnostic evidence:
 
 ```ts
-type VerificationAssurance = {
-  dnssec?: "validated" | "unsigned";
+type VerificationEvidence = {
+  authority?: "eoa" | "erc1271";
+  dnssec?: "validated";
   proofIntegrity?: "hash-pinned" | "content-addressed";
   publication?: "live" | "portable" | "issuer-revocable";
-  authority?: "eoa" | "erc1271";
 };
 ```
 
-An absent field means not checked or not applicable. `dnssec: "validated"`
-requires a complete validated chain to an accepted trust anchor.
-
-## UI Constraint
-
-Display the exact relationship, for example:
-
-```text
-Current ENS authority authorized this record.
-HTTPS origin published a matching proof.
-Target account signed a matching proof.
-Example Issuer attested to this claim.
-```
-
-Never translate the result into safe, official, trusted, non-malicious, legal
-owner, or ENS-endorsed.
+Only report a property after performing that check. Evidence metadata does not
+create another status or relationship.

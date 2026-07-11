@@ -1,105 +1,121 @@
 ---
 title: Build a Verifier
-description: Adapter boundaries, validation pipeline, and implementation requirements.
+description: Module boundaries and deterministic validation pipeline.
 ---
 
 # Build a Verifier
 
-## Components
+Implement the verifier as a deterministic pipeline. Keep ENS state reads,
+untrusted proof parsing, authority selection, method processing, and client
+policy in separate modules.
+
+## Input And Output
 
 ```ts
-interface VerificationEngine {
-  verify(
-    input: VerifyInput,
-    policy: VerificationPolicy,
-  ): Promise<VerificationResult>;
-}
+type VerifyInput = {
+  name: string;
+  selector: RecordSelector;
+  blockTag?: bigint | "safe" | "finalized";
+};
 
-interface EnsReader {
-  resolvePair(
-    input: RecordSelector,
-    block: BlockRef,
-  ): Promise<{
-    value: Uint8Array;
-    descriptor: string;
-    resolver: Address;
-    blockNumber: bigint;
-    blockHash: Hex;
-  }>;
-  resolveAuthority(
-    name: string,
-    version: number,
-    block: BlockRef,
-  ): Promise<Authority>;
-}
-
-interface MethodVerifier {
-  id: string;
-  deriveTarget(context: MethodContext): string;
-  verify(context: MethodContext): Promise<MethodResult>;
-}
+type VerificationPolicy = {
+  allowedMethods: ReadonlySet<string>;
+  retrieval: "local-only" | "fetch-on-action" | "privacy-proxy" | "direct";
+  maxPositiveCacheSeconds: number;
+};
 ```
 
-`EnsReader` uses Universal Resolver for records and the selected authority
-algorithm for ownership. Method adapters cannot override authority.
+Return the result shape defined in [Results](../spec/results-and-errors). Keep
+the live resolver value available independently of verification status.
+
+## Modules
+
+| Module     | Input                         | Output                                            |
+| ---------- | ----------------------------- | ------------------------------------------------- |
+| Name       | User string                   | Normalized name, DNS encoding, node               |
+| Resolution | Name, selector, block         | Raw target bytes, descriptor bytes, block context |
+| Descriptor | Descriptor bytes              | Authority version, method, URI, hash              |
+| Envelope   | Proof bytes                   | Strict common claim, signatures, method object    |
+| Authority  | Name, node, block, version    | Authority address and optional expiry             |
+| Method     | Common context, method object | Canonical target, relationship, freshness         |
+| Policy     | Method and retrieval request  | Permit, deny, or proxy decision                   |
 
 ## Pipeline
 
-```text
-normalize
-  -> validate selector
-  -> select evaluation block
-  -> Universal Resolver target + descriptor
-  -> parse closed descriptor
-  -> select authority version and concrete method
-  -> compute raw valueHash and canonical target
-  -> retrieve proof under privacy/fetch policy
-  -> parse strict JSON and method schema
-  -> match complete common claim
-  -> enforce signed interval
-  -> resolve and verify current exact-name authority
-  -> validate method evidence bound to common digest
-  -> apply expiry, revocation, freshness, and cache bounds
-  -> result
-```
+1. Normalize the name and derive the node.
+2. Select an evaluation block and record its block hash and timestamp.
+3. Resolve the target and verification records at that block.
+4. Parse the descriptor and reject unsupported versions or methods.
+5. Derive raw `valueHash` and the method target.
+6. Apply retrieval policy before issuing a third-party request.
+7. Retrieve and integrity-check the proof resource.
+8. Parse the envelope with duplicate-member detection.
+9. Compare every common claim field with locally derived values.
+10. Validate claim lifetime.
+11. Determine current exact-name authority at the evaluation block.
+12. Validate `authoritySignature`.
+13. Validate method-specific evidence.
+14. Calculate `validUntil` and `cacheUntil`.
+15. Confirm the evaluation block remains canonical when required by policy.
+16. Return the relationship or the first applicable error.
 
-## Parser Boundaries
+Stages 6 and later may be reordered to avoid a request forbidden by policy.
+Do not reorder a comparison in a way that changes observable error precedence.
 
-Process untrusted input in this order:
+## Parser Boundary
 
-1. enforce byte limit;
-2. validate UTF-8 and reject BOM;
-3. reject duplicate JSON members before map parsing;
-4. enforce JSON depth, member, and string limits;
-5. validate common schema;
-6. validate exact method schema;
-7. convert canonical decimal integers with explicit range checks;
-8. encode EIP-712 values.
+Treat descriptors, JSON, signatures, URLs, DNS data, and HTTP responses as
+untrusted input.
 
-JSON Schema alone cannot reject duplicate members or enforce every numeric
-range.
+Do not use `JSON.parse` as the first validation step because it discards
+duplicate object members. Tokenize first, reject duplicates and resource-limit
+violations, then construct objects.
 
-## Network Boundary
+Validate lexical form before semantic conversion:
 
-Use one shared fetcher for URI methods. It enforces TLS, SSRF address blocking,
-DNS-rebinding defense, redirect policy, timeouts, encoded and decoded size,
-decompression ratio, content type, and no ambient credentials.
+- decimal strings before integer parsing;
+- hexadecimal strings before byte decoding;
+- descriptor fields before URI parsing;
+- JSON object shape before EIP-712 encoding.
 
-Browser CORS failure maps to `proof_unavailable`. Browser SDKs may use a
-user-selected privacy proxy; the proxy is not a trust root because signatures
-and optional `h` remain client-verified.
+## Proof Retrieval
+
+For HTTPS resources:
+
+- validate every resolved connection address against SSRF policy;
+- repeat validation after redirects and DNS changes;
+- send no ambient credentials;
+- validate platform WebPKI TLS;
+- limit redirects to three unless the method forbids them;
+- use 5-second connection and 10-second total timeouts;
+- limit encoded and decoded bodies to 256 KiB;
+- limit decompression to 20:1;
+- stop reading immediately after a limit is exceeded.
+
+`https-origin.v1` additionally forbids redirects. A browser CORS failure is a
+retrieval failure, not cryptographic evidence that the proof is invalid.
 
 ## Snapshot Boundary
 
-Target, descriptor, Registry, Base Registrar, and Name Wrapper reads use one
-block reference. Retain block number and hash. Re-evaluate if the block is
-reorganized out.
+Pass the evaluation block explicitly to every Registry, Wrapper, Registrar, and
+ERC-1271 call. Never allow an adapter to silently use `latest` after the target
+record was read at another block.
 
-Target-chain ERC-1271 validation uses an explicit block on the CAIP target
-chain. Record that chain and block in debug output.
+For target-chain account signatures, record the target-chain block used for
+ERC-1271 and apply client finality policy independently.
 
 ## Conformance
 
-A conforming verifier passes all parser, hash, EIP-712, authority, method,
-lifecycle, fetch-policy, and error-precedence vectors. High-trust integrations
-must not depend only on an indexer-provided positive result.
+At minimum, test:
+
+- valid and invalid descriptor grammar;
+- duplicate JSON members;
+- exact resolver-byte hashing;
+- EIP-712 domain, struct hash, and digest;
+- every Authority Algorithm 1 branch;
+- URL, DNS, CAIP-10, EOA, and ERC-1271 method cases;
+- expiry boundaries and reorganization handling;
+- SSRF, redirect, timeout, and decompression failures;
+- error precedence.
+
+Use the machine-readable files listed under [Test Vectors](../reference/test-vectors).

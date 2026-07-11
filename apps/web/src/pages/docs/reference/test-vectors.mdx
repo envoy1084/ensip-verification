@@ -1,50 +1,36 @@
 ---
 title: Test Vectors
-description: Required conformance corpus and execution rules.
+description: Available machine-readable vectors and required coverage.
 ---
 
 # Test Vectors
 
-The public `test-vectors` directory is the machine-readable conformance corpus.
-A complete implementation must cover:
+Available vectors:
 
-## Core
+| File                                                                                          | Coverage                                                                |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| <a href="/test-vectors/core-cryptography.json">`core-cryptography.json`</a>                   | Namehash, domain separator, common claim hashes, digest, and proof key. |
+| <a href="/test-vectors/descriptor-valid-basic.json">`descriptor-valid-basic.json`</a>         | Valid descriptor parsing.                                               |
+| <a href="/test-vectors/descriptor-duplicate-field.json">`descriptor-duplicate-field.json`</a> | Duplicate-field rejection.                                              |
+| <a href="/test-vectors/bracketed-text-key.json">`bracketed-text-key.json`</a>                 | Nested-bracket verification-key construction.                           |
+| <a href="/test-vectors/error-precedence.json">`error-precedence.json`</a>                     | Canonical error ordering.                                               |
 
-- ENSIP-15 normalized names and namehash;
-- verification-key construction, including nested brackets;
-- valid, malformed, duplicate, unknown, and unsupported descriptors;
-- raw `valueHash` for text, address, contenthash, and data bytes;
-- EIP-712 type hash, domain separator, common digest, and `proofKey`;
-- canonical decimal and hex parsing;
-- duplicate JSON member rejection.
+## Conformance Coverage
 
-## Authority
+The corpus is not complete. A conforming release also requires vectors for:
 
-- unwrapped `.eth` registrant versus Registry manager;
-- exact unwrapped subname across parent transfer and re-registration;
-- wrapped owner, child expiry, and parent grace behavior;
-- EOA signatures;
-- ERC-1271 valid, wrong magic, revert, and unavailable calls;
-- wildcard/offchain record with no authenticated exact authority;
-- unsupported authority version.
+- ENSIP-15 valid and invalid names;
+- every descriptor field and lexical boundary;
+- exact text, address, contenthash, and data hashing;
+- duplicate JSON members and parser resource limits;
+- wrapped, unwrapped, `.eth`, subname, wildcard, and ERC-1271 authority cases;
+- URL and DNS target derivation;
+- DNSSEC answer, alias, conflict, and TTL behavior;
+- ENSIP-9/11 to CAIP-10 mapping and target signatures;
+- exact expiry, future issuance, revocation, and cache bounds;
+- SSRF, redirect, timeout, size, and decompression rejection;
+- every primary error.
 
-## Methods
-
-- WHATWG/IDNA URL targets and invalid cases;
-- deterministic HTTPS proof path;
-- DNS base32 owner, DNSSEC states, TXT conflicts, and TTL cap;
-- ENSIP-9/11 to CAIP-10 EVM mapping;
-- target-chain EIP-712 digest, EOA, and ERC-1271 validation;
-- authority-only empty method proof.
-
-## Lifecycle And Network Policy
-
-- future issuance, exact expiry, excessive signed interval;
-- descriptor deletion/change and live value change;
-- evaluation-block reorganization;
-- SSRF addresses, DNS rebinding, redirects, timeouts, body/decompression limits;
-- privacy-blocked and retryability results;
-- cache-bound calculations.
-
-Vectors contain exact input bytes and exact expected output or error. At least
-two independent implementations should pass the corpus before finalization.
+Each vector must contain exact input bytes and one exact expected value or
+error. Final interoperability requires two independent implementations passing
+the same complete corpus.

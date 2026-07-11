@@ -1,72 +1,121 @@
 ---
-title: "Method: authority-signature.v1"
-description: Verify explicit authorization of any supported record by current ENS authority.
+title: authority-signature.v1
+description: Current ENS authority authorization of an exact resolver value.
 ---
 
 # Method: `authority-signature.v1`
 
-This method proves that current exact-name authority signed the exact live
-resolver value. It does not claim external target participation.
+## Purpose
 
-## Profile
+`authority-signature.v1` verifies that the current ENS authority signed a common
+claim for the exact live target resolver record. It produces
+`verified/authorization`.
 
-| Property               | Value                                                    |
-| ---------------------- | -------------------------------------------------------- |
-| Relationship           | `authorization`                                          |
-| Records                | Any supported selector                                   |
-| Freshness              | `portable-signed`                                        |
-| Descriptor             | `ensrv1 a=1 m=authority-signature.v1 u=<uri> [h=<hash>]` |
-| Maximum claim lifetime | 90 days                                                  |
-| Target                 | Empty string                                             |
+## Supported Records
 
-The method is useful when resolver-writing authority is delegated but exact-name
-authority must explicitly approve a security-sensitive value. It is also the
-authorization method for contenthash and arbitrary data values without an
-external controller.
+The method supports every target resolver record defined by the base ENSIP:
+`text`, `addr`, `contenthash`, and `data`.
 
-## Proof
+## Discovery Descriptor
+
+The descriptor requires `u` and permits `h`:
+
+```text
+ensrv1 a=1 m=authority-signature.v1 u=https://proofs.example/record.json
+```
+
+Use `h` when the publisher requires byte-level integrity for a mutable URI.
+
+## Publisher Flow
+
+1. Resolve the live target resolver record.
+2. Construct the selector and exact `valueHash`.
+3. Set `target` to the empty string.
+4. Construct the common claim with a lifetime no longer than 90 days.
+5. Sign the claim with the current ENS authority.
+6. Publish the proof envelope at descriptor `u`.
+7. If used, calculate `h` from the published response body and add it to the
+   descriptor.
+8. Set the verification descriptor in ENS.
+
+## Proof Location
+
+The proof location is descriptor `u`. Version 1 permits HTTPS. Clients apply the
+common retrieval policy.
+
+## Proof Payload
 
 ```json
 {
   "v": "ensrv1",
   "claim": {
     "name": "alice.eth",
-    "node": "0x...",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
     "recordType": "contenthash",
     "recordKey": "",
-    "valueHash": "0x...",
+    "valueHash": "0x<64-lowercase-hex>",
     "authorityVersion": "1",
     "method": "authority-signature.v1",
     "target": "",
     "issuedAt": "1783728000",
-    "validUntil": "1791504000"
+    "validUntil": "1786320000"
   },
-  "authoritySignature": "0x...",
+  "authoritySignature": "0x<65-byte-signature>",
   "methodProof": {}
 }
 ```
 
-## Verification
+## Verifier Flow
 
-1. Run all common resolution, descriptor, proof, claim, lifecycle, and authority
-   checks.
-2. Require `claim.target == ""`.
-3. Require `methodProof` to be an empty object.
-4. Return `verified/authorization`.
+1. Complete common name, resolution, descriptor, envelope, and claim checks.
+2. Require `claim.target` to equal the empty string.
+3. Resolve current ENS authority and validate `authoritySignature`.
+4. Require `methodProof` to be an empty object.
+5. Apply common lifecycle checks.
 
-## Meaning
+## Validation Rules
+
+| Check                                            | Failure                       |
+| ------------------------------------------------ | ----------------------------- |
+| `u` absent or forbidden descriptor field present | `invalid_descriptor`          |
+| `h` present and proof bytes do not match         | `proof_integrity_mismatch`    |
+| Non-empty target                                 | `target_mismatch`             |
+| Non-empty or malformed `methodProof`             | `proof_invalid`               |
+| Current ENS authority signature invalid          | `authority_signature_invalid` |
+
+## Result
+
+Successful validation returns `verified/authorization`.
+
+## Cache And Lifecycle
+
+Maximum claim lifetime is 90 days. `effectiveValidUntil` includes claim and
+authority expiry. Descriptor deletion, target value change, or authority change
+invalidates the proof after a live evaluation.
+
+## Security Considerations
+
+The method contains no target-side evidence. It does not establish control of a
+website, account, domain, content publisher, or service provider.
+
+## UI Copy
 
 Allowed:
 
-```text
-Current ENS authority authorized this record.
-```
+- `Current ENS authority authorized this record.`
 
 Forbidden:
 
+- `Target control verified.`
+- `Official record.`
+- `Safe record.`
+
+## Example
+
 ```text
-External target controlled
-Safe content
-Trusted address
-Official record
+contenthash() = <raw contenthash bytes>
+text("verification[contenthash]") = "ensrv1 a=1 m=authority-signature.v1 u=https://proofs.example/alice-contenthash.json"
 ```
+
+The verifier hashes the raw contenthash bytes, validates the common claim and
+current ENS authority signature, and returns `verified/authorization`.

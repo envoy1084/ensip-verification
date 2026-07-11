@@ -1,30 +1,65 @@
 ---
-title: Contenthash Records
-description: Explicit current-authority authorization for exact contenthash bytes.
+title: Verifying Contenthash Records
+description: Complete authority-authorization flow for contenthash records.
 ---
 
-# Contenthash Records
+# Verifying Contenthash Records
 
-Contenthash does not expose one universal external controller. The initial
-protocol therefore uses authorization, not control:
+## Overview
+
+Version 1 verifies contenthash records with `authority-signature.v1`. The method
+binds current ENS authority to the exact raw contenthash bytes.
+
+## When To Use This Method
+
+Use this flow when a client needs explicit authority authorization in addition
+to ordinary contenthash resolution.
+
+## Records To Set
 
 ```text
-text("verification[contenthash]") =
-  "ensrv1 a=1 m=authority-signature.v1 u=https://proofs.example/content/1 h=0x..."
+contenthash() = <raw contenthash bytes>
+text("verification[contenthash]") = "ensrv1 a=1 m=authority-signature.v1 u=https://proofs.example/alice-contenthash.json"
 ```
 
-The claim uses:
+## Proof To Publish
+
+Publish a common envelope with:
 
 ```text
 recordType = contenthash
-recordKey = ""
-target = ""
-valueHash = keccak256(raw contenthash resolver bytes)
+recordKey  = ""
+target     = ""
+valueHash  = keccak256(rawContenthashBytes)
 ```
 
-A positive result means current exact-name authority explicitly authorized the
-live contenthash bytes. This is useful when a resolver writer is delegated.
+`methodProof` is an empty object.
 
-It does not prove content authorship, publisher identity, safety, availability,
-legality, or control of a mutable gateway. Future publisher or content-system
-profiles may add separate control evidence.
+## Verification Flow
+
+1. Resolve the raw contenthash bytes and descriptor at one block.
+2. Calculate `valueHash` from the raw bytes.
+3. Fetch and parse descriptor `u`.
+4. Compare the common claim.
+5. Resolve current ENS authority and validate its signature.
+6. Require an empty target and `methodProof`.
+7. Apply lifecycle checks and return `verified/authorization`.
+
+## Failure Cases
+
+| Condition                        | Result                             |
+| -------------------------------- | ---------------------------------- |
+| Contenthash absent               | `none/record_missing`              |
+| Raw bytes changed                | `none/value_mismatch`              |
+| Non-empty target or method proof | `none/proof_invalid`               |
+| Authority signature invalid      | `none/authority_signature_invalid` |
+
+## Example
+
+An IPFS contenthash is hashed in its binary resolver representation. Do not hash
+an `ipfs://` display string or gateway URL.
+
+## Security Notes
+
+Authorization does not establish control of an IPFS peer, gateway, storage
+provider, content author, or the content itself.

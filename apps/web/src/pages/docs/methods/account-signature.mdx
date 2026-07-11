@@ -1,121 +1,152 @@
 ---
-title: "Method: account-signature.eip155.v1"
-description: Verify an EVM address record using ENS-authority and target-account signatures.
+title: account-signature.eip155.v1
+description: Target-account signature for supported EVM address records.
 ---
 
 # Method: `account-signature.eip155.v1`
 
-This method verifies that current exact-name authority authorized an EVM address
-record and the target account signed a target-chain proof binding the complete
-common claim digest.
+## Purpose
 
-## Profile
+`account-signature.eip155.v1` verifies that the current ENS authority and the
+target EVM account signed the same common claim. It produces
+`verified/control`.
 
-| Property               | Value                                                         |
-| ---------------------- | ------------------------------------------------------------- |
-| Relationship           | `control`                                                     |
-| Records                | Unambiguous EVM `addr(node, coinType)` records                |
-| Freshness              | `portable-signed`                                             |
-| Descriptor             | `ensrv1 a=1 m=account-signature.eip155.v1 u=<uri> [h=<hash>]` |
-| Maximum claim lifetime | 90 days                                                       |
-| Target                 | Protocol-canonical CAIP-10 account ID                         |
+## Supported Records
 
-## Supported Coin Types
+| ENS coin type                                               | CAIP-2 chain       |
+| ----------------------------------------------------------- | ------------------ |
+| `60`                                                        | `eip155:1`         |
+| `0x80000000 \| chainId`, where `1 <= chainId <= 0x7fffffff` | `eip155:<chainId>` |
 
-| Coin type   | CAIP-2 chain                               |
-| ----------- | ------------------------------------------ | ------------------ |
-| `60`        | `eip155:1`                                 |
-| `0x80000000 | chainId`, for `1 <= chainId <= 0x7fffffff` | `eip155:<chainId>` |
+The resolver value must contain exactly 20 bytes. Coin type `0x80000000`, other
+legacy EVM SLIP-44 types, and non-EVM coin types are unsupported.
 
-Require exactly 20 resolver bytes. Serialize the target as:
+## Discovery Descriptor
+
+The descriptor requires `u` and permits `h`:
 
 ```text
-eip155:<canonical-base10-chain-id>:0x<40-lowercase-hex>
+ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/alice-address.json
 ```
 
-Coin type `0x80000000`, legacy EVM SLIP-44 types other than `60`, and non-EVM
-types are unsupported. CAIP-10 itself does not define address
-canonicalization; the lowercase form above is this method's profile.
+## Publisher Flow
 
-## Target Signature
+1. Resolve the live address bytes.
+2. Map the coin type to one EIP-155 chain.
+3. Derive the CAIP-10 target.
+4. Construct the common claim with a lifetime no longer than 90 days.
+5. Sign the common claim with current ENS authority.
+6. Sign the account-proof claim with the target account.
+7. Publish the envelope at descriptor `u`.
+8. Add `h` when byte-level resource integrity is required.
+9. Set the verification descriptor in ENS.
 
-Target account signs:
+## Proof Location
 
-```solidity
+The proof location is descriptor `u`. Version 1 permits HTTPS and applies the
+common retrieval policy.
+
+## Proof Payload
+
+The target account signs this exact EIP-712 type:
+
+```text
 ENSRecordAccountProof(bytes32 commonClaimDigest,string account)
 ```
 
-Target-chain EIP-712 domain:
+Domain:
 
 ```text
 name:              ENS Record Account Proof
 version:           1
-chainId:           CAIP-10 eip155 reference
-verifyingContract: CAIP-10 target address
+chainId:           CAIP-10 eip155 chain reference
+verifyingContract: CAIP-10 account address
 ```
 
-The proof object is:
-
-```json
-{
-  "targetSignature": "0x..."
-}
-```
-
-For an EOA, require the same 65-byte canonical low-`s` ECDSA form as the common
-authority signature and recover the target address. For a contract, call
-ERC-1271 on the target chain and require `0x1626ba7e`. No RPC, no code, revert,
-wrong magic, and invalid signature have distinct debug causes and map to
-`target_proof_invalid` or `proof_unavailable` as appropriate.
-
-## Proof Envelope
+Envelope method proof:
 
 ```json
 {
   "v": "ensrv1",
   "claim": {
     "name": "alice.eth",
-    "node": "0x...",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
     "recordType": "addr",
     "recordKey": "60",
-    "valueHash": "0x...",
+    "valueHash": "0x<64-lowercase-hex>",
     "authorityVersion": "1",
     "method": "account-signature.eip155.v1",
     "target": "eip155:1:0x1234567890abcdef1234567890abcdef12345678",
     "issuedAt": "1783728000",
-    "validUntil": "1791504000"
+    "validUntil": "1786320000"
   },
-  "authoritySignature": "0x...",
+  "authoritySignature": "0x<65-byte-signature>",
   "methodProof": {
-    "targetSignature": "0x..."
+    "targetSignature": "0x<signature>"
   }
 }
 ```
 
-## Verification
+## Verifier Flow
 
-1. Resolve native address bytes and descriptor at one ENS block.
-2. Derive raw `valueHash` and canonical CAIP-10 target.
-3. Fetch descriptor `u`; check `h` when present.
-4. Match strict envelope and common claim.
-5. Verify current exact-name authority signature.
-6. Compute target-chain digest from complete common claim digest and target.
-7. Verify target EOA or ERC-1271 signature on the target chain.
-8. Apply expiry and return `verified/control`.
+1. Resolve the live address record and descriptor at one block.
+2. Require a supported coin type and 20-byte address value.
+3. Derive the CAIP-10 target and exact `valueHash`.
+4. Fetch and parse the envelope.
+5. Compare the common claim and validate current ENS authority signature.
+6. Require `methodProof` to contain only `targetSignature`.
+7. Construct the account-proof EIP-712 digest.
+8. Validate the target signature on the target chain.
+9. Apply common lifecycle checks.
 
-## Meaning
+## Validation Rules
+
+For an EOA target, require a 65-byte secp256k1 signature with canonical low `s`
+and `v` equal to 27 or 28. For a contract target, call ERC-1271 and require
+`0x1626ba7e`.
+
+| Check                                   | Failure                |
+| --------------------------------------- | ---------------------- |
+| Coin type or address length unsupported | `unsupported_record`   |
+| CAIP-10 target differs                  | `target_mismatch`      |
+| Target-chain RPC unavailable            | `proof_unavailable`    |
+| EOA or ERC-1271 validation fails        | `target_proof_invalid` |
+
+## Result
+
+Successful validation returns `verified/control` for the canonical CAIP-10
+account.
+
+## Cache And Lifecycle
+
+Maximum claim lifetime is 90 days. Target signatures are portable, but cached
+results remain bounded by live ENS state, current ENS authority, claim expiry,
+and client policy. A contract-account check uses a target-chain block selected
+under client finality policy.
+
+## Security Considerations
+
+The method verifies control of the target account at evaluation time. It does
+not establish that the account is uncompromised, safe to pay, or legally owned
+by the ENS authority.
+
+## UI Copy
 
 Allowed:
 
-```text
-Target EVM account signed a matching proof for this ENS address record.
-```
+- `Target account signed a matching proof.`
+- `Address control verified for this ENS record.`
 
 Forbidden:
 
+- `Safe address.`
+- `Verified owner.`
+- `Official wallet.`
+
+## Example
+
 ```text
-Safe address
-Known recipient
-Trusted wallet
-Non-malicious account
+addr(60) = 0x1234567890abcdef1234567890abcdef12345678
+text("verification[addr][60]") = "ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/alice-address.json"
+target = eip155:1:0x1234567890abcdef1234567890abcdef12345678
 ```

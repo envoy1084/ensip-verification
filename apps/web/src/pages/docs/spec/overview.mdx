@@ -1,65 +1,55 @@
 ---
-title: Specification Overview
-description: Protocol layers, invariants, and normative document map.
+title: Protocol Overview
+description: Scope, components, and normative source.
 ---
 
-# Specification Overview
+# Protocol Overview
 
-ENS Resolver Record Verification adds verifiable evidence to an existing ENS
-resolver record. It does not replace the record or require a new contract.
-
-## Protocol Layers
+ENS Resolver Record Verification evaluates a relationship between an exact ENS
+record and signed or externally published evidence. It does not change ENS
+resolution and requires no new contract.
 
 ```mermaid
 flowchart LR
-  A["Universal Resolver<br/>live record + descriptor"] --> B["Verification kernel<br/>claim + authority + lifecycle"]
-  B --> C["Method profile<br/>target evidence"]
-  C --> D["verified or none"]
+  A["Resolve live record and descriptor"] --> B["Bind exact record bytes"]
+  B --> C["Validate exact-name authority"]
+  C --> D["Validate method evidence"]
+  D --> E["Return relationship or error"]
 ```
 
-The layers have separate responsibilities:
+## Components
 
-| Layer               | Responsibility                                                                |
-| ------------------- | ----------------------------------------------------------------------------- |
-| ENS resolution      | Return the live target record and verification descriptor for the exact name. |
-| Verification kernel | Bind exact bytes, current exact-name authority, time, method, and target.     |
-| Method profile      | Define target canonicalization and external evidence.                         |
-| Client policy       | Decide which methods, issuers, fetch modes, and cache limits are acceptable.  |
+| Component           | Function                                                                  |
+| ------------------- | ------------------------------------------------------------------------- |
+| Target record       | Existing `text`, `addr`, `contenthash`, or `data` resolver value.         |
+| Verification record | ENSIP-5 text record containing a descriptor.                              |
+| Descriptor          | Selects an authority version, concrete method, and proof location.        |
+| Common claim        | Binds the name, selector, exact value hash, method, target, and lifetime. |
+| Authority algorithm | Identifies the current authority for the exact name.                      |
+| Method profile      | Derives the target and validates target evidence.                         |
 
-## Invariants
+## Result Relationships
 
-A verifier returns `verified` only when all of the following hold at evaluation
-time:
+| Relationship    | Evidence                                                       |
+| --------------- | -------------------------------------------------------------- |
+| `authorization` | Current ENS authority signed the exact live record.            |
+| `control`       | Authorization plus evidence published or signed by the target. |
+| `attestation`   | Authorization plus an issuer accepted by client policy.        |
 
-1. The exact live resolver value exists.
-2. The exact live verification descriptor is valid and selects the method.
-3. The proof binds the normalized name, node, record selector, and raw value
-   hash.
-4. The proof was signed by the current authority for the exact ENS name.
-5. The method-specific evidence validates.
-6. Every applicable validity, freshness, and revocation check passes.
-
-Verification never changes ordinary ENS resolution. Failure returns `none`; it
-does not invalidate or hide the underlying resolver record.
-
-## Positive Relationships
-
-| Relationship    | Required evidence                                            |
-| --------------- | ------------------------------------------------------------ |
-| `authorization` | Current ENS authority signed the exact live resolver value.  |
-| `control`       | Authorization plus participation by the external target.     |
-| `attestation`   | Authorization plus an attestation accepted by client policy. |
-
-None of these relationships means safe, official, non-malicious, legally owned,
-or endorsed by ENS.
+No relationship establishes safety, reputation, legal ownership, or ENS
+endorsement.
 
 ## Normative Source
 
-The complete normative proposal is the [ENSIP](./ensip). The companion pages
-explain the same rules by implementation concern:
+The [ENSIP](./ensip) is the sole normative protocol definition. Companion pages
+organize the same protocol for implementation and do not define independent
+requirements.
 
-- [Discovery Records](./discovery-records)
-- [Verification Descriptor](./verification-descriptor)
-- [Claims and Signatures](./claims-and-signatures)
-- [Authority and Lifecycle](./authority-and-lifecycle)
-- [Results and Errors](./results-and-errors)
+Read next:
+
+1. [Resolution and Discovery](./discovery-records)
+2. [Verification Descriptor](./verification-descriptor)
+3. [Claims and Signatures](./claims-and-signatures)
+4. [Authority and Lifecycle](./authority-and-lifecycle)
+5. [Method Profiles](../methods/overview)
+6. [Build a Verifier](../guides/build-a-verifier)

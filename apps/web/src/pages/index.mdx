@@ -1,35 +1,39 @@
 # ENS Resolver Record Verification
 
-ENS resolver records state what a name resolves to. This protocol adds evidence
-about one exact record without changing ordinary resolution or deploying a new
-contract.
+ENS resolver records return values selected by a resolver. They do not by
+themselves establish that current ENS authority signed the value or that an
+external target published matching evidence.
 
-```mermaid
-sequenceDiagram
-  participant Client
-  participant UR as Universal Resolver
-  participant ENS as ENS Authority Contracts
-  participant Target as Method Target
-  Client->>UR: Resolve live record + descriptor
-  UR-->>Client: Exact values at one block
-  Client->>ENS: Resolve current exact-name authority
-  ENS-->>Client: Authority + expiry
-  Client->>Target: Retrieve or validate method evidence
-  Target-->>Client: Publication, signature, or attestation
-  Client-->>Client: Verify strict claim and lifecycle
+This protocol evaluates one target resolver record against:
+
+1. a compact verification descriptor stored in ENS;
+2. a common claim bound to the exact live resolver value;
+3. a signature from current ENS authority;
+4. method-specific target evidence;
+5. expiry, freshness, and revocation rules.
+
+A successful evaluation returns `verified` with relationship `authorization`,
+`control`, or `attestation`. Any required check that does not pass returns
+`none`.
+
+## Example
+
+```text
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-Positive results identify one relationship:
+The verifier derives target `https://example.com`, loads the proof from the
+method-defined well-known path, compares the claim with the live URL bytes,
+validates current ENS authority, and checks current origin publication.
 
-| Relationship    | Meaning                                                  |
-| --------------- | -------------------------------------------------------- |
-| `authorization` | Current ENS authority signed the exact live record.      |
-| `control`       | Authorization plus participation by the external target. |
-| `attestation`   | Authorization plus an issuer accepted by client policy.  |
+The result does not establish that the website is safe, official, legally
+owned, or non-malicious.
 
-A positive result does not mean safe, official, legal owner, non-malicious, or
-endorsed by ENS.
+## Documentation
 
-Start with the [Quickstart](/docs/quickstart), then read the
-[Specification Overview](/docs/spec/overview). The complete normative text is
-the [ENSIP](/docs/spec/ensip).
+- [ENSIP](/docs/spec/ensip): normative base protocol.
+- [Quickstart](/docs/quickstart): complete publication and verification path.
+- [Protocol Overview](/docs/spec/overview): components and document map.
+- [Method Profiles](/docs/methods/overview): concrete target-evidence methods.
+- [Build a Verifier](/docs/guides/build-a-verifier): implementation pipeline.

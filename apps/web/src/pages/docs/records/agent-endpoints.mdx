@@ -1,29 +1,68 @@
 ---
-title: Agent Endpoint Records
-description: Verify HTTPS publication or DNSSEC control for bracketed endpoint keys.
+title: Verifying Agent Endpoint Records
+description: Complete flow for ENSIP-26 agent endpoint records.
 ---
 
-# Agent Endpoint Records
+# Verifying Agent Endpoint Records
 
-ENSIP-26 endpoint keys can contain brackets:
+## Overview
+
+ENSIP-26 defines `agent-endpoint[<protocol>]` text records. Version 1 can verify
+authority authorization, HTTPS-origin publication, or DNSSEC publication for an
+HTTPS endpoint.
+
+## When To Use This Method
+
+Use `https-origin.v1` when the endpoint origin can host a well-known proof. Use
+`dns-txt.https-endpoint.v1` when the endpoint domain can publish DNSSEC evidence.
+Use `authority-signature.v1` when target-side evidence is not required.
+
+## Records To Set
 
 ```text
 text("agent-endpoint[mcp]") = "https://agent.example.com/mcp"
-text("verification[text][agent-endpoint[mcp]]") =
-  "ensrv1 a=1 m=https-origin.v1"
+text("verification[text][agent-endpoint[mcp]]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-Verification key construction is exact concatenation. The final key contains
-two closing brackets because one belongs to the target key.
+The outer verification key is exact concatenation. Do not parse the inner
+brackets.
 
-Supported methods:
+## Proof To Publish
 
-| Method                      | Relationship                                             |
-| --------------------------- | -------------------------------------------------------- |
-| `authority-signature.v1`    | Current authority authorized exact endpoint text.        |
-| `https-origin.v1`           | Endpoint HTTPS origin published a matching proof.        |
-| `dns-txt.https-endpoint.v1` | DNSSEC-authenticated endpoint host published proof hash. |
+For `https-origin.v1`, publish the common envelope at:
 
-The raw value hash binds the complete endpoint, including path. HTTPS control is
-origin-level and does not prove protocol conformance, agent safety, capability,
-authorization to act, or correct endpoint behavior.
+```text
+https://agent.example.com/.well-known/ens-record-verification/<proof-key-hex>
+```
+
+The claim target is `https://agent.example.com`.
+
+## Verification Flow
+
+1. Resolve the exact endpoint string and descriptor.
+2. Hash the exact endpoint string.
+3. Derive the HTTPS origin.
+4. Fetch the proof from the deterministic well-known path.
+5. Validate the common claim and current ENS authority signature.
+6. Apply lifecycle and live publication freshness.
+7. Return `verified/control`.
+
+## Failure Cases
+
+| Condition                       | Result                   |
+| ------------------------------- | ------------------------ |
+| Endpoint absent                 | `none/record_missing`    |
+| Endpoint is not supported HTTPS | `none/target_mismatch`   |
+| Proof unavailable               | `none/proof_unavailable` |
+| Endpoint value changed          | `none/value_mismatch`    |
+
+## Example
+
+`agent-endpoint[mcp]` and `agent-endpoint[web]` are separate target resolver
+records. Each uses a separate verification key, claim, and proof key even when
+both resolve to the same origin.
+
+## Security Notes
+
+Endpoint verification does not validate the agent protocol, server code,
+authorization policy, response content, or operational safety.

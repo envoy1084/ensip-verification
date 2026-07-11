@@ -1,36 +1,42 @@
 ---
 title: Quickstart
-description: Minimal publication and verification flow for an HTTPS URL record.
+description: Publish and verify an HTTPS-origin proof for text(url).
 ---
 
 # Quickstart
 
-This example verifies `text("url")` with `https-origin.v1`.
-
-## Publish
-
-Set the target:
+This example verifies:
 
 ```text
-text("url") = "https://example.com/profile"
+name:   alice.eth
+record: text("url")
+value:  https://example.com/profile
+method: https-origin.v1
 ```
 
-Set the descriptor:
+## Publish A Verification
+
+### Set The Descriptor
+
+Set this ENSIP-5 text record on `alice.eth`:
 
 ```text
-text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+key:   verification[text][url]
+value: ensrv1 a=1 m=https-origin.v1
 ```
 
-Resolve the final live value, compute its raw UTF-8 `valueHash`, and create the
-strict claim:
+The method derives target `https://example.com`. It does not use descriptor
+fields `u` or `h`.
+
+### Construct The Claim
 
 ```json
 {
   "name": "alice.eth",
-  "node": "0x...",
+  "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
   "recordType": "text",
   "recordKey": "url",
-  "valueHash": "0x...",
+  "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
   "authorityVersion": "1",
   "method": "https-origin.v1",
   "target": "https://example.com",
@@ -39,37 +45,68 @@ strict claim:
 }
 ```
 
-Sign it with current exact-name authority. Compute `proofKey`, then publish:
+For these values:
 
 ```text
-https://example.com/.well-known/ens-record-verification/<proof-key>
+domainSeparator = 0x4aa03d8f35d35bf28ea16a04b59c78b036eafa8416735987f304654b0a28051f
+claimStructHash = 0x5f26087985a826799dd8aad913529225a4602fd0af3f3734f2d7fac1c2a4a93f
+claimDigest     = 0xdc43dd5f7ea3e51a999a5977739ea0af6de5ad27fec207fba4ebfbff0ec02a49
+proofKey        = 0x3e1afa3eb523cdefc3d8faa94c15e05fe1af4fb5096f71e127890e3763f5a380
 ```
 
-with:
+Use timestamps appropriate to the actual publication. The values above are a
+cryptographic test vector, not a currently valid proof.
+
+### Sign And Publish
+
+Sign the common EIP-712 claim with the current exact-name authority. Publish:
 
 ```json
 {
   "v": "ensrv1",
-  "claim": {},
-  "authoritySignature": "0x...",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+    "recordType": "text",
+    "recordKey": "url",
+    "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
+    "authorityVersion": "1",
+    "method": "https-origin.v1",
+    "target": "https://example.com",
+    "issuedAt": "1783728000",
+    "validUntil": "1786320000"
+  },
+  "authoritySignature": "0x<65-byte-signature>",
   "methodProof": {}
 }
 ```
 
-## Verify
+at:
 
 ```text
-1. Normalize the ENS name with ENSIP-15.
-2. Resolve target and descriptor through Universal Resolver at one block.
-3. Parse descriptor and select Authority Algorithm 1 and https-origin.v1.
-4. Hash exact live target bytes.
-5. Derive canonical HTTPS origin and proofKey.
-6. Fetch the deterministic same-origin proof under client privacy policy.
-7. Parse the strict envelope and match all signed claim fields.
-8. Resolve current exact-name authority and verify EOA or ERC-1271 signature.
-9. Enforce issued interval, authority expiry, publication freshness, and cache bounds.
-10. Return verified/control or none/<error>.
+https://example.com/.well-known/ens-record-verification/3e1afa3eb523cdefc3d8faa94c15e05fe1af4fb5096f71e127890e3763f5a380
 ```
 
-The result means the HTTPS origin currently publishes a proof authorized by
-current exact-name authority. It does not mean the website is safe or official.
+Return status 200 and media type:
+
+```text
+application/ens-record-verification+json
+```
+
+## Verify A Record
+
+The verifier:
+
+1. normalizes `alice.eth`;
+2. resolves `text("url")` and `verification[text][url]` at one block;
+3. parses the descriptor;
+4. hashes the exact URL bytes and derives the HTTPS origin;
+5. calculates `proofKey` and fetches the well-known resource;
+6. compares every claim field with live inputs;
+7. determines current exact-name authority and validates its signature;
+8. applies lifetime and freshness checks;
+9. returns `verified/control`.
+
+Any mismatch returns `none` and an error from the
+[error registry](./reference/errors). The underlying `url` record still resolves
+normally.

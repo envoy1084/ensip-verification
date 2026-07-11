@@ -3,7 +3,5 @@
   "authority-signature": "Authority Signature",
   "https-origin": "HTTPS Origin",
   "dns-txt": "DNS TXT",
-  "account-signature": "Account Signature",
-  "service-account": "Service Account",
-  "issuer-attestation": "Issuer Attestation"
+  "account-signature": "Account Signature"
 }
