@@ -7,7 +7,10 @@ record says, but often cannot know whether the referenced website, social
 account, payment address, content endpoint, or other target is controlled by the
 same entity.
 
-The research is organized to separate evidence from proposal:
+The research is organized to separate evidence from proposal. Files 01–11 are
+the exploratory history and may use superseded terminology. Files 12–16 contain
+the current review, authority analysis, issue ledger, lifecycle, and adopted
+decisions; `16-protocol-decisions.md` wins if an older file conflicts.
 
 1. [Problem model](./01-problem-model.md)
 2. [ENS current state](./02-ens-current-state.md)
@@ -30,30 +33,36 @@ The research is organized to separate evidence from proposal:
 
 - A verified ENS record should not mean "safe", "official", "legal owner", or
   "not phishing". It should mean a precisely stated verification relationship.
-- The base relationship worth standardizing is bidirectional record control:
-  the current ENS authority still publishes the record, and the target authority
-  still publishes or signs a matching proof.
+- The protocol distinguishes current ENS-authority `authorization`,
+  bidirectional target `control`, and third-party `attestation` rather than
+  forcing every record into a generic control claim.
 - The current architecture is a small base ENSIP plus method profiles. The base
   owns discovery, descriptor parsing, raw live-value hashing, current-authority
   binding, common claim fields, and result semantics. Method profiles own
   external proof mechanics.
-- Current ENS authority should be resolved through the current ENS mainnet
-  authority rules. The first release should fail closed: wrapped names use the
-  Name Wrapper owner, unwrapped `.eth` second-level names use the Base Registrar
-  registrant, and other unwrapped names use the ENS Registry owner for the exact
-  node.
+- Target and descriptor records are resolved through the Universal Resolver at
+  one block. Exact-name authority is a separately versioned algorithm: current
+  rules use the Name Wrapper, Base Registrar, and Registry as appropriate.
+  Future ENS authority changes allocate a new algorithm version without
+  rewriting the verification kernel.
 - Verification discovery now follows resolver record classes:
   `verification[text][<key>]`, `verification[addr][<coinType>]`,
   `verification[contenthash]`, and reserved `verification[data][<key>]`.
-- The ENS-side descriptor is compact: `ensrv1 m=<method> [u=<uri>] [h=<hash>]`.
-  There is no `method=none`, descriptor-level `kind`, or descriptor-level
-  expiry.
-- Verifier output should expose only `verified` or `none` as public statuses.
-  Positive results carry kind `control` or `attestation`; failures are error
-  codes on `none`.
-- Verification should be versioned, short-lived, replay-resistant, and checked
-  against live ENS state. Static badges and indefinite cached results are not
-  enough.
+- The ENS-side descriptor is closed and compact:
+  `ensrv1 a=<authority-version> m=<concrete-versioned-method> [u=<uri>] [h=<hash>]`.
+  Unknown or duplicate fields are invalid.
+- Verifier output exposes only `verified` or `none` as public statuses. Positive
+  results carry relationship `authorization`, `control`, or `attestation`;
+  failures are stable error codes on `none`.
+- The one strict EIP-712 claim binds exact live resolver bytes, authority
+  version, immutable method, canonical target, issuance, and expiry. It has no
+  nonce or extensions. Replay safety comes from live state and time checks, not
+  an unconsumed nonce with no shared state.
+- Account targets use CAIP-10. The first account-signature profile supports only
+  unambiguous ENSIP-9/11 EVM mappings; other chain families need concrete
+  profiles.
+- Verification is SDK/verifier-level and deploys no new contract. ENS and
+  ERC-1271 checks are read-only calls to existing contracts.
 - Third-party attestations can be useful, but they should be an optional layer
   above record-control verification rather than the root trust model.
 - Developer adoption depends on Ethereum-native signatures where appropriate,

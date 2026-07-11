@@ -1,14 +1,21 @@
 # Record Verification Issue Register
 
-This document lists unresolved technical issues in ENS Resolver Record
+This document is the issue and resolution ledger for ENS Resolver Record
 Verification. It is the release gate for the base ENSIP, method profiles,
 schemas, test vectors, and reference implementation.
+
+The detailed issue bodies below preserve the original adversarial findings and
+examples. Their embedded `Status:` lines describe the state when the issue was
+filed. The table in this section is the authoritative current status; adopted
+solutions are summarized so the historical problem statements are not mistaken
+for current protocol behavior.
 
 Status values:
 
 - `Open`: no complete normative solution exists.
 - `Partial`: the draft contains part of the required solution.
 - `Deferred`: explicitly excluded from the first release.
+- `Resolved`: the normative draft contains an adopted solution.
 
 Priority values:
 
@@ -16,50 +23,64 @@ Priority values:
 - `P1`: blocks a specific method or production integration.
 - `P2`: does not block the base protocol but should be specified.
 
-## Summary
+## Current Release Gate
 
-| ID     | Priority | Status   | Issue                                                                           |
-| ------ | -------- | -------- | ------------------------------------------------------------------------------- |
-| P0-001 | P0       | Open     | Unwrapped subname authority can survive ancestor expiry or re-registration      |
-| P0-002 | P0       | Open     | No ENSv2 authority profile or migration rule                                    |
-| P0-003 | P0       | Partial  | Claims have no issuance time or enforceable maximum lifetime                    |
-| P0-004 | P0       | Open     | EIP-712 strict claim extensions are undefined                                   |
-| P0-005 | P0       | Open     | Target-account signature protocol is not specified                              |
-| P0-006 | P0       | Open     | Account target identifiers are inconsistent                                     |
-| P0-007 | P0       | Open     | Proof resources cannot select multiple claims deterministically                 |
-| P0-008 | P0       | Open     | External proof fetching lacks a security profile                                |
-| P0-009 | P0       | Partial  | Descriptor `h` does not define the exact hashed representation                  |
-| P0-010 | P0       | Open     | Unknown descriptor fields create downgrade risk                                 |
-| P0-011 | P0       | Partial  | Generic method identifiers conflict with immutable semantics                    |
-| P0-012 | P0       | Open     | HTTPS target canonicalization is incomplete                                     |
-| P0-013 | P0       | Open     | DNS target derivation and wire behavior are incomplete                          |
-| P0-014 | P0       | Partial  | JSON schema does not enforce claim and signature constraints                    |
-| P0-015 | P0       | Open     | Test vectors are non-executable and incomplete                                  |
-| P0-016 | P0       | Open     | ENS reads have no block snapshot or reorg rule                                  |
-| P0-017 | P0       | Partial  | Error taxonomy conflates invalid, unavailable, and unverified states            |
-| P0-018 | P0       | Open     | Authority-profile override permits undefined equivalent checks                  |
-| P0-019 | P0       | Open     | Name normalization is not version-pinned                                        |
-| P0-020 | P0       | Open     | No reference verifier proves the specification is implementable                 |
-| P1-001 | P1       | Partial  | Privacy modes lack mandatory product defaults                                   |
-| P1-002 | P1       | Open     | Method identifier governance and registration are undefined                     |
-| P1-003 | P1       | Open     | No production service-account provider profile exists                           |
-| P1-004 | P1       | Open     | Issuer-attestation format and trust policy are not interoperable                |
-| P1-005 | P1       | Open     | Contenthash binding is misclassified as target control                          |
-| P1-006 | P1       | Deferred | Scoped delegation is not defined                                                |
-| P1-007 | P1       | Deferred | One descriptor cannot advertise layered methods                                 |
-| P1-008 | P1       | Open     | Per-record records have no batching or enumeration strategy                     |
-| P1-009 | P1       | Partial  | Reserved `data` verification has no method profile                              |
-| P1-010 | P1       | Partial  | Cache and freshness limits are not method-specific                              |
-| P1-011 | P1       | Open     | Proof renewal and rotation are not atomic                                       |
-| P1-012 | P1       | Open     | CCIP Read and wildcard resolver behavior are underspecified                     |
-| P1-013 | P1       | Open     | DNS method documentation contains conflicting pointer formats                   |
-| P1-014 | P1       | Open     | Method profiles are presented as implemented standards before they are complete |
-| P2-001 | P2       | Open     | Debug results lack authority and validation trace metadata                      |
-| P2-002 | P2       | Partial  | Assurance metadata lacks normative derivation rules                             |
-| P2-003 | P2       | Partial  | Indexer results lack a mandatory portable cache contract                        |
-| P2-004 | P2       | Partial  | UI language does not fully distinguish method-specific semantics                |
-| P2-005 | P2       | Open     | Issue status and normative documentation are not synchronized                   |
-| P2-006 | P2       | Open     | ENSIP submission artifact is not isolated from product documentation            |
+Two P0 items remain open: a comprehensive executable vector corpus and a
+reference verifier. Name-normalization version pinning and schema/parser
+conformance remain partial. Those are implementation-conformance gaps, not
+unsettled architecture.
+
+| ID     | Status   | Adopted resolution or remaining work                                                                                                                       |
+| ------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0-001 | Resolved | Exact Registry child ownership intentionally survives parent expiry/re-registration; no parent fallback.                                                   |
+| P0-002 | Resolved | The protocol is ENS-wide; `a=1` isolates current mainnet authority and future semantics allocate a new version.                                            |
+| P0-003 | Resolved | The strict claim signs `issuedAt` and `validUntil`; every method sets maximum lifetime and skew.                                                           |
+| P0-004 | Resolved | The common EIP-712 claim is closed and has no extensions; method data binds to its digest.                                                                 |
+| P0-005 | Resolved | EVM target signs `ENSRecordAccountProof(commonClaimDigest, account)` in the target-chain domain.                                                           |
+| P0-006 | Resolved | Canonical account targets use CAIP-10; ambiguous or unsupported mappings fail closed.                                                                      |
+| P0-007 | Resolved | `proofKey` selects one name/selector/authority-version/method proof deterministically.                                                                     |
+| P0-008 | Resolved | The normative fetch profile covers schemes, redirects, SSRF, rebinding, timeouts, size, decompression, media types, and privacy.                           |
+| P0-009 | Resolved | `h` is keccak256 of the decoded HTTP body bytes before text or JSON parsing.                                                                               |
+| P0-010 | Resolved | The descriptor is closed; unknown and duplicate fields are invalid.                                                                                        |
+| P0-011 | Resolved | Concrete identifiers are immutable and versioned, for example `https-origin.v1`.                                                                           |
+| P0-012 | Resolved | `https-origin.v1` pins WHATWG URL parsing, HTTPS rules, ports, credentials, fragments, and origin derivation.                                              |
+| P0-013 | Resolved | Three concrete DNS profiles define target derivation, proof owner, base32 encoding, TXT grammar, conflicts, and mandatory DNSSEC.                          |
+| P0-014 | Partial  | The common schema is closed; method schemas, duplicate-member enforcement, numeric bounds, and semantic parser tests still need full conformance coverage. |
+| P0-015 | Open     | Core hashes now have an exact vector, but the full authority, method, lifecycle, network-policy, and negative corpus is not built.                         |
+| P0-016 | Resolved | Target and descriptor share one block reference; canonicality is rechecked under client confirmation policy.                                               |
+| P0-017 | Resolved | Public status is binary and stable errors distinguish unsupported, unavailable, invalid, expired, revoked, and policy-blocked.                             |
+| P0-018 | Resolved | Methods cannot override authority; unsupported versions and unauthenticated exact names fail closed.                                                       |
+| P0-019 | Partial  | ENSIP-15 normalization is required, but final submission should pin the exact normalization table/version and vectors.                                     |
+| P0-020 | Open     | A reference verifier is still required before claiming proven interoperability.                                                                            |
+| P1-001 | Partial  | Privacy modes and safe retrieval are normative; product-specific default UX still needs ecosystem agreement.                                               |
+| P1-002 | Partial  | Identifiers are immutable and versioned; allocation and registry governance still need an ENSIP process.                                                   |
+| P1-003 | Open     | `service-account.<provider>` remains an invalid abstract family until a complete provider profile exists.                                                  |
+| P1-004 | Open     | `issuer-attestation.<format>` remains invalid until issuer discovery, trust, subject, signature, expiry, revocation, and privacy are specified.            |
+| P1-005 | Resolved | Contenthash uses `authority-signature.v1` and relationship `authorization`, not fictional target control.                                                  |
+| P1-006 | Deferred | Scoped delegation is excluded from the first release and must define scope, transfer, expiry, and revocation separately.                                   |
+| P1-007 | Deferred | One descriptor advertises one method; multi-method ordering and downgrade semantics await demonstrated need.                                               |
+| P1-008 | Deferred | Smart multicall can batch known reads; enumeration is not required for verifying a selected record.                                                        |
+| P1-009 | Resolved | Supported `data` selectors can use the generic authority-signature profile; target-control profiles require separate definitions.                          |
+| P1-010 | Resolved | Each normative method defines maximum lifetime/freshness and results expose `effectiveValidUntil`/`cacheUntil` logic.                                      |
+| P1-011 | Partial  | Deterministic replacement and temporary non-positive rotation are specified; cross-system publication cannot be atomic.                                    |
+| P1-012 | Resolved | Universal Resolver handles record resolution; gateway/wildcard data never substitutes for exact authenticated authority.                                   |
+| P1-013 | Resolved | DNS uses one claim-specific owner derived from lowercase unpadded base32 `proofKey`.                                                                       |
+| P1-014 | Resolved | Only completed concrete profiles are normative; provider and issuer families are explicitly abstract.                                                      |
+| P2-001 | Partial  | Result types include core timing and assurance; a common optional diagnostic trace schema remains useful.                                                  |
+| P2-002 | Resolved | Assurance fields report only checks actually performed and never upgrade public status.                                                                    |
+| P2-003 | Resolved | `cacheUntil` is the portable reuse bound and cannot exceed semantic validity or source freshness.                                                          |
+| P2-004 | Resolved | UI guidance names `authorization`, `control`, or `attestation` and forbids “safe,” “official,” or equivalent overclaims.                                   |
+| P2-005 | Resolved | This ledger, protocol decisions, and normative pages now share the adopted architecture.                                                                   |
+| P2-006 | Resolved | `spec/ensip.mdx` is a standalone normative submission artifact; guides and research are separate.                                                          |
+
+## Reading The Historical Findings
+
+The sections below explain why every issue was raised, often using the old
+generic method names, nonce proposal, or `ens-mainnet-v1` terminology. Those
+terms are historical examples. The current rules are the resolution table above
+and the normative specification. Retaining the original attack reasoning makes
+future reviewers able to detect regressions instead of merely seeing a list of
+closed tickets.
 
 ## P0: Base Protocol Release Blockers
 

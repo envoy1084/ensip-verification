@@ -33,9 +33,10 @@ not define ENS authority.
 
 Universal Resolver does not currently provide one stable authority interface
 across every ENS registry implementation. Authority remains a small isolated
-algorithm in the specification. A future registry transition changes that
-algorithm and the EIP-712 domain, not the record-verification kernel or method
-profiles.
+algorithm in the specification. A future registry transition changes the
+authority algorithm version and changes the EIP-712 domain only if its chain or
+deployment anchor also changes; it does not rewrite the record-verification
+kernel or method profiles.
 
 ## 3. Exact-name Authority
 

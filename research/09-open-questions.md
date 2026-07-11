@@ -1,5 +1,11 @@
 # Open Questions and Evaluation Checklist
 
+> Historical design checkpoint. The questions in this file drove the
+> adversarial review. Their authoritative current disposition is in
+> `14-issues.md`, and adopted protocol behavior is in
+> `16-protocol-decisions.md`. Examples below may use superseded generic method
+> names or descriptor syntax.
+
 This file tracks decisions for the current base-ENSIP-plus-method-profiles
 architecture. The architecture files themselves should remain unchanged while
 these questions are evaluated.
