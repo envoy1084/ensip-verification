@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ens.domains/schemas/ens-record-verification-proof.schema.json",
-  "title": "ENS Record Verification Proof Envelope",
+  "title": "Record Verification Proof Envelope",
   "type": "object",
   "required": ["v", "claim", "authoritySignature", "methodProof"],
   "additionalProperties": false,

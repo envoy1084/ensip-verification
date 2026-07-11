@@ -1,4 +1,4 @@
-# ENS Record Verification Research
+# Record Verification Research
 
 This folder researches verification for ENS records beyond a single `url` text
 record. The core problem is that ENS resolver data is currently a public claim

@@ -1,4 +1,4 @@
-# ENS Resolver Record Verification
+# Record Verification
 
 This repository contains the Vocs documentation site for the ENS resolver
 record verification draft.
