@@ -24,6 +24,7 @@ The research is organized to separate evidence from proposal:
 13. [ENS authority model](./13-ens-authority-model.md)
 14. [Issue tracker](./14-issues.md)
 15. [Proof lifecycle model](./15-proof-lifecycle.md)
+16. [Protocol decisions](./16-protocol-decisions.md)
 
 ## Working Conclusions
 

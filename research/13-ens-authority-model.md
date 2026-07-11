@@ -1,316 +1,154 @@
 # Current ENS Authority Model
 
-This note documents the current ENS authority model for ENS Resolver Record
-Verification. It is aligned with the current ENSIP draft and intentionally covers
-only ENS on Ethereum mainnet.
+This note verifies the authority behavior used by ENS Resolver Record
+Verification against the current Ethereum mainnet contracts.
 
-The question is:
+## Resolution And Authority Are Separate
 
-```text
-Which account is allowed to sign the ENS side of a record-verification proof?
-```
+The canonical Universal Resolver is the record-resolution entrypoint. ENSIP-23
+defines it as the common path for direct, inherited, wildcard, and CCIP Read
+resolvers. The long-lived proxy can change its underlying registry traversal as
+ENS evolves.
 
-The answer should be simple:
+Universal Resolver returns resolver data. It does not make a resolver writer,
+gateway signer, or gateway-provided owner field the verification authority.
+Authority is determined separately for the exact name.
 
-```text
-current ENS authority = current owner of the exact name under current ENS rules
-```
+## Current Authority Algorithm
 
-## Recommendation
-
-Use one current ENS mainnet authority rule set:
-
-| Name type                          | Example                                                  | Current ENS authority                                      |
-| ---------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------- |
-| Wrapped name                       | wrapped `alice.eth` or wrapped `sub.alice.eth`           | Name Wrapper owner of `uint256(namehash(name))`            |
-| Unwrapped `.eth` second-level name | `alice.eth`                                              | Base Registrar registrant of `uint256(labelhash("alice"))` |
-| Other unwrapped name               | `sub.alice.eth`, `deep.sub.alice.eth`, imported DNS name | ENS Registry owner of `namehash(name)`                     |
-
-The verifier checks authority for the exact name being verified. Parent name
-ownership is not automatically authority for a child name.
-
-## Why This Is The Best Current Rule
-
-### It Matches Real Transfer Semantics
-
-For unwrapped `.eth` second-level names, the Base Registrar registrant is the
-durable ownership source. The ENS Registry owner is a manager/controller and can
-be stale after the registrar token transfers.
-
-If verification accepted the registry manager for `alice.eth`, an old manager
-could keep signing proofs after the Base Registrar registrant transferred the
-name.
-
-### It Handles Wrapped Names Cleanly
-
-When the ENS Registry owner is the Name Wrapper, the wrapped token owner is the
-right authority. This works for both wrapped second-level names and wrapped
-subnames.
-
-Wrapped authority must be bounded by wrapper expiry. For wrapped `.eth`
-second-level names, it must also be bounded by Base Registrar registration
-expiry, because positive verification should not survive the underlying `.eth`
-registration expiry.
-
-### It Keeps Subnames Exact
-
-For an unwrapped subname such as:
+Constants on Ethereum mainnet:
 
 ```text
-sub.alice.eth
+ENS Registry:    0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
+Base Registrar: 0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85
+Name Wrapper:   0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401
 ```
 
-authority is:
+For normalized `name` and `node = namehash(name)`:
+
+1. Read `ENSRegistry.owner(node)` at the evaluation block.
+2. If the result is Name Wrapper:
+   - read `NameWrapper.getData(uint256(node))`;
+   - require nonzero wrapper owner;
+   - require `now < wrapperExpiry`;
+   - use the wrapper owner as authority;
+   - set `authorityValidUntil = wrapperExpiry`;
+   - for a wrapped `.eth` second-level name, also require the Base Registrar
+     registration to be unexpired and take the earlier expiry.
+3. Otherwise, if `name` is an unwrapped `.eth` second-level name:
+   - read `BaseRegistrar.ownerOf(uint256(labelhash(label)))`;
+   - require the registration to be unexpired;
+   - use the registrant as authority;
+   - set `authorityValidUntil = BaseRegistrar.nameExpires(tokenId)`.
+4. Otherwise:
+   - use `ENSRegistry.owner(node)` as exact-name authority;
+   - no additional authority expiry exists unless ENS exposes one.
+5. Reject zero or indeterminate authority.
+6. Verify EOAs by ECDSA recovery and contracts by ERC-1271.
+
+The algorithm is intentionally isolated. A future canonical registry can
+replace this section without changing discovery, descriptors, claims, methods,
+or results. A changed authority system uses a new EIP-712 domain.
+
+## Subname Expiry Findings
+
+### Unwrapped Subnames
+
+ENS Registry records do not contain expiry. `setSubnodeOwner()` writes the child
+owner independently. Base Registrar re-registration updates the `.eth`
+second-level owner but does not recursively delete child Registry records.
+
+Therefore:
 
 ```text
-ENSRegistry.owner(namehash("sub.alice.eth"))
+alice.eth expires
+  does not automatically delete sub.alice.eth Registry ownership
+
+alice.eth is re-registered
+  does not automatically replace sub.alice.eth Registry ownership
 ```
 
-not automatically:
+The new `alice.eth` owner can replace the child through the parent-controlled
+Registry path. Until then, the existing exact child owner remains the ENS
+Registry owner.
 
-```text
-owner of alice.eth
-```
+Record verification follows exact-name ownership. It does not interpret parent
+transfer or re-registration as transfer of an existing unwrapped child. This is
+consistent with current Registry state and preserves delegated subnames.
 
-This matters because many subnames are delegated, transferred, or independently
-managed.
+### Wrapped Subnames
 
-### It Avoids Overclaiming Resolver Permissions
+Name Wrapper stores owner, fuses, and expiry. Child expiry is capped by parent
+wrapper expiry. A verifier always requires `now < wrapperExpiry`.
 
-Resolver writers, approved operators, profile managers, and hosted-profile
-tools may be allowed to edit records. That does not mean they are allowed to
-make verification claims on behalf of the ENS name.
+When an emancipated wrapped name expires, Name Wrapper exposes zero owner. A
+parent-controlled expired name can retain an address in raw storage, but its
+fuses reset and the parent can replace it. The explicit verifier expiry check
+prevents either case from remaining verification authority after expiry.
 
-Record editing power and verification authority are different powers.
+### `.eth` Second-level Names
 
-## Normative Rule Shape
+Base Registrar `ownerOf()` rejects an expired registration even during the
+renewal grace period. Verification follows registration expiry, not availability
+for re-registration. A proof stops verifying at `nameExpires(tokenId)`.
 
-For ENS on Ethereum mainnet:
+## Rejected Authority Sources
 
-1. Normalize the ENS name.
-2. Compute `node = namehash(name)`.
-3. Read `ENSRegistry.owner(node)`.
-4. If the registry owner is the Name Wrapper contract and the wrapped owner is
-   nonzero:
-   - authority is the Name Wrapper owner;
-   - positive verification must not outlive wrapped-name expiry;
-   - for wrapped `.eth` second-level names, positive verification must also not
-     outlive Base Registrar registration expiry.
-5. Else, if the name is an unwrapped `.eth` second-level name:
-   - authority is `BaseRegistrar.ownerOf(uint256(labelhash(label)))`;
-   - require the Base Registrar registration to be unexpired;
-   - positive verification must not outlive Base Registrar registration expiry.
-6. Else:
-   - authority is `ENSRegistry.owner(node)`.
-7. If authority is zero, return `none/unsupported_authority` or `none`.
-8. If authority is an EOA, verify EIP-712 by ECDSA recovery.
-9. If authority is a contract, verify EIP-712 through ERC-1271.
+The following are not current ENS authority:
 
-## Examples
-
-### `alice.eth`, Unwrapped
-
-```text
-name = alice.eth
-authority = BaseRegistrar.ownerOf(uint256(labelhash("alice")))
-expiry bound = BaseRegistrar.nameExpires(uint256(labelhash("alice")))
-```
-
-Do not use `ENSRegistry.owner(namehash("alice.eth"))` as authority for the
-unwrapped second-level name. That address may only be the manager.
-
-### `sub.alice.eth`, Unwrapped
-
-```text
-name = sub.alice.eth
-authority = ENSRegistry.owner(namehash("sub.alice.eth"))
-expiry bound = none unless another live ENS rule exposes one
-```
-
-The owner of `alice.eth` is not automatically the authority for
-`sub.alice.eth`.
-
-### `deep.sub.alice.eth`, Unwrapped
-
-```text
-name = deep.sub.alice.eth
-authority = ENSRegistry.owner(namehash("deep.sub.alice.eth"))
-```
-
-The verifier does not walk up to `sub.alice.eth` or `alice.eth` looking for a
-parent signer. It verifies the exact name.
-
-### `alice.eth`, Wrapped
-
-```text
-registry owner = ENSRegistry.owner(namehash("alice.eth"))
-authority = NameWrapper owner of uint256(namehash("alice.eth"))
-expiry bound = min(wrapper expiry, Base Registrar registration expiry)
-```
-
-The Name Wrapper owner signs the ENS side of the proof.
-
-### `sub.alice.eth`, Wrapped
-
-```text
-registry owner = ENSRegistry.owner(namehash("sub.alice.eth"))
-authority = NameWrapper owner of uint256(namehash("sub.alice.eth"))
-expiry bound = wrapper expiry
-```
-
-If the wrapped owner transfers, old proofs from the previous wrapped owner must
-fail.
-
-### Imported DNS Name
-
-```text
-name = example.com
-authority = ENSRegistry.owner(namehash("example.com"))
-```
-
-This proves ENS-side intent only. It does not prove legal DNS ownership unless a
-target method such as `dns-txt` separately proves DNS control.
-
-### Name With CCIP Read Resolver
-
-```text
-name = alice.eth
-resolver returns records through CCIP Read
-authority = current ENS authority for alice.eth
-```
-
-CCIP Read can prove the live resolver value. It does not automatically replace
-the ENS authority signer.
-
-If a gateway response contains:
-
-```json
-{ "owner": "0x..." }
-```
-
-that field is not authority by itself. It can only be used if a method profile
-defines an equivalent or stronger current-authority check that cryptographically
-verifies that owner.
-
-## What Not To Accept As Base Authority
-
-Do not accept these as current ENS authority in the base ENSIP:
-
-- resolver writer;
-- resolver delegate;
+- resolver writer or delegate;
+- approved resolver operator;
 - profile manager;
-- approved operator;
-- gateway signer;
-- unverified gateway `owner` field;
+- Universal Resolver implementation or proxy administrator;
+- CCIP Read gateway signer;
+- gateway-provided owner field;
 - indexer result;
 - parent owner for an exact child name;
-- old owner after transfer;
-- owner after name expiry.
+- previous exact-name owner after transfer;
+- expired wrapped or registered owner.
 
-These may be useful in future delegation or attestation systems, but they should
-not be silently treated as base ENS authority.
+Future scoped delegation must be explicit. Resolver permissions are not
+implicitly verification authority.
 
-## Result Data
+## EIP-712 Domain
 
-Verifier internals should track:
-
-```text
-authorityRule
-authority
-authorityExpiry
-authoritySource
-```
-
-Suggested values:
+Current Ethereum mainnet domain:
 
 ```text
-authorityRule: ens-mainnet
-authoritySource: name-wrapper | base-registrar | ens-registry
+name:              ENS Record Verification
+version:           1
+chainId:           1
+verifyingContract: 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
 ```
 
-The public result does not need to expose this by default, but debug output
-should make it clear which rule was used.
+The verifying contract is domain separation. It does not execute verification
+and no new contract is deployed.
 
-## Release Priority
+## Required Test Matrix
 
-### P0 Before Release
+| Case                                     | Expected authority/result                                    |
+| ---------------------------------------- | ------------------------------------------------------------ |
+| Unwrapped `.eth` second-level name       | Base Registrar registrant                                    |
+| Registry manager differs from registrant | Manager signature rejected                                   |
+| Registrar token transfers                | Previous registrant rejected                                 |
+| Registration reaches expiry              | `expired`                                                    |
+| Wrapped name                             | Exact wrapper owner                                          |
+| Wrapped owner transfers                  | Previous wrapper owner rejected                              |
+| Wrapped expiry reached                   | `expired` even if raw storage contains owner                 |
+| Unwrapped subname                        | Exact ENS Registry owner                                     |
+| Parent transfers                         | Existing exact child owner remains authority                 |
+| Parent expires and is re-registered      | Existing exact child Registry owner remains until replaced   |
+| Imported DNS name                        | Exact ENS Registry owner; DNS ownership not implied          |
+| CCIP Read record                         | Gateway data validated by resolver; gateway is not authority |
+| Contract authority                       | ERC-1271 decides signature validity                          |
+| Zero owner                               | `unsupported_authority`                                      |
 
-- Define the current ENS authority rules in the base ENSIP.
-- Require fail-closed behavior when authority cannot be determined.
-- Use Base Registrar registrant for unwrapped `.eth` second-level names.
-- Use ENS Registry owner for other unwrapped exact names.
-- Use Name Wrapper owner for wrapped names.
-- Enforce EOA EIP-712 and contract ERC-1271 signature paths.
-- Enforce expiry bounds from the signed claim, external proof, wrapper expiry,
-  and `.eth` registration expiry.
-- State that CCIP Read record resolution does not automatically change authority.
+## Source Evidence
 
-### Good To Have
-
-- Debug output for `authorityRule`, `authoritySource`, and expiry bound.
-- Test fixtures for stale `.eth` managers, wrapped expiry, subname ownership,
-  imported DNS names, CCIP Read resolver responses, and contract authorities.
-- Wallet copy that says "current ENS authority" without implying safety,
-  official status, or legal ownership.
-
-### Not Required For The First Release
-
-- Generic delegation.
-- Resolver-writer authority.
-- Gateway-signer authority.
-- Parent-owner authority for child names.
-- Legal/DNS ownership claims for imported DNS names.
-- Safety, phishing, authenticity, or brand-official badges.
-
-## Implementation Test Matrix
-
-| Case                                                             | Expected result                                                |
-| ---------------------------------------------------------------- | -------------------------------------------------------------- |
-| `alice.eth`, unwrapped, registry manager equals registrant       | Registrant signature verifies                                  |
-| `alice.eth`, unwrapped, registry manager differs from registrant | Registrant signature verifies; manager signature fails         |
-| `alice.eth`, unwrapped, after Base Registrar transfer            | Old registrant signature fails                                 |
-| `alice.eth`, unwrapped, after registration expiry                | Returns `none`, even if grace-period behavior exists elsewhere |
-| `alice.eth`, wrapped                                             | Name Wrapper owner signature verifies                          |
-| `alice.eth`, wrapped, after wrapper transfer                     | Old wrapped owner signature fails                              |
-| `alice.eth`, wrapped, after `.eth` registration expiry           | Returns `none`                                                 |
-| `sub.alice.eth`, unwrapped                                       | ENS Registry owner of exact subname signs                      |
-| `deep.sub.alice.eth`, unwrapped                                  | ENS Registry owner of exact deep subname signs                 |
-| `sub.alice.eth`, wrapped                                         | Name Wrapper owner of exact subname signs                      |
-| `example.com`, imported DNS name                                 | ENS Registry owner signs; DNS ownership is not implied         |
-| Zero registry owner                                              | Returns `none`                                                 |
-| Contract owner implementing ERC-1271                             | `isValidSignature` decides validity                            |
-| Resolver delegate signs                                          | Fails under base rules                                         |
-| Gateway response includes unverified `owner` field               | Fails as authority                                             |
-| CCIP Read validates live record value only                       | Authority still comes from current ENS rules                   |
-
-## Handoff Questions For Another Reviewer
-
-1. Does any accepted signer fail to be the current owner under the current ENS
-   rules?
-2. Does `.eth` transfer through the Base Registrar invalidate old proofs even if
-   the ENS Registry manager stays unchanged?
-3. Does Name Wrapper transfer invalidate old proofs even if resolver records
-   stay unchanged?
-4. Does the design distinguish "can edit this resolver record" from "can speak
-   for this ENS name"?
-5. Does a gateway signer or gateway `owner` field become authority without a
-   cryptographic current-authority check?
-6. Does the verifier use the exact name, rather than the parent name, for
-   subname authority?
-7. Does the public UI avoid presenting `verified` as safe, official, legal, or
-   non-malicious?
-
-## Source Notes
-
-Useful source context:
-
-- ENS Registry, Base Registrar, Name Wrapper, EIP-712, and ERC-1271 are the core
-  authority/signature primitives for this model.
-- ENS Name Wrapper docs define fuses, wrapped expiry, parent control,
-  emancipation, and locked states:
-  https://docs.ens.domains/wrapper/fuses/
-- ENS CCIP Read docs explain offchain resolver flow and callback validation:
-  https://docs.ens.domains/resolvers/ccip-read/
-- EIP-3668 explains that the callback decodes and verifies offchain data using
-  implementation-specific validation:
-  https://eips.ethereum.org/EIPS/eip-3668
+- ENSIP-23 defines Universal Resolver as the common resolution entrypoint.
+- `ENSRegistry.setSubnodeOwner()` writes a child owner without an expiry field.
+- `BaseRegistrar.ownerOf()` rejects names at registration expiry.
+- Base Registrar re-registration updates only the `.eth` second-level Registry
+  owner.
+- `NameWrapper.getData()` exposes owner, fuses, and expiry.
+- Name Wrapper normalizes child expiry to parent expiry.
