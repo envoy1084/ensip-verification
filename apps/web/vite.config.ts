@@ -4,5 +4,8 @@ import { vocs } from "vocs/vite";
 
 export default defineConfig({
   plugins: [react(), vocs()],
+  optimizeDeps: {
+    include: ["mermaid"],
+  },
   server: { port: 3000 },
 });
