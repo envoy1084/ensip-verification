@@ -1,11 +1,9 @@
 ---
 title: Social and Service Accounts
-description: Verify service-account text records using provider-specific methods.
+description: Current authorization support and requirements for future provider profiles.
 ---
 
-# Record Flow: Social and Service Accounts
-
-## Target records
+# Social and Service Accounts
 
 Examples:
 
@@ -15,79 +13,20 @@ text("com.twitter") = "alice"
 text("org.telegram") = "alice"
 ```
 
-## Verification keys
+The initial normative option is:
 
 ```text
-verification[text][com.github]
-verification[text][com.twitter]
-verification[text][org.telegram]
+authority-signature.v1
 ```
 
-## Method model
+This proves current exact-name authority authorized the text value. It does not
+prove provider account control.
 
-Use provider-specific method identifiers.
+Provider control requires a concrete immutable profile such as a future
+`service-account.github.v1`. That profile must define stable account ID,
+handle-to-ID mapping, username reuse, user versus organization behavior, exact
+proof surface, collaborator risk, API version, revocation, cache limits, and UI
+meaning.
 
-```text
-service-account.github
-service-account.farcaster
-service-account.lens
-service-account.x
-service-account.discord
-```
-
-The base specification intentionally does not define a generic `public-account` method. Provider rules differ too much.
-
-## GitHub example
-
-Publisher sets:
-
-```text
-text("com.github") = "alice"
-text("verification[text][com.github]") = "ensrv1 m=service-account.github u=https://... h=0x..."
-```
-
-The proof claim uses:
-
-```json
-{
-  "recordType": "text",
-  "recordKey": "com.github",
-  "method": "service-account.github",
-  "target": "github:user:1234567"
-}
-```
-
-The verifier resolves the GitHub login to a stable provider account ID and verifies that the proof surface is controlled by that account under the provider profile.
-
-## Provider profile requirements
-
-A provider profile must define:
-
-```text
-stable account identifier
-handle reuse behavior
-proof surface
-organization semantics
-collaborator/write-access risk
-proof URI mutability
-revocation behavior
-API dependency
-allowed UI copy
-```
-
-## Result
-
-A successful result means:
-
-```text
-The provider account proof passed for this ENS record.
-```
-
-It does not mean:
-
-```text
-real-world identity verified
-official account
-trusted developer
-no impersonation risk
-```
+Generic `service-account` and wildcard `service-account.<provider>` are abstract
+families and invalid descriptor values.

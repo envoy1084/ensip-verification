@@ -1,8 +1,9 @@
 {
   "name": "valid basic descriptor",
-  "descriptor": "ensrv1 m=https-origin",
+  "descriptor": "ensrv1 a=1 m=https-origin.v1",
   "expected": {
     "ok": true,
-    "method": "https-origin"
+    "authorityVersion": "1",
+    "method": "https-origin.v1"
   }
 }

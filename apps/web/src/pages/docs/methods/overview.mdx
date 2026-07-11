@@ -1,57 +1,55 @@
 ---
 title: Method Profiles
-description: Method profile registry and requirements.
+description: Method registry, status, requirements, and evolution rules.
 ---
 
 # Method Profiles
 
-A method profile defines how to verify a target represented by an ENS resolver record.
+A method defines target derivation and evidence beyond current ENS resolution.
 
-The base ENSIP does not define proof semantics for every external system. It dispatches to method profiles using the descriptor field `m`.
+## Initial Registry
 
-## Standard Method Profiles
+| Method                                                | Relationship    | Status                | Records                         |
+| ----------------------------------------------------- | --------------- | --------------------- | ------------------------------- |
+| [`authority-signature.v1`](./authority-signature)     | `authorization` | Normative             | Any supported selector          |
+| [`https-origin.v1`](./https-origin)                   | `control`       | Normative             | HTTPS URL text records          |
+| [`dns-txt.*.v1`](./dns-txt)                           | `control`       | Normative with DNSSEC | Profile-specific domain records |
+| [`account-signature.eip155.v1`](./account-signature)  | `control`       | Normative             | Unambiguous EVM address records |
+| [`service-account.<provider>`](./service-account)     | `control`       | Abstract family       | Provider account records        |
+| [`issuer-attestation.<format>`](./issuer-attestation) | `attestation`   | Abstract family       | Format-defined                  |
 
-| Method | Kind | Freshness | Primary records |
-| --- | --- | --- | --- |
-| `https-origin` | `control` | `live-publication` | URL-like text records. |
-| `dns-txt` | `control` | `live-publication` | Domain-backed text records. |
-| `account-signature` | `control` | `portable-signed` | Address records. |
-| `service-account.<provider>` | `control` | profile-defined | Public service account text records. |
-| `contenthash-binding` | `control` | `portable-signed` | `contenthash`. |
-| `issuer-attestation` | `attestation` | `issuer-revocable` | Any supported record under client policy. |
+Abstract family names and unversioned names are invalid descriptor methods.
 
-## Method Requirements
+## Profile Requirements
 
-Every method profile MUST define:
+Every concrete method defines:
 
-```text
-method identifier
-result kind
-supported record types and keys
-target derivation
-proof freshness class
-descriptor field requirements
-proof location or proof resource rules
-proof payload format
-h policy
-expiry sources
-revocation requirements
-cache and freshness caps
-error mappings
-privacy considerations
-allowed and forbidden UI copy
-test vectors
-```
+- immutable identifier and status;
+- supported record selectors;
+- relationship;
+- descriptor field policy;
+- target derivation;
+- proof location and closed schema;
+- binding of every signed or attested method proof to the complete common claim
+  digest;
+- maximum claim lifetime;
+- freshness and cache limits;
+- revocation behavior;
+- fetch and privacy behavior;
+- error mapping;
+- allowed and forbidden UI language;
+- positive and negative vectors.
 
-## Method Versioning
+## Version Axes
 
-Method identifiers are immutable. Incompatible changes require a new method identifier.
+These versions have separate meanings:
 
-Examples:
+| Version                | Controls                                          |
+| ---------------------- | ------------------------------------------------- |
+| `ensrv1`               | Descriptor and common envelope grammar.           |
+| `authorityVersion`     | Exact-name authority lookup and expiry algorithm. |
+| EIP-712 domain version | Common signature protocol.                        |
+| Method suffix          | Immutable target-evidence algorithm.              |
 
-```text
-https-origin
-https-origin.v2
-service-account.github
-service-account.github.v2
-```
+Unknown versions fail closed. A verifier never falls back to an older method or
+descriptor interpretation.

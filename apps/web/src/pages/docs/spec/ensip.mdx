@@ -1,6 +1,5 @@
 ---
-title: ENSIP
-description: Record-scoped verification for ENS resolver records
+description: Record-scoped authorization, control proofs, and attestations for ENS resolver records.
 contributors:
   - TBD
 ensip:
@@ -12,170 +11,156 @@ ensip:
 
 ## Abstract
 
-This ENSIP defines record-scoped verification discovery for ENS resolver records. It allows an ENS name to advertise a compact verification descriptor for a specific resolver record and defines the common validation rules used by verification clients.
+This ENSIP defines record-scoped verification for ENS resolver records. A name
+publishes a compact verification descriptor for a specific resolver record. A
+verifier resolves the live record and descriptor through Universal Resolver,
+binds the exact resolver bytes to one strict EIP-712 claim, verifies current
+authority for the exact ENS name, and evaluates method-specific evidence.
 
-The ENSIP does not define product-specific verification namespaces such as `verification[url]`, `verification[social]`, or `verification[email]`. Verification follows resolver record classes:
+The protocol supports three positive relationships:
 
-```text
-verification[text][<key>]
-verification[addr][<coinType>]
-verification[contenthash]
-verification[data][<key>]
-```
+- `authorization`: current ENS authority signed the exact live record value;
+- `control`: authorization plus participation by the external target;
+- `attestation`: authorization plus an issuer accepted by client policy.
 
-The base ENSIP defines discovery, descriptor parsing, value hashing, signed claims, current ENS authority, lifecycle, errors, and result semantics. Verification methods such as `https-origin`, `dns-txt`, `account-signature`, `service-account.<provider>`, `contenthash-binding`, and `issuer-attestation` are defined by separate method profiles.
+The protocol requires no new contract. It uses existing ENS records, existing
+authority contracts, ERC-1271, and offchain proof resources.
 
 ## Motivation
 
-ENS resolver records can point to resources outside ENS, including websites, service accounts, blockchain accounts, email addresses, content roots, issuer-backed claims, and agent endpoints. A resolver value proves what a resolver currently returns. It does not, by itself, prove that the current ENS authority controls the external target represented by that value.
+An ENS resolver proves what value it returns. It does not prove that current
+exact-name authority explicitly authorized that value or that an external target
+agrees with it.
 
-This ENSIP standardizes a narrow verification question:
+Examples:
 
 ```text
-For this ENS name and this exact resolver record value, is there a valid control proof or accepted attestation under the current ENS authority?
+text("url") = "https://example.com"
+text("com.github") = "alice"
+addr(60) = 0x1234...
+contenthash() = ipfs://bafy...
 ```
 
-This ENSIP does not define a global trust system. A verified result does not mean that a URL is safe, an account is legitimate, an address is non-malicious, a content root is trustworthy, an issuer is globally trusted, or a resource is legally owned by the ENS name holder.
+These records do not by themselves prove control of the website, provider
+account, target blockchain account, or content publisher. Resolver-writing
+authority may also be delegated more broadly than name ownership.
+
+This ENSIP answers only:
+
+```text
+For this exact ENS name, record selector, and live resolver value, did current
+exact-name authority authorize the claim and did the selected method evidence
+validate?
+```
+
+It does not define safety, reputation, legal ownership, brand authenticity,
+anti-phishing status, or universal issuer trust.
 
 ## Specification
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119 and RFC 8174.
+The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT,
+RECOMMENDED, NOT RECOMMENDED, MAY, and OPTIONAL are interpreted as described in
+RFC 2119 and RFC 8174.
 
 ### Definitions
 
-- **Target record**: the ENS resolver record being verified.
-- **Verification record**: an ENSIP-5 text record whose key is defined by this ENSIP and whose value is a verification descriptor.
-- **Verification descriptor**: the compact ASCII value stored in a verification record.
-- **Method profile**: a specification that defines proof retrieval, target binding, external proof validation, result kind, freshness, and security considerations for a method identifier.
-- **Current ENS authority**: the account recognized by the applicable authority profile as controlling the exact ENS name for record-verification purposes.
-- **Control verification**: a positive result where the external target itself participates in the proof.
-- **Attestation verification**: a positive result where an issuer asserts the binding and clients apply an explicit issuer trust policy.
-- **Live evaluation**: verification performed against current ENS state, current resolver output, current descriptor state, current authority, and method-required proof freshness.
+- **Target record**: existing ENS resolver record being evaluated.
+- **Record selector**: resolver profile plus its key or parameter.
+- **Verification record**: ENSIP-5 text record containing a descriptor.
+- **Descriptor**: compact method and proof-discovery value.
+- **Authority version**: versioned exact-name authority lookup algorithm.
+- **Method**: immutable target-evidence algorithm.
+- **Proof key**: stable record-method publication slot identifier.
+- **Evaluation block**: one block reference used for every ENS read in an
+  evaluation.
+- **High-trust action**: payment, transaction approval, sign-in, account
+  binding, agent connection, or equivalent security-sensitive action.
 
-### Verification Record Keys
+### Protocol Invariants
 
-Verification records are ENSIP-5 text records. The key identifies the target resolver record. The value identifies the method used to verify the target record.
+A verifier MUST NOT return `verified` unless:
 
-Initial verification keys are:
+1. target record and descriptor were resolved for the same normalized exact
+   name and evaluation block;
+2. descriptor is valid and selects supported authority and method versions;
+3. claim binds normalized name, node, selector, exact live value hash,
+   authority version, method, and canonical target;
+4. current exact-name authority validates the authority signature;
+5. selected method evidence validates;
+6. all applicable validity, freshness, and revocation checks pass.
 
-```text
-verification[text][<text-key>]
-verification[addr][<coinType>]
-verification[contenthash]
-verification[data][<data-key>]
-```
+Verification failure MUST NOT invalidate or hide the target resolver record.
 
-`verification[data][<data-key>]` is reserved for resolvers that implement arbitrary byte-data records. Clients that do not support the target data resolver profile MUST return `none` with `unsupported_record`.
+### Name Normalization
 
-#### Text Records
+Input names MUST be normalized according to ENSIP-15 before DNS encoding,
+namehash, resolution, signing, or comparison. Invalid names return
+`invalid_request`.
 
-For a target record resolved as:
+The claim contains normalized Unicode `name`. The verifier recomputes
+`node = namehash(name)` and requires equality with signed `node`.
 
-```text
-text(node, <text-key>)
-```
+### Universal Resolution
 
-clients MUST use:
+The target record and verification descriptor MUST be resolved through the
+canonical ENSIP-23 Universal Resolver for the ENS deployment.
 
-```text
-verification[text][<text-key>]
-```
-
-`<text-key>` is the exact ENSIP-5 text key. It MUST be non-empty. It MAY contain `[` or `]`.
-
-The verification key is constructed by concatenation:
-
-```text
-"verification[text][" + textKey + "]"
-```
-
-Generic parsers MUST NOT use recursive bracket matching. To parse a text verification key, a client checks the prefix `verification[text][`, checks that the final character is `]`, and treats the substring between the prefix and the final `]` as `<text-key>`.
-
-Examples:
-
-| Target text key | Verification key |
-| --- | --- |
-| `url` | `verification[text][url]` |
-| `email` | `verification[text][email]` |
-| `com.github` | `verification[text][com.github]` |
-| `agent-endpoint[mcp]` | `verification[text][agent-endpoint[mcp]]` |
-
-#### Address Records
-
-For a target record resolved as:
+Ethereum mainnet canonical proxy:
 
 ```text
-addr(node, <coinType>)
+0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
 ```
 
-clients MUST use:
+The two reads:
+
+- use the same normalized DNS-encoded exact name;
+- use the same evaluation block;
+- SHOULD use one Universal Resolver smart multicall;
+- process EIP-3668 callbacks under the same block context.
+
+The returned resolver is diagnostic only. Resolver writers, delegates,
+Universal Resolver operators, gateways, gateway signers, and
+resolver-supplied owner values are not verification authority.
+
+### Record Selectors And Verification Keys
+
+Initial selectors:
+
+| Target selector        | `recordType`  | `recordKey`                 | Verification text key            |
+| ---------------------- | ------------- | --------------------------- | -------------------------------- |
+| `text(node, key)`      | `text`        | Exact key                   | `verification[text][<key>]`      |
+| `addr(node, coinType)` | `addr`        | Canonical decimal coin type | `verification[addr][<coinType>]` |
+| `contenthash(node)`    | `contenthash` | Empty string                | `verification[contenthash]`      |
+| `data(node, key)`      | `data`        | Exact key                   | `verification[data][<key>]`      |
+
+Text and data verification keys are exact concatenation:
 
 ```text
-verification[addr][<coinType>]
+"verification[text][" + key + "]"
+"verification[data][" + key + "]"
 ```
 
-`<coinType>` MUST be the decimal representation of the ENSIP-9 coin type. It MUST NOT contain a sign. It MUST NOT contain leading zeroes unless the value is exactly `0`.
+Keys MUST be non-empty and MAY contain brackets. Parsers match the fixed prefix
+and final `]`; they MUST NOT recursively parse brackets.
 
-Examples:
+Coin type is unsigned decimal without a sign or leading zeroes except value
+`0`.
+
+The `data` namespace is reserved. A client without a concrete data method returns
+`unsupported_record`.
+
+Target records are missing when the resolver profile returns its defined empty
+string or zero-length bytes.
+
+### Descriptor
+
+The verification record value is ASCII:
 
 ```text
-verification[addr][60]
-verification[addr][0]
-verification[addr][501]
+ensrv1 a=<authority-version> m=<method> [u=<uri>] [h=<hash>]
 ```
 
-#### Contenthash Records
-
-For a target record resolved as:
-
-```text
-contenthash(node)
-```
-
-clients MUST use:
-
-```text
-verification[contenthash]
-```
-
-No parameter is used.
-
-#### Data Records
-
-For a target record resolved as:
-
-```text
-data(node, <data-key>)
-```
-
-clients MUST use:
-
-```text
-verification[data][<data-key>]
-```
-
-`<data-key>` uses the same construction and parsing rules as `<text-key>`.
-
-### Verification Descriptor
-
-The verification record value is a compact ASCII descriptor. Full proof payloads MUST NOT be stored in the verification descriptor. JSON MUST NOT be used as the onchain descriptor format.
-
-The descriptor format is:
-
-```text
-ensrv1 m=<method> [u=<uri>] [h=<hash>] [<extension-field>=<value> ...]
-```
-
-Examples:
-
-```text
-ensrv1 m=https-origin
-ensrv1 m=dns-txt u=ipfs://bafy... h=0x5f3a...
-ensrv1 m=account-signature u=ipfs://bafy... h=0xa8d2...
-ensrv1 m=issuer-attestation u=https://issuer.example/proofs/4d8b... h=0x9e02...
-```
-
-#### Descriptor Grammar
+ABNF:
 
 ```text
 descriptor  = "ensrv1" 1*(SP field)
@@ -184,279 +169,454 @@ field-name  = 1*(%x61-7A / %x30-39 / "-")
 field-value = 1*(%x21-7E)
 ```
 
-`field-value` MUST NOT contain spaces or control characters. Values that need spaces MUST use a method-defined encoding.
+Fields:
 
-#### Descriptor Fields
+| Field | Meaning                                                             |
+| ----- | ------------------------------------------------------------------- |
+| `a`   | Canonical unsigned decimal authority version. Required once.        |
+| `m`   | Method identifier. Required once.                                   |
+| `u`   | Absolute proof URI under method rules.                              |
+| `h`   | Lowercase `0x` plus 64 hex digits containing body-byte `keccak256`. |
 
-| Field | Required | Meaning |
-| --- | --- | --- |
-| `m` | Yes | Method identifier. |
-| `u` | No | Method-defined proof URI or pointer. |
-| `h` | No | `keccak256` hash of the exact proof-resource bytes, encoded as lowercase `0x`-prefixed 32-byte hex. |
-
-Rules:
-
-- The first token MUST be exactly `ensrv1`.
-- `m` MUST appear exactly once.
-- A field name MUST NOT appear more than once.
-- Unknown fields MUST be ignored after duplicate-field validation.
-- An empty, missing, or invalid descriptor MUST NOT invalidate the target record; verification returns `none`.
-- There is no `method=none`. Absence or an empty verification record means no proof is advertised.
-- There is no `kind` descriptor field. The method profile determines whether a successful result is `control` or `attestation`.
-- There is no descriptor-level expiry. Expiry is defined by the signed claim and method-specific proof material.
-
-A descriptor advertises one method. Method profiles MAY define internal fallback behavior, but clients MUST NOT infer additional methods from a descriptor.
-
-### Method Identifiers
-
-A method identifier MUST match:
+Method identifiers match:
 
 ```text
 [a-z0-9][a-z0-9.-]{0,63}
 ```
 
-Method identifiers are immutable. Once a method identifier is published, its validation semantics MUST NOT be changed in a way that causes old proofs to be interpreted under different security assumptions. Incompatible changes MUST use a new method identifier.
+Parser requirements:
 
-Examples:
+- first token exactly `ensrv1`;
+- descriptor at most 2,048 bytes;
+- URI at most 1,024 ASCII bytes;
+- reject duplicate, missing, empty, or unknown fields;
+- reject unsupported authority version or method;
+- reject malformed URI or hash;
+- reject non-ASCII and control characters;
+- accept field order but generators emit `a`, `m`, `u`, `h` order.
 
-```text
-https-origin
-dns-txt
-account-signature
-contenthash-binding
-issuer-attestation
-service-account.github
-https-origin.v2
+Unknown descriptor versions and fields fail closed. A verifier MUST NOT retry
+using an older interpretation.
+
+Each method declares `u` and `h` REQUIRED, PERMITTED, or FORBIDDEN.
+
+### Strict Common Claim
+
+Every proof uses exactly:
+
+```solidity
+ENSRecordVerification(
+  string name,
+  bytes32 node,
+  string recordType,
+  string recordKey,
+  bytes32 valueHash,
+  uint32 authorityVersion,
+  string method,
+  string target,
+  uint64 issuedAt,
+  uint64 validUntil
+)
 ```
 
-Clients MUST return `none/unsupported_method` for unsupported method identifiers.
+This type MUST NOT be extended, reordered, renamed, or partially signed.
+Method-specific signed data uses a separate exact type that commits to the full
+common claim digest.
 
-### Proof Resource Integrity
+Field requirements:
 
-If the descriptor includes `h`, the verifier MUST compute:
+| Field                        | Requirement                                           |
+| ---------------------------- | ----------------------------------------------------- |
+| `name`                       | ENSIP-15 normalized exact name.                       |
+| `node`                       | Recomputed namehash of `name`.                        |
+| `recordType` and `recordKey` | Exact canonical selector.                             |
+| `valueHash`                  | Exact live resolver-value hash.                       |
+| `authorityVersion`           | Numeric descriptor `a`.                               |
+| `method`                     | Exact descriptor `m`.                                 |
+| `target`                     | Exact method-derived canonical target.                |
+| `issuedAt`                   | Signer-asserted issuance time used to bound interval. |
+| `validUntil`                 | First invalid Unix timestamp.                         |
 
-```text
-keccak256(exact proof-resource bytes)
-```
-
-and compare it to `h`. A mismatch MUST return `none/proof_integrity_mismatch`.
-
-`h` is an integrity pin. It is not an expiry, trust policy, or revocation mechanism by itself. Each method profile MUST state whether `h` is ignored, optional, recommended, or required.
-
-### Live Target Value and `valueHash`
-
-A proof MUST bind to the exact live target resolver value. The base ENSIP defines raw value hashing only. Semantic normalization is method-specific and MUST NOT replace raw resolver-value binding.
-
-The `valueHash` is computed as follows:
-
-| Record type | Value hash input |
-| --- | --- |
-| `text` | UTF-8 bytes of the exact string returned by `text(node, key)` |
-| `addr` | Native binary address bytes returned by `addr(node, coinType)` |
-| `contenthash` | Raw bytes returned by `contenthash(node)` |
-| `data` | Raw bytes returned by `data(node, key)` |
-
-The hash is:
+### Raw Value Hashing
 
 ```text
 valueHash = keccak256(valueBytes)
 ```
 
-If the target resolver record is missing, malformed for its resolver profile, or hashes to a value different from the claim, verification MUST return `none`.
+| Record type   | `valueBytes`                                      |
+| ------------- | ------------------------------------------------- |
+| `text`        | Exact UTF-8 bytes returned by resolver.           |
+| `addr`        | Native binary address bytes returned by resolver. |
+| `contenthash` | Raw contenthash bytes.                            |
+| `data`        | Raw data bytes.                                   |
 
-### Common Claim
-
-Every method profile that uses an ENS-authority signature MUST sign the common claim below or a strict extension of it.
-
-```solidity
-struct ENSRecordVerification {
-    string name;
-    bytes32 node;
-    string recordType;
-    string recordKey;
-    bytes32 valueHash;
-    string method;
-    string target;
-    string authorityProfile;
-    uint64 validUntil;
-    bytes32 nonce;
-}
-```
-
-Field meanings:
-
-| Field | Meaning |
-| --- | --- |
-| `name` | Normalized ENS name. |
-| `node` | Namehash of `name`. |
-| `recordType` | `text`, `addr`, `contenthash`, `data`, or a registered future type. |
-| `recordKey` | Text key, coin type string, data key, or empty string for `contenthash`. |
-| `valueHash` | Hash of the exact live resolver value. |
-| `method` | Method identifier from the descriptor. |
-| `target` | Method-defined canonical external target. |
-| `authorityProfile` | Authority profile used to determine the signer. |
-| `validUntil` | First Unix timestamp at which the claim is invalid. |
-| `nonce` | 32-byte replay-resistant value. |
-
-The proof is valid only if:
-
-```text
-now < validUntil
-```
+Method canonicalization MUST NOT replace exact value hashing.
 
 ### EIP-712 Domain
 
-For `authorityProfile = ens-mainnet-v1`, the EIP-712 domain is:
+Ethereum mainnet version-one domain:
 
 ```text
-name:              "ENS Record Verification"
-version:           "1"
+name:              ENS Record Verification
+version:           1
 chainId:           1
-verifyingContract: 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
+verifyingContract: 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
 ```
 
-Future authority profiles MUST define their own domain-separation rules.
+The verifying contract is the long-lived Universal Resolver proxy used as
+deployment domain separation. It does not execute signature verification.
 
-### Current ENS Authority
+### Authority Algorithm 1
 
-A positive result requires a valid signature from the current ENS authority unless a method profile defines an equivalent or stronger authority check.
+Descriptor `a=1` and signed `authorityVersion = 1` select this algorithm.
 
-For `authorityProfile = ens-mainnet-v1`, the mainnet contract constants are:
+Ethereum mainnet contracts:
 
 ```text
 ENS Registry:    0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
 Base Registrar: 0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85
-Name Wrapper:   0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401
+Name Wrapper:   0xD4416b13d2b3a9Bae7AcD5D6C2BbDBE25686401
 ```
 
-For `authorityProfile = ens-mainnet-v1`:
+At evaluation block:
 
-1. Normalize the ENS name.
-2. Compute `node = namehash(name)`.
-3. Read `ENSRegistry.owner(node)`.
-4. If the registry owner is the Name Wrapper contract and the wrapped owner is nonzero:
-   - authority is `NameWrapper.ownerOf(uint256(node))`;
-   - `authorityValidUntil` MUST NOT exceed wrapped-name expiry;
-   - for wrapped `.eth` second-level names, `authorityValidUntil` MUST also not exceed Base Registrar registration expiry.
-5. Else, if the name is an unwrapped `.eth` second-level name:
-   - authority is `BaseRegistrar.ownerOf(uint256(labelhash(label)))`;
-   - the Base Registrar registration MUST be unexpired;
-   - `authorityValidUntil` MUST NOT exceed Base Registrar registration expiry.
-6. Else:
-   - authority is `ENSRegistry.owner(node)`.
-7. If authority is the zero address or cannot be determined, verification MUST return `none/unsupported_authority`.
-8. If authority is an EOA, the EIP-712 digest MUST recover to authority.
-9. If authority is a contract, the verifier MUST call ERC-1271 `isValidSignature` on authority.
+1. Read Registry owner of exact node.
+2. If Registry owner is Name Wrapper:
+   - read exact node through `NameWrapper.getData`;
+   - require nonzero wrapper owner and `now < wrapperExpiry`;
+   - authority is exact wrapper owner;
+   - authority expiry is wrapper expiry;
+   - for a wrapped `.eth` second-level name only, require unexpired Base
+     Registrar registration and use the earlier expiry.
+3. Otherwise, if exact name is an unwrapped `.eth` second-level name:
+   - require `BaseRegistrar.ownerOf(labelhash)` succeeds and is nonzero;
+   - authority is registrant;
+   - authority expiry is `nameExpires(labelhash)`.
+4. Otherwise:
+   - authority is Registry owner of exact node;
+   - require nonzero owner;
+   - no expiry exists unless exact ownership exposes one.
 
-The verifier checks authority for the exact name being verified. Parent ownership does not automatically authorize a child name. Resolver writers, resolver delegates, approved operators, hosted profile managers, gateway signers, indexers, and unverified gateway `owner` fields MUST NOT be treated as current ENS authority under the base profile.
+An ancestor owner MUST NOT replace a nonzero exact-name owner. Resolver
+permissions do not confer authority. If exact authority cannot be authenticated,
+including some virtual wildcard or offchain children, return
+`unsupported_authority`; do not fall back to parent or gateway data.
 
-### Verification Algorithm
+#### Subnames
 
-A verifier for a record MUST perform the following common checks in order:
+Unwrapped Registry subnames have no inherited expiry. Ancestor expiry,
+transfer, or re-registration does not delete or transfer the exact child. The
+exact child owner remains authority until it transfers the child or current
+parent replaces it. Verification of a child does not imply parent endorsement.
 
-1. Normalize the ENS name and compute `node`.
-2. Validate `recordType` and `recordKey`.
-3. Resolve the live target resolver record.
-4. Compute `valueHash` from the live resolver value.
-5. Resolve the verification text record key for the target record.
-6. Parse the descriptor.
-7. Select the method verifier named by `m`.
-8. Fetch or read method-specific proof material according to the method profile and privacy mode.
-9. If `h` is present, check proof-resource integrity.
-10. Parse the proof envelope and common claim.
-11. Check claim fields: `name`, `node`, `recordType`, `recordKey`, `method`, `authorityProfile`, and `valueHash`.
-12. Derive and check the method-specific `target`.
-13. Check expiry using the lifecycle rules.
-14. Resolve current ENS authority.
-15. Validate the ENS-authority signature.
-16. Validate method-specific external control proof or issuer attestation.
-17. Check revocation if required by the method profile.
-18. Return `verified` only if every required check succeeds.
+Wrapped subnames use exact child wrapper expiry. Do not apply ancestor registrar
+expiry to the child. Name Wrapper intentionally permits an unexpired child to
+remain operational while its parent `.eth` second-level name is in registrar
+grace. At child expiry, verification fails even if raw storage retains an
+address.
 
-### Lifecycle and Revocation
+#### Authority Signature
 
-Verification is a live evaluation, not a permanent credential.
+For EOA authority, require a 65-byte secp256k1 signature over common EIP-712
+digest, canonical low `s`, and `v` 27 or 28.
 
-A positive result at time `T` requires all of the following:
+For contract authority, call ERC-1271 at evaluation block with common digest and
+signature bytes. Require exact magic value `0x1626ba7e`. Cap contract signature
+bytes at 8 KiB.
+
+Future authority semantics allocate a new numeric authority version. Existing
+clients reject unsupported values. Methods MUST NOT override or weaken selected
+authority algorithm.
+
+### Proof Key
+
+Define:
+
+```solidity
+PROOF_KEY_TYPEHASH = keccak256(
+  "ENSRecordVerificationProofKey(bytes32 domainSeparator,uint32 authorityVersion,bytes32 node,bytes32 recordTypeHash,bytes32 recordKeyHash,bytes32 methodHash)"
+);
+
+proofKey = keccak256(
+  abi.encode(
+    PROOF_KEY_TYPEHASH,
+    eip712DomainSeparator,
+    authorityVersion,
+    node,
+    keccak256(bytes(recordType)),
+    keccak256(bytes(recordKey)),
+    keccak256(bytes(method))
+  )
+);
+```
+
+The key is stable across record changes and proof renewal but separated by ENS
+deployment, authority algorithm, selector, and method.
+
+### JSON Envelope
+
+Common JSON envelope:
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {},
+  "authoritySignature": "0x...",
+  "methodProof": {}
+}
+```
+
+Requirements:
+
+- valid UTF-8 without BOM;
+- top-level object;
+- exact common members shown above;
+- reject duplicate members at every depth before map-based parsing;
+- reject unknown members in envelope and claim;
+- claim uint values encoded as canonical decimal strings and range checked;
+- bytes encoded as lowercase, `0x`-prefixed, even-length hex;
+- bytes32 exactly 32 bytes;
+- maximum decoded envelope size 256 KiB;
+- maximum JSON depth 16;
+- maximum 128 members per object;
+- maximum string length 8 KiB unless stricter field limit applies;
+- `methodProof` validated by exact method schema.
+
+JSON serialization is not signed. Parsed claim fields are encoded into the
+strict EIP-712 type.
+
+### Proof Resource Integrity
+
+When descriptor `h` exists:
 
 ```text
-live target record still matches
-live verification descriptor still selects the method/proof
-current ENS authority still verifies the signature
-method-specific target proof or attestation verifies
-required revocation checks pass
-T is before every applicable expiry
+keccak256(proofResourceBytes) == h
 ```
 
-The effective validity bound is:
+`proofResourceBytes` is body after transfer and content decoding, before UTF-8
+or JSON parsing. Headers, chunk framing, and compressed transfer bytes are not
+included.
+
+`h` selects exact bytes; it is not a substitute for authority or method
+signatures.
+
+### Common Fetch Profile
+
+Network proof retrieval MUST:
+
+- use only method-permitted schemes; initial generic network URI scheme is
+  HTTPS;
+- reject loopback, private, link-local, multicast, reserved, documentation, and
+  metadata-service addresses for IPv4 and IPv6;
+- resolve and recheck every redirect target against SSRF policy;
+- prevent DNS rebinding;
+- send no ambient cookies, credentials, or authorization;
+- validate TLS;
+- allow at most 3 redirects unless method forbids redirects;
+- allow at most 5 seconds connect time and 10 seconds total time;
+- cap encoded body at 256 KiB and decoded body at 256 KiB;
+- cap decompression ratio at 20:1;
+- reject unsupported content encodings and invalid media type;
+- cancel retrieval once a limit is exceeded.
+
+Browser CORS failure is `proof_unavailable`, not invalid cryptographic evidence.
+
+### Lifecycle
+
+At evaluation time `now`, require:
+
+```text
+issuedAt <= now + 300
+issuedAt < validUntil
+now < validUntil
+validUntil - issuedAt <= methodMaxLifetime
+```
+
+There is no expiration grace.
+
+Effective expiry is the earliest applicable:
 
 ```text
 effectiveValidUntil = min(
   claim.validUntil,
   authorityValidUntil,
   targetProofValidUntil,
-  issuerAttestationValidUntil,
+  issuerValidUntil,
   methodValidUntil
 )
 ```
 
-Inapplicable bounds are ignored. A positive result MUST return `validUntil = effectiveValidUntil`.
+A previous positive result becomes invalid after target value change,
+descriptor deletion or change, authority transfer or expiry, method evidence
+removal or invalidity, issuer revocation, effective expiry, or evaluation-block
+reorganization.
 
-The following events MUST invalidate a previously positive result:
-
-- target resolver record removal;
-- target resolver value change;
-- verification descriptor removal;
-- verification descriptor method change;
-- required descriptor `u` change;
-- descriptor `h` mismatch;
-- ENS authority change;
-- ENS name expiry;
-- wrapped-name expiry;
-- external proof removal or mismatch for live-publication methods;
-- issuer revocation for issuer-revocable methods;
-- any applicable expiry reaching `now`.
-
-Descriptor deletion is sufficient ENS-side revocation. If the verification descriptor is absent, empty, invalid, or no longer selects the proof method, clients MUST NOT return `verified` for an old proof.
-
-### Proof Freshness Classes
-
-Each method profile MUST declare one proof freshness class:
-
-| Class | Meaning |
-| --- | --- |
-| `live-publication` | Current publication at the target proof surface is required. Removal or change revokes the proof. |
-| `portable-signed` | Cached proof bytes may be reused if integrity and all live ENS checks pass. Revocation is primarily expiry or method-defined. |
-| `issuer-revocable` | Issuer signature, trust policy, and revocation status are required. |
-| method-defined | The method profile defines a stricter hybrid. |
+Descriptor deletion is ENS-side revocation.
 
 ### Caching
-
-Cached positive results MUST NOT be reused after:
 
 ```text
 cacheUntil = min(
   effectiveValidUntil,
-  checkedAt + clientPositiveCacheMaxAge,
+  checkedAt + methodPositiveCacheMaxAge,
   liveEnsFreshUntil,
   proofFreshUntil,
   revocationFreshUntil
 )
 ```
 
-A client MUST revalidate before high-trust actions such as payment routing, transaction approval, sign-in, account binding, agent connection, or security-sensitive display.
+Live publication methods cap positive caching at 5 minutes. `no-store` forces no
+positive HTTP response cache. HTTP freshness and DNS TTL never extend method
+cap. Network failures should not normally be cached; missing configuration or
+proof may be cached for at most 5 minutes.
 
-HTTP cache headers and DNS TTLs are freshness hints only. They MUST NOT extend validity beyond `effectiveValidUntil`.
+High-trust actions MUST perform fresh ENS and required live target or revocation
+checks. An indexer result is only a hint.
 
-### Verification Result
+### Privacy
 
-A verifier returns either `verified` or `none`.
+Clients expose at least:
+
+| Mode              | Behavior                                                           |
+| ----------------- | ------------------------------------------------------------------ |
+| `local-only`      | No third-party retrieval; return `privacy_blocked` when required.  |
+| `fetch-on-action` | Retrieve only after explicit action or for a high-trust operation. |
+| `privacy-proxy`   | Retrieve through a proxy that observes the lookup.                 |
+| `direct-fetch`    | Retrieve directly after policy permits it.                         |
+
+Passive profile rendering MUST NOT directly retrieve every external proof by
+default. A client checks local method and issuer policy before making
+issuer-controlled requests.
+
+### Method Registry
+
+Initial concrete methods:
+
+| Method                        | Relationship    | Descriptor policy           | Max lifetime |
+| ----------------------------- | --------------- | --------------------------- | ------------ |
+| `authority-signature.v1`      | `authorization` | `u` required; `h` permitted | 90 days      |
+| `https-origin.v1`             | `control`       | `u` and `h` forbidden       | 30 days      |
+| `dns-txt.url.v1`              | `control`       | `u` and `h` required        | 30 days      |
+| `dns-txt.email-domain.v1`     | `control`       | `u` and `h` required        | 30 days      |
+| `dns-txt.https-endpoint.v1`   | `control`       | `u` and `h` required        | 30 days      |
+| `account-signature.eip155.v1` | `control`       | `u` required; `h` permitted | 90 days      |
+
+Method identifiers are immutable. Abstract names such as `service-account`,
+`service-account.<provider>`, `issuer-attestation`, and
+`issuer-attestation.<format>` are not valid concrete descriptor values.
+
+Every concrete method specifies selector support, target derivation, descriptor
+policy, proof schema, complete common-digest binding for signed or attested
+method evidence, expiry, freshness, revocation, fetch policy, errors, UI
+language, and vectors.
+
+### Method: `authority-signature.v1`
+
+- Supports any base record selector.
+- `target` is empty.
+- `methodProof` is empty.
+- Descriptor requires `u`; `h` is permitted.
+- Successful relationship is `authorization`.
+
+It proves explicit current-authority approval, not external target control.
+
+### Method: `https-origin.v1`
+
+- Supports text records whose exact value parses as an absolute HTTPS URL under
+  WHATWG URL parsing and its IDNA processing.
+- Reject credentials, empty/opaque host, malformed URL, and invalid port.
+- Target is serialized HTTPS origin with default port 443 omitted.
+- Compute `proofKey`; encode as 64 lowercase hex characters without `0x`.
+- Fetch without redirects or credentials:
+
+```text
+<origin>/.well-known/ens-record-verification/<proof-key-hex>
+```
+
+- Require status 200 and
+  `application/ens-record-verification+json`.
+- `methodProof` is empty; current same-origin publication is target evidence.
+- Positive publication cache maximum is 5 minutes.
+
+### DNS TXT Methods
+
+Concrete methods:
+
+```text
+dns-txt.url.v1
+dns-txt.email-domain.v1
+dns-txt.https-endpoint.v1
+```
+
+Each derives one lowercase ASCII DNS domain from its record profile and sets
+target `dns:<domain>`.
+
+Encode `proofKey` as lowercase RFC 4648 base32 without padding. Query:
+
+```text
+<52-char-proof-key>._ens-record-verification.<domain> TXT
+```
+
+Exactly one protocol TXT RDATA after intra-RDATA string concatenation is
+required:
+
+```text
+ensrv1 h=<descriptor-h>
+```
+
+The complete answer and alias chain MUST validate under DNSSEC to an accepted
+trust anchor. Unsigned, bogus, indeterminate, or unvalidated DNS returns
+`insecure_dns`. Use minimum validated TTL capped at 5 minutes.
+
+Fetch descriptor `u`, require body hash equal `h`, validate empty
+`methodProof`, then run common checks.
+
+`email-domain` proves domain control only, not mailbox control.
+
+### Method: `account-signature.eip155.v1`
+
+Supported address records:
+
+```text
+coinType 60 -> eip155:1
+coinType 0x80000000 | chainId -> eip155:<chainId>
+where 1 <= chainId <= 0x7fffffff
+```
+
+Require exactly 20 address bytes. Canonical target:
+
+```text
+eip155:<base10-chain-id>:0x<40-lowercase-hex>
+```
+
+Coin type `0x80000000`, other legacy EVM SLIP-44 types, and non-EVM types are
+unsupported by this method.
+
+Target signs:
+
+```solidity
+ENSRecordAccountProof(bytes32 commonClaimDigest,string account)
+```
+
+under target-chain domain:
+
+```text
+name:              ENS Record Account Proof
+version:           1
+chainId:           CAIP-10 eip155 reference
+verifyingContract: CAIP-10 target address
+```
+
+`methodProof` contains only `targetSignature`. EOA and ERC-1271 validation run
+on the target chain. The target signature commits to full common claim digest.
+
+### Results
 
 ```ts
 type VerificationResult =
   | {
       status: "verified";
-      kind: "control" | "attestation";
+      relationship: "authorization" | "control" | "attestation";
       method: string;
       name: string;
       node: `0x${string}`;
@@ -472,145 +632,134 @@ type VerificationResult =
   | {
       status: "none";
       error?: VerificationError;
+      retryable?: boolean;
       checkedAt?: number;
     };
 ```
 
-Optional assurance metadata MUST NOT create additional public verification states.
+### Error Codes
 
-```ts
-type VerificationAssurance = {
-  dnssec?: boolean;
-  proofIntegrity?: "none" | "hash-pinned" | "content-addressed";
-  publication?: "live" | "portable" | "issuer-revocable";
-  authority?: "eoa" | "erc1271";
-};
-```
+| Error                         | Meaning                                                     |
+| ----------------------------- | ----------------------------------------------------------- |
+| `invalid_request`             | Invalid name or selector input.                             |
+| `unsupported_record`          | Record profile unsupported.                                 |
+| `resolution_unavailable`      | ENS or CCIP resolution unavailable.                         |
+| `record_missing`              | Target record empty or absent.                              |
+| `not_configured`              | Descriptor empty or absent.                                 |
+| `invalid_descriptor`          | Descriptor syntax, field, or value invalid.                 |
+| `unsupported_version`         | Descriptor or authority version unsupported.                |
+| `unsupported_method`          | Concrete method unsupported.                                |
+| `privacy_blocked`             | Required retrieval forbidden by policy.                     |
+| `proof_unavailable`           | Required proof could not be retrieved.                      |
+| `proof_integrity_mismatch`    | Descriptor hash differs from proof bytes.                   |
+| `proof_invalid`               | Envelope or method proof malformed.                         |
+| `claim_mismatch`              | Name, node, selector, authority version, or method differs. |
+| `value_mismatch`              | Live raw resolver value hash differs.                       |
+| `target_mismatch`             | Canonical method target differs.                            |
+| `not_yet_valid`               | Signer-asserted issuance exceeds allowed skew.              |
+| `expired`                     | Validity or authority bound reached.                        |
+| `unsupported_authority`       | Exact authority cannot be authenticated.                    |
+| `authority_signature_invalid` | Current authority did not validate signature.               |
+| `target_proof_invalid`        | Target method evidence failed.                              |
+| `insecure_dns`                | DNSSEC requirement not met.                                 |
+| `revocation_unavailable`      | Required revocation status unavailable.                     |
+| `revoked`                     | Required status reports revocation.                         |
+| `untrusted_issuer`            | Issuer rejected by client policy.                           |
 
-### Error Codes and Precedence
-
-Clients MUST use the following common error precedence when multiple failures apply:
-
-| Order | Error | Condition |
-| ---: | --- | --- |
-| 1 | `invalid_request` | Invalid input name, record type, record key, or coin type. |
-| 2 | `unsupported_record` | Record type or resolver profile is unsupported. |
-| 3 | `record_missing` | Live target resolver record is absent. |
-| 4 | `not_configured` | Verification descriptor is absent or empty. |
-| 5 | `invalid_descriptor` | Descriptor cannot be parsed or contains duplicate fields. |
-| 6 | `unsupported_method` | Descriptor method is unknown or unsupported. |
-| 7 | `privacy_blocked` | Client policy forbids required external proof fetching. |
-| 8 | `proof_unavailable` | Proof resource cannot be fetched or read. |
-| 9 | `proof_integrity_mismatch` | Descriptor `h` does not match proof bytes. |
-| 10 | `proof_invalid` | Proof envelope or method payload is malformed. |
-| 11 | `claim_mismatch` | Claim name, node, record type, record key, authority profile, or method does not match. |
-| 12 | `value_mismatch` | Claim `valueHash` does not match the live resolver value. |
-| 13 | `target_mismatch` | Claim target does not match the method-derived target. |
-| 14 | `expired` | Claim, authority, proof, issuer, or method expiry has passed. |
-| 15 | `unsupported_authority` | Current ENS authority cannot be determined. |
-| 16 | `signature_invalid` | ENS authority signature does not verify. |
-| 17 | `revoked` | Required revocation check reports revoked. |
-| 18 | `untrusted_issuer` | Issuer proof is cryptographically valid but not accepted by client policy. |
-
-Method profiles MAY define internal errors but MUST map them into the common set.
-
-### Proof JSON Envelope
-
-Method profiles MAY use JSON proof envelopes. JSON proof envelopes MUST follow these rules:
-
-- bytes MUST be UTF-8 encoded JSON;
-- the top-level value MUST be an object;
-- duplicate object member names at any object level MUST invalidate the proof before schema validation;
-- bytes32 values MUST be lowercase `0x`-prefixed 32-byte hex strings;
-- byte strings MUST be lowercase `0x`-prefixed even-length hex strings;
-- integer values that feed signatures SHOULD be encoded as decimal strings in JSON and converted before signing or verification;
-- unknown fields in common objects MUST be ignored unless the method profile says otherwise.
-
-The JSON envelope itself is not signed as JSON bytes unless a method profile explicitly says so. The common claim is signed as typed structured data.
-
-### Privacy Modes
-
-Verification may require external requests. Clients SHOULD expose at least the following fetch modes:
-
-| Mode | Behavior |
-| --- | --- |
-| `local-only` | Do not fetch external proof resources. Return `none/privacy_blocked` when external proof fetching is required. |
-| `fetch-on-action` | Fetch external proof resources only after user action or before a high-trust action. |
-| `privacy-proxy` | Fetch through a proxy or cache that reduces direct user-to-target leakage. |
-| `direct-fetch` | Fetch proof resources directly. |
-
-Passive profile rendering SHOULD NOT fetch all advertised proofs directly by default.
-
-### Method Profile Requirements
-
-Every method profile MUST define:
-
-- method identifier;
-- result kind: `control` or `attestation`;
-- supported record types and keys;
-- target derivation;
-- proof freshness class;
-- descriptor field requirements;
-- proof location or proof resource rules;
-- proof payload format;
-- `h` policy;
-- expiry sources;
-- revocation requirements;
-- cache and freshness caps;
-- error mappings;
-- privacy considerations;
-- allowed and forbidden UI language;
-- test vectors.
+Implementations expose retryability separately. Operational execution order MAY
+avoid unsafe or unnecessary network calls, but the observable primary error
+MUST follow the common precedence defined in the companion error reference.
 
 ## Rationale
 
-The discovery key follows ENS resolver record classes because the target being verified is an ENS resolver record, not a product category. This avoids a permanent taxonomy of `url`, `social`, `email`, `wallet`, `agent`, and future categories.
+### Why Per-record Discovery
 
-The descriptor is compact because ENS text record storage is expensive relative to offchain proof publication. The descriptor selects a method and, when needed, a proof pointer. Full proof data belongs offchain.
+Resolver-class keys identify the exact record without defining permanent product
+categories such as URL, email, social, wallet, or agent. Existing resolvers work
+without an upgrade.
 
-The base ENSIP uses raw resolver-value hashing to avoid method-specific normalization in the common layer. URLs, email addresses, social handles, and chain accounts all have different normalization rules. Method profiles can define semantic targets, but the proof must still bind to the exact live resolver value.
+### Why Universal Resolver
 
-The public result model is intentionally small. `verified` means that a supported method produced a valid proof under current state. `none` means no supported valid proof was found. Additional information is returned as metadata, errors, or debug output.
+Universal Resolver is the stable record-resolution boundary across direct,
+wildcard, and CCIP Read resolution. Authority remains separate because the
+current Universal Resolver interface does not provide one authenticated
+owner-and-expiry result for every exact name.
+
+### Why A Signed Authority Version
+
+Registry ownership can evolve while record selectors and target methods remain
+stable. Signed `authorityVersion` isolates that evolution and makes old clients
+fail closed rather than silently applying obsolete owner rules.
+
+### Why Exact-name Authority
+
+Resolver write permission is not equivalent to name ownership. Parent ownership
+is not equivalent to ownership of an independently assigned child. Exact-name
+authority prevents resolver delegates and parents from silently creating
+stronger verification claims.
+
+### Why Raw Value Hashing
+
+URL, account, email, and content canonicalization differ. Exact raw hashing
+preserves one common invariant while methods derive semantic targets separately.
+
+### Why No Nonce
+
+A nonce provides no replay prevention without a consumed-nonce or revocation
+registry. Current descriptor, live value, current authority, method evidence,
+and bounded signed interval already define validity. A future explicit
+revocation identifier requires a new protocol version.
+
+### Why Three Relationships
+
+Authorization, target control, and issuer attestation answer different
+questions. Treating owner-authorized contenthash as external control or an
+issuer claim as direct control would overstate evidence.
 
 ## Backwards Compatibility
 
-This ENSIP does not change existing resolver interfaces. Existing clients that do not know this ENSIP will ignore the new verification text records and continue to display resolver records as before.
+This ENSIP adds ENSIP-5 text records only. Unaware clients ignore them. Existing
+target records remain canonical and continue to resolve normally.
 
-Existing ENS records are not invalidated by absent, invalid, or unsupported verification descriptors. Verification failure affects only the verification result for the target record.
+Invalid, unsupported, missing, expired, or unavailable verification never makes
+the target record invalid.
 
 ## Security Considerations
 
-### Verified Does Not Mean Safe
+### No Safety Or Authenticity Claim
 
-A positive result does not imply safety, legal ownership, endorsement, authenticity, anti-phishing status, or issuer trust outside the client's policy.
+A valid proof can bind an attacker-controlled ENS name to an attacker-controlled
+target. Verification is not anti-phishing, reputation, malware detection, legal
+ownership, or brand authenticity.
 
-### Stale Records
+### Exact-name Versus Parent Meaning
 
-Resolver records may survive name transfer, wrapper transfer, resolver migration, or name expiry. Clients MUST evaluate current ENS authority and live resolver state before returning `verified`.
+An exact child can remain owned after parent transfer or re-registration under
+current ENS Registry semantics. Verification of the child does not mean the
+current parent owner endorses it.
 
-### Resolver Writers Are Not Authority
+### Resolver And Gateway Separation
 
-The ability to edit a resolver record is not the same as authority to make verification claims for an ENS name. Resolver delegates, profile managers, gateway signers, and hosted tools MUST NOT be accepted as current ENS authority under the base profile.
+Record resolution may use a wildcard resolver or CCIP gateway. Neither becomes
+verification authority. Exact authority failure returns
+`unsupported_authority`.
 
-### External Fetch Privacy
+### External Fetching
 
-Fetching proof resources can leak interest in an ENS name and record. Wallets SHOULD avoid automatic direct fetching in passive views and SHOULD use privacy-preserving modes where appropriate.
+Proof retrieval leaks lookup interest and processes attacker-controlled network
+input. Implementations enforce privacy defaults, SSRF restrictions, byte and
+time limits, TLS, redirect rules, and parser limits.
 
-### DNS Assurance
+### Stale Evidence
 
-Unsigned DNS TXT verification depends on ordinary DNS resolution. DNSSEC-backed proofs MAY provide stronger assurance metadata, but they MUST NOT create a separate public status.
+Clients recheck current descriptor, value, authority, target evidence, expiry,
+and revocation. High-trust actions do not rely on passive cached results or
+indexer assertions.
 
-### Contenthash Binding
+### UI Overclaiming
 
-A contenthash binding proof verifies intentional binding between an ENS name and a content root. It does not prove that content is safe, official, current, or controlled by a mutable publisher account.
-
-### Issuer Attestations
-
-Issuer attestations are policy-bound. A cryptographically valid issuer attestation MUST NOT be treated as trusted unless the client explicitly trusts the issuer under a policy.
-
-### JSON Parsing
-
-JSON proof parsers MUST reject duplicate member names before schema validation. Implementations MUST NOT rely on JSON Schema alone for this property.
+UI displays the exact relationship and method. It MUST NOT translate a result
+into safe, official, trusted, legal owner, non-malicious, or ENS-endorsed.
 
 ## Copyright
 

@@ -39,14 +39,14 @@ export default defineConfig({
       text: "Method Profiles",
       items: [
         { text: "Overview", link: "/docs/methods/overview" },
+        {
+          text: "Authority Signature",
+          link: "/docs/methods/authority-signature",
+        },
         { text: "HTTPS Origin", link: "/docs/methods/https-origin" },
         { text: "DNS TXT", link: "/docs/methods/dns-txt" },
         { text: "Account Signature", link: "/docs/methods/account-signature" },
         { text: "Service Account", link: "/docs/methods/service-account" },
-        {
-          text: "Contenthash Binding",
-          link: "/docs/methods/contenthash-binding",
-        },
         {
           text: "Issuer Attestation",
           link: "/docs/methods/issuer-attestation",

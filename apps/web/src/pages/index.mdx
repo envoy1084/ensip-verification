@@ -1,28 +1,35 @@
 # ENS Resolver Record Verification
 
-## Introduction
+ENS resolver records state what a name resolves to. This protocol adds evidence
+about one exact record without changing ordinary resolution or deploying a new
+contract.
 
-ENS resolver records are a general-purpose discovery mechanism for resources associated with an ENS name. A resolver can publish text records, multichain address records, contenthash records, and future record types through standardized resolver interfaces.
-
-These records are intentionally flexible: they describe what value a resolver returns for a record, not whether the name owner controls the external resource represented by that value.
-
-This specification defines a record-scoped verification layer for ENS resolver records. The layer allows a name to advertise verification metadata for a specific resolver record and allows clients to validate, using a method-specific proof, that the current ENS authority for the name controls or has an accepted attestation for the external target represented by that record.
-
-## Problem Statement
-
-An ENS resolver record proves that a resolver returns a value for a key. It does not, by itself, prove that the current ENS authority controls the external target represented by that value.
-
-For example:
-
-```
-text("url") = "https://example.com"
-text("com.github") = "alice"
-addr(60) = 0x1234...
-contenthash = ipfs://bafy...
+```mermaid
+sequenceDiagram
+  participant Client
+  participant UR as Universal Resolver
+  participant ENS as ENS Authority Contracts
+  participant Target as Method Target
+  Client->>UR: Resolve live record + descriptor
+  UR-->>Client: Exact values at one block
+  Client->>ENS: Resolve current exact-name authority
+  ENS-->>Client: Authority + expiry
+  Client->>Target: Retrieve or validate method evidence
+  Target-->>Client: Publication, signature, or attestation
+  Client-->>Client: Verify strict claim and lifecycle
 ```
 
-These records can be set by the party authorized to update the resolver, but the resolver update does not prove control of example.com, the GitHub account alice, the target blockchain account, or the published content root. Clients that display these values as trusted associations risk presenting self-asserted data as verified data.
+Positive results identify one relationship:
 
-This distinction becomes more important as ENS records are used for wallets, profiles, agents, applications, payment routing, social identity, content publishing, and issuer-backed claims. Some records are harmless metadata and do not require verification. Other records are security-sensitive because users, wallets, agents, or applications may rely on them to decide where to connect, where to send funds, which account to trust, or which endpoint to call.
+| Relationship    | Meaning                                                  |
+| --------------- | -------------------------------------------------------- |
+| `authorization` | Current ENS authority signed the exact live record.      |
+| `control`       | Authorization plus participation by the external target. |
+| `attestation`   | Authorization plus an issuer accepted by client policy.  |
 
-This specification does not define a global trust system. It does not claim that a verified URL is safe, that a verified address is non-malicious, that a verified social account is authentic in a legal sense, that a contenthash is trustworthy, or that an issuer is globally trusted. It only defines how clients can discover and validate record-level control proofs or policy-bound attestations.
+A positive result does not mean safe, official, legal owner, non-malicious, or
+endorsed by ENS.
+
+Start with the [Quickstart](/docs/quickstart), then read the
+[Specification Overview](/docs/spec/overview). The complete normative text is
+the [ENSIP](/docs/spec/ensip).

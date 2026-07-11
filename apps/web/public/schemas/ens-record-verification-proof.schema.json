@@ -3,8 +3,8 @@
   "$id": "https://ens.domains/schemas/ens-record-verification-proof.schema.json",
   "title": "ENS Record Verification Proof Envelope",
   "type": "object",
-  "required": ["v", "claim", "authoritySig"],
-  "additionalProperties": true,
+  "required": ["v", "claim", "authoritySignature", "methodProof"],
+  "additionalProperties": false,
   "properties": {
     "v": {
       "const": "ensrv1"
@@ -17,32 +17,36 @@
         "recordType",
         "recordKey",
         "valueHash",
+        "authorityVersion",
         "method",
         "target",
-        "authorityProfile",
-        "validUntil",
-        "nonce"
+        "issuedAt",
+        "validUntil"
       ],
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
         "name": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 255
         },
         "node": {
-          "type": "string",
-          "pattern": "^0x[0-9a-f]{64}$"
+          "$ref": "#/$defs/bytes32"
         },
         "recordType": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
         },
         "recordKey": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 255
         },
         "valueHash": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "authorityVersion": {
           "type": "string",
-          "pattern": "^0x[0-9a-f]{64}$"
+          "pattern": "^(0|[1-9][0-9]{0,9})$"
         },
         "method": {
           "type": "string",
@@ -50,35 +54,35 @@
         },
         "target": {
           "type": "string",
-          "minLength": 1
+          "maxLength": 1024
         },
-        "authorityProfile": {
-          "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9.-]{0,63}$"
+        "issuedAt": {
+          "$ref": "#/$defs/uint64"
         },
         "validUntil": {
-          "type": "string",
-          "pattern": "^[0-9]+$"
-        },
-        "nonce": {
-          "type": "string",
-          "pattern": "^0x[0-9a-f]{64}$"
+          "$ref": "#/$defs/uint64"
         }
       }
     },
-    "authoritySig": {
-      "type": "object",
-      "required": ["type", "signature"],
-      "additionalProperties": true,
-      "properties": {
-        "type": {
-          "type": "string"
-        },
-        "signature": {
-          "type": "string",
-          "pattern": "^0x([0-9a-f]{2})+$"
-        }
-      }
+    "authoritySignature": {
+      "$ref": "#/$defs/bytes"
+    },
+    "methodProof": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "bytes32": {
+      "type": "string",
+      "pattern": "^0x[0-9a-f]{64}$"
+    },
+    "bytes": {
+      "type": "string",
+      "pattern": "^0x([0-9a-f]{2})+$"
+    },
+    "uint64": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,19})$"
     }
   }
 }

@@ -1,100 +1,61 @@
 ---
-title: "Method: https-origin"
-description: Verify control of an HTTPS origin for URL-like ENS text records.
+title: "Method: https-origin.v1"
+description: Verify current publication by the HTTPS origin in a URL-like record.
 ---
 
-# Method: `https-origin`
+# Method: `https-origin.v1`
 
-`https-origin` verifies that the current ENS authority has intentionally bound a URL-like text record to an HTTPS origin that currently publishes the matching proof.
+This method verifies that current exact-name authority authorized a URL-like
+record and its HTTPS origin currently publishes the same proof.
 
-## Properties
+## Profile
 
-| Property | Value |
-| --- | --- |
-| Method | `https-origin` |
-| Kind | `control` |
-| Freshness class | `live-publication` |
-| Descriptor | `ensrv1 m=https-origin` |
-| `h` policy | Optional. If present, check exact proof bytes. Current publication is still required. |
+| Property                  | Value                          |
+| ------------------------- | ------------------------------ |
+| Relationship              | `control`                      |
+| Records                   | HTTPS URL text records         |
+| Freshness                 | `live-publication`             |
+| Descriptor                | `ensrv1 a=1 m=https-origin.v1` |
+| `u` and `h`               | Forbidden                      |
+| Maximum claim lifetime    | 30 days                        |
+| Maximum publication cache | 5 minutes                      |
 
-## Supported Records
+## Target
 
-This method is for text records whose value is an absolute HTTPS URL.
+The exact live text value MUST be valid UTF-8 and parse as an absolute HTTPS URL
+under the WHATWG URL algorithm. IDNA processing follows that algorithm's
+non-transitional ASCII host conversion.
 
-Examples:
+Reject credentials, an empty or opaque host, malformed percent encoding, an
+invalid port, or a scheme other than `https`.
 
-```text
-text("url")
-text("agent-endpoint[mcp]")
-text("agent-endpoint[a2a]")
-text("agent-endpoint[web]")
-```
-
-## Publisher Flow
-
-1. Set the target text record.
+The target is the serialized origin:
 
 ```text
-text("url") = "https://example.com/path"
+https://<ascii-host>[:non-default-port]
 ```
 
-2. Set the verification descriptor.
-
-```text
-text("verification[text][url]") = "ensrv1 m=https-origin"
-```
-
-3. Compute `valueHash` from the exact text value.
-
-```text
-keccak256(utf8("https://example.com/path"))
-```
-
-4. Derive the target origin.
-
-```text
-https://example.com
-```
-
-5. Create and sign the common claim with `method = "https-origin"` and `target = "https://example.com"`.
-
-6. Publish the proof envelope at:
-
-```text
-https://example.com/.well-known/ens-record-verification
-```
+Use lowercase scheme and ASCII DNS host, bracketed canonical IPv6, omit port
+443, and retain any other valid port. Path, query, and fragment are excluded
+from target but remain bound by raw `valueHash`.
 
 ## Proof Location
 
-The proof MUST be served over HTTPS from:
+Compute common `proofKey`. Fetch:
 
 ```text
-<origin>/.well-known/ens-record-verification
+<target>/.well-known/ens-record-verification/<64-lowercase-hex-without-0x>
 ```
 
-The response body MUST be a JSON proof envelope.
+Requirements:
 
-## Target Derivation
+- status exactly `200`;
+- media type `application/ens-record-verification+json`;
+- no redirects;
+- no cookies, authorization headers, or ambient credentials;
+- common network and 256 KiB decoded-body limits.
 
-The target text value MUST parse as an absolute HTTPS URL.
-
-The method target is the canonical origin:
-
-```text
-scheme://host[:port]
-```
-
-Rules:
-
-- scheme MUST be `https`;
-- host comparison is case-insensitive;
-- default HTTPS port `443` is omitted;
-- path, query, and fragment are not part of the origin target;
-- a URL with username or password MUST fail.
-
-This method verifies origin control. It does not verify path-level control.
-
-## Proof Envelope
+## Proof
 
 ```json
 {
@@ -105,57 +66,39 @@ This method verifies origin control. It does not verify path-level control.
     "recordType": "text",
     "recordKey": "url",
     "valueHash": "0x...",
-    "method": "https-origin",
+    "authorityVersion": "1",
+    "method": "https-origin.v1",
     "target": "https://example.com",
-    "authorityProfile": "ens-mainnet-v1",
-    "validUntil": "1783209600",
-    "nonce": "0x..."
+    "issuedAt": "1783728000",
+    "validUntil": "1786320000"
   },
-  "authoritySig": {
-    "type": "eip712",
-    "signature": "0x..."
-  }
+  "authoritySignature": "0x...",
+  "methodProof": {}
 }
 ```
 
-## Verifier Flow
+Current same-origin publication is target evidence. No second target signature
+is required.
 
-1. Resolve the live text record.
-2. Parse it as an absolute HTTPS URL.
-3. Compute `valueHash` from the exact live value.
-4. Resolve `verification[text][<key>]`.
-5. Require descriptor method `https-origin`.
-6. Fetch `/.well-known/ens-record-verification` from the canonical origin unless privacy mode blocks the fetch.
-7. If descriptor `h` is present, check proof-resource bytes.
-8. Parse the proof envelope.
-9. Check common claim fields.
-10. Check `claim.target` equals the canonical origin.
-11. Resolve current ENS authority.
-12. Verify the authority signature.
-13. Check expiry and lifecycle rules.
-14. Return `verified/control`.
+## Verification
 
-## Revocation
+1. Resolve live record and descriptor at one ENS block.
+2. Parse the URL and derive target origin.
+3. Compute `valueHash` and `proofKey`.
+4. Fetch the deterministic proof under client privacy policy.
+5. Parse the strict envelope and match all claim fields.
+6. Verify current exact-name authority.
+7. Apply claim and live-publication freshness.
+8. Return `verified/control`.
 
-The proof is revoked when any of the following happens:
+Removing the proof revokes target participation after at most 5 minutes.
 
-```text
-verification descriptor removed or changed
-target text value changed
-well-known proof removed or changed so it no longer verifies
-current ENS authority changes
-claim expires
-name or wrapper expires
-```
-
-## UI Copy
+## Meaning
 
 Allowed:
 
 ```text
-Website verified for this ENS record
-HTTPS origin verified
-Endpoint origin verified
+HTTPS origin published a matching proof for this ENS record.
 ```
 
 Forbidden:
@@ -163,6 +106,6 @@ Forbidden:
 ```text
 Official website
 Safe website
-Trusted domain
-Legal owner verified
+Path owner verified
+Legal domain owner
 ```

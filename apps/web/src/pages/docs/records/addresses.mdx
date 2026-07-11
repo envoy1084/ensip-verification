@@ -1,93 +1,34 @@
 ---
 title: Address Records
-description: Verify multichain addr records using account signatures.
+description: Exact value authorization and CAIP-10 EVM account control.
 ---
 
-# Record Flow: Address Records
+# Address Records
 
-## Target records
-
-```text
-addr(60)  = Ethereum account bytes
-addr(0)   = Bitcoin address bytes
-addr(501) = Solana account bytes
-```
-
-## Verification keys
-
-```text
-verification[addr][60]
-verification[addr][0]
-verification[addr][501]
-```
-
-## Recommended method
-
-```text
-account-signature
-```
-
-## EVM address flow
-
-Publisher sets:
+Example:
 
 ```text
 addr(60) = 0x1234567890abcdef1234567890abcdef12345678
-text("verification[addr][60]") = "ensrv1 m=account-signature u=ipfs://bafy..."
+text("verification[addr][60]") =
+  "ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/p/1"
 ```
 
-The proof claim uses:
+Supported methods:
 
-```json
-{
-  "recordType": "addr",
-  "recordKey": "60",
-  "method": "account-signature",
-  "target": "eip155:1:0x1234567890abcdef1234567890abcdef12345678"
-}
-```
+| Method                        | Relationship    | Evidence                                                                 |
+| ----------------------------- | --------------- | ------------------------------------------------------------------------ |
+| `authority-signature.v1`      | `authorization` | Current ENS authority signed exact native address bytes.                 |
+| `account-signature.eip155.v1` | `control`       | Target EVM account signed a target-chain proof binding the common claim. |
 
-The current ENS authority signs the claim. The target account also signs the claim under the method's target proof profile.
-
-For EVM accounts:
+Supported EVM mappings:
 
 ```text
-EOA target: ECDSA recovery must equal target address.
-Contract target: ERC-1271 must validate the digest and signature.
+coinType 60 -> eip155:1
+coinType 0x80000000 | chainId -> eip155:<chainId>
 ```
 
-## Non-EVM address flow
+The default EVM coin type `0x80000000`, ambiguous legacy EVM SLIP-44 types, and
+non-EVM accounts require separate future profiles.
 
-Non-EVM address verification requires a concrete target proof profile.
-
-A profile must define:
-
-```text
-account identifier format
-message format
-signature scheme
-public key recovery or verification
-address encoding
-chain binding
-replay protection
-contract or multisig behavior, if any
-```
-
-Unsupported target proof profiles return `none/unsupported_method` or the nearest mapped method error.
-
-## Result
-
-A successful result means:
-
-```text
-The address account control proof passed for this ENS record.
-```
-
-It does not mean:
-
-```text
-safe address
-trusted wallet
-non-malicious recipient
-KYC verified
-```
+The result proves account signing control under the profile. It does not prove
+safe recipient, identity, solvency, custody, or absence of malicious activity.

@@ -1,27 +1,28 @@
 ---
 title: Quickstart
-description: Minimal publisher and verifier flows.
+description: Minimal publication and verification flow for an HTTPS URL record.
 ---
 
 # Quickstart
 
-This page shows the minimal flow. Method pages define complete validation rules.
+This example verifies `text("url")` with `https-origin.v1`.
 
-## Publish a Verified URL
+## Publish
 
-Set the target resolver record:
-
-```text
-text("url") = "https://example.com"
-```
-
-Set the verification descriptor:
+Set the target:
 
 ```text
-text("verification[text][url]") = "ensrv1 m=https-origin"
+text("url") = "https://example.com/profile"
 ```
 
-Generate an EIP-712 claim:
+Set the descriptor:
+
+```text
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+```
+
+Resolve the final live value, compute its raw UTF-8 `valueHash`, and create the
+strict claim:
 
 ```json
 {
@@ -30,47 +31,45 @@ Generate an EIP-712 claim:
   "recordType": "text",
   "recordKey": "url",
   "valueHash": "0x...",
-  "method": "https-origin",
+  "authorityVersion": "1",
+  "method": "https-origin.v1",
   "target": "https://example.com",
-  "authorityProfile": "ens-mainnet-v1",
-  "validUntil": "1783209600",
-  "nonce": "0x..."
+  "issuedAt": "1783728000",
+  "validUntil": "1786320000"
 }
 ```
 
-Sign the claim with the current ENS authority.
-
-Publish the proof at:
+Sign it with current exact-name authority. Compute `proofKey`, then publish:
 
 ```text
-https://example.com/.well-known/ens-record-verification
+https://example.com/.well-known/ens-record-verification/<proof-key>
 ```
 
-## Verify a Record
+with:
 
-A verifier performs these steps:
+```json
+{
+  "v": "ensrv1",
+  "claim": {},
+  "authoritySignature": "0x...",
+  "methodProof": {}
+}
+```
+
+## Verify
 
 ```text
-1. Normalize the ENS name.
-2. Resolve the live target record.
-3. Compute valueHash from the exact live resolver value.
-4. Resolve the matching verification descriptor.
-5. Parse descriptor and select method verifier.
-6. Fetch or read proof material under the configured privacy mode.
-7. Check descriptor h, if present.
-8. Check claim fields, valueHash, target, and expiry.
-9. Resolve current ENS authority.
-10. Verify the authority signature by ECDSA or ERC-1271.
-11. Run method-specific target proof checks.
-12. Return verified or none.
+1. Normalize the ENS name with ENSIP-15.
+2. Resolve target and descriptor through Universal Resolver at one block.
+3. Parse descriptor and select Authority Algorithm 1 and https-origin.v1.
+4. Hash exact live target bytes.
+5. Derive canonical HTTPS origin and proofKey.
+6. Fetch the deterministic same-origin proof under client privacy policy.
+7. Parse the strict envelope and match all signed claim fields.
+8. Resolve current exact-name authority and verify EOA or ERC-1271 signature.
+9. Enforce issued interval, authority expiry, publication freshness, and cache bounds.
+10. Return verified/control or none/<error>.
 ```
 
-## Minimal SDK Result
-
-```ts
-type VerificationResult =
-  | { status: "verified"; kind: "control" | "attestation"; method: string; target: string; validUntil: number }
-  | { status: "none"; error?: string };
-```
-
-`verified` is not a safety, endorsement, legal ownership, or anti-phishing claim.
+The result means the HTTPS origin currently publishes a proof authorized by
+current exact-name authority. It does not mean the website is safe or official.

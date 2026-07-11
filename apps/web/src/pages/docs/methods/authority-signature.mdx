@@ -1,0 +1,72 @@
+---
+title: "Method: authority-signature.v1"
+description: Verify explicit authorization of any supported record by current ENS authority.
+---
+
+# Method: `authority-signature.v1`
+
+This method proves that current exact-name authority signed the exact live
+resolver value. It does not claim external target participation.
+
+## Profile
+
+| Property | Value |
+| --- | --- |
+| Relationship | `authorization` |
+| Records | Any supported selector |
+| Freshness | `portable-signed` |
+| Descriptor | `ensrv1 a=1 m=authority-signature.v1 u=<uri> [h=<hash>]` |
+| Maximum claim lifetime | 90 days |
+| Target | Empty string |
+
+The method is useful when resolver-writing authority is delegated but exact-name
+authority must explicitly approve a security-sensitive value. It is also the
+authorization method for contenthash and arbitrary data values without an
+external controller.
+
+## Proof
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x...",
+    "recordType": "contenthash",
+    "recordKey": "",
+    "valueHash": "0x...",
+    "authorityVersion": "1",
+    "method": "authority-signature.v1",
+    "target": "",
+    "issuedAt": "1783728000",
+    "validUntil": "1791504000"
+  },
+  "authoritySignature": "0x...",
+  "methodProof": {}
+}
+```
+
+## Verification
+
+1. Run all common resolution, descriptor, proof, claim, lifecycle, and authority
+   checks.
+2. Require `claim.target == ""`.
+3. Require `methodProof` to be an empty object.
+4. Return `verified/authorization`.
+
+## Meaning
+
+Allowed:
+
+```text
+Current ENS authority authorized this record.
+```
+
+Forbidden:
+
+```text
+External target controlled
+Safe content
+Trusted address
+Official record
+```

@@ -33,7 +33,7 @@ For normalized `name` and `node = namehash(name)`:
    - require `now < wrapperExpiry`;
    - use the wrapper owner as authority;
    - set `authorityValidUntil = wrapperExpiry`;
-   - for a wrapped `.eth` second-level name, also require the Base Registrar
+   - for a wrapped `.eth` second-level name only, also require the Base Registrar
      registration to be unexpired and take the earlier expiry.
 3. Otherwise, if `name` is an unwrapped `.eth` second-level name:
    - read `BaseRegistrar.ownerOf(uint256(labelhash(label)))`;
@@ -46,9 +46,10 @@ For normalized `name` and `node = namehash(name)`:
 5. Reject zero or indeterminate authority.
 6. Verify EOAs by ECDSA recovery and contracts by ERC-1271.
 
-The algorithm is intentionally isolated. A future canonical registry can
-replace this section without changing discovery, descriptors, claims, methods,
-or results. A changed authority system uses a new EIP-712 domain.
+The algorithm is intentionally isolated as Authority Algorithm 1. A future
+canonical authority system allocates a new signed authority version without
+changing discovery, record hashing, method profiles, or results. Unsupported
+authority versions fail closed.
 
 ## Subname Expiry Findings
 
@@ -80,6 +81,11 @@ consistent with current Registry state and preserves delegated subnames.
 
 Name Wrapper stores owner, fuses, and expiry. Child expiry is capped by parent
 wrapper expiry. A verifier always requires `now < wrapperExpiry`.
+
+An unexpired wrapped child can remain operational while its parent `.eth`
+second-level registration is in grace. Name Wrapper intentionally permits this
+behavior. Do not cap an exact wrapped child at the parent registrar expiry; use
+the exact child's wrapper expiry.
 
 When an emancipated wrapped name expires, Name Wrapper exposes zero owner. A
 parent-controlled expired name can retain an address in raw storage, but its
@@ -118,11 +124,12 @@ Current Ethereum mainnet domain:
 name:              ENS Record Verification
 version:           1
 chainId:           1
-verifyingContract: 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e
+verifyingContract: 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
 ```
 
-The verifying contract is domain separation. It does not execute verification
-and no new contract is deployed.
+The verifying contract is the long-lived Universal Resolver proxy used as
+domain separation. It does not execute signature verification and no new
+contract is deployed.
 
 ## Required Test Matrix
 

@@ -1,101 +1,105 @@
 ---
 title: Build a Verifier
-description: SDK verification algorithm and implementation notes.
+description: Adapter boundaries, validation pipeline, and implementation requirements.
 ---
 
 # Build a Verifier
 
-A verifier returns `verified` only after common checks and method-specific checks pass.
-
-## Algorithm
+## Components
 
 ```ts
-async function verifyRecord(input, options) {
-  const name = normalize(input.name);
-  const node = namehash(name);
+interface VerificationEngine {
+  verify(
+    input: VerifyInput,
+    policy: VerificationPolicy,
+  ): Promise<VerificationResult>;
+}
 
-  validateRecordSelector(input.recordType, input.recordKey);
+interface EnsReader {
+  resolvePair(
+    input: RecordSelector,
+    block: BlockRef,
+  ): Promise<{
+    value: Uint8Array;
+    descriptor: string;
+    resolver: Address;
+    blockNumber: bigint;
+    blockHash: Hex;
+  }>;
+  resolveAuthority(
+    name: string,
+    version: number,
+    block: BlockRef,
+  ): Promise<Authority>;
+}
 
-  const liveValue = await resolveTargetRecord(node, input.recordType, input.recordKey);
-  if (!liveValue) return none("record_missing");
-
-  const valueHash = hashResolverValue(input.recordType, liveValue);
-
-  const verificationKey = buildVerificationKey(input.recordType, input.recordKey);
-  const descriptorValue = await resolveText(node, verificationKey);
-  if (!descriptorValue) return none("not_configured");
-
-  const descriptor = parseDescriptor(descriptorValue);
-  if (!descriptor.ok) return none("invalid_descriptor");
-
-  const method = registry.get(descriptor.m);
-  if (!method) return none("unsupported_method");
-
-  if (method.requiresFetch && options.fetchMode === "local-only") {
-    return none("privacy_blocked");
-  }
-
-  return method.verify({
-    name,
-    node,
-    recordType: input.recordType,
-    recordKey: input.recordKey,
-    liveValue,
-    valueHash,
-    descriptor,
-    options
-  });
+interface MethodVerifier {
+  id: string;
+  deriveTarget(context: MethodContext): string;
+  verify(context: MethodContext): Promise<MethodResult>;
 }
 ```
 
-## Descriptor Parser Requirements
+`EnsReader` uses Universal Resolver for records and the selected authority
+algorithm for ownership. Method adapters cannot override authority.
 
-The parser MUST reject:
-
-```text
-wrong version token
-duplicate fields
-missing m
-empty field name
-field value with spaces or controls
-malformed h
-```
-
-Unknown fields are ignored after duplicate-field validation.
-
-## Proof JSON Parser Requirements
-
-The proof JSON parser MUST reject duplicate object member names before schema validation.
-
-Do not rely on JSON Schema alone for duplicate-key detection.
-
-## Authority Validation
-
-For `ens-mainnet-v1`:
+## Pipeline
 
 ```text
-wrapped name -> Name Wrapper owner
-unwrapped .eth 2LD -> Base Registrar registrant
-other unwrapped name -> ENS Registry owner
+normalize
+  -> validate selector
+  -> select evaluation block
+  -> Universal Resolver target + descriptor
+  -> parse closed descriptor
+  -> select authority version and concrete method
+  -> compute raw valueHash and canonical target
+  -> retrieve proof under privacy/fetch policy
+  -> parse strict JSON and method schema
+  -> match complete common claim
+  -> enforce signed interval
+  -> resolve and verify current exact-name authority
+  -> validate method evidence bound to common digest
+  -> apply expiry, revocation, freshness, and cache bounds
+  -> result
 ```
 
-Use ECDSA for EOAs. Use ERC-1271 for contract authorities.
+## Parser Boundaries
 
-## Caching
+Process untrusted input in this order:
 
-Do not cache positive results beyond `cacheUntil`.
+1. enforce byte limit;
+2. validate UTF-8 and reject BOM;
+3. reject duplicate JSON members before map parsing;
+4. enforce JSON depth, member, and string limits;
+5. validate common schema;
+6. validate exact method schema;
+7. convert canonical decimal integers with explicit range checks;
+8. encode EIP-712 values.
 
-High-trust actions must revalidate live.
+JSON Schema alone cannot reject duplicate members or enforce every numeric
+range.
 
-## Privacy Modes
+## Network Boundary
 
-Implement at least:
+Use one shared fetcher for URI methods. It enforces TLS, SSRF address blocking,
+DNS-rebinding defense, redirect policy, timeouts, encoded and decoded size,
+decompression ratio, content type, and no ambient credentials.
 
-```text
-local-only
-fetch-on-action
-privacy-proxy
-direct-fetch
-```
+Browser CORS failure maps to `proof_unavailable`. Browser SDKs may use a
+user-selected privacy proxy; the proxy is not a trust root because signatures
+and optional `h` remain client-verified.
 
-Return `none/privacy_blocked` when the configured mode forbids a required fetch.
+## Snapshot Boundary
+
+Target, descriptor, Registry, Base Registrar, and Name Wrapper reads use one
+block reference. Retain block number and hash. Re-evaluate if the block is
+reorganized out.
+
+Target-chain ERC-1271 validation uses an explicit block on the CAIP target
+chain. Record that chain and block in debug output.
+
+## Conformance
+
+A conforming verifier passes all parser, hash, EIP-712, authority, method,
+lifecycle, fetch-policy, and error-precedence vectors. High-trust integrations
+must not depend only on an indexer-provided positive result.

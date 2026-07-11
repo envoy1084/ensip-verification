@@ -1,68 +1,27 @@
 ---
 title: Email Records
-description: Verify email text records by domain proof or issuer attestation.
+description: Distinguish exact record authorization, domain control, and mailbox attestation.
 ---
 
-# Record Flow: Email Records
+# Email Records
 
-## Target record
-
-```text
-text("email") = "alice@example.com"
-```
-
-## Verification key
-
-```text
-verification[text][email]
-```
-
-## Recommended methods
-
-| Method | What it proves |
-| --- | --- |
-| `dns-txt` | Control of the email domain, such as `example.com`. |
-| `issuer-attestation` | An issuer claims mailbox or account control under client trust policy. |
-
-## Domain-control flow
-
-Publisher sets:
+Example target:
 
 ```text
 text("email") = "alice@example.com"
-text("verification[text][email]") = "ensrv1 m=dns-txt"
 ```
 
-DNS publishes:
+Initial options:
 
-```text
-_ens-record-verification.example.com TXT "ensrv1 u=ipfs://bafy... h=0x..."
-```
+| Method                    | Relationship    | Meaning                                                       |
+| ------------------------- | --------------- | ------------------------------------------------------------- |
+| `authority-signature.v1`  | `authorization` | Current ENS authority signed exact email text.                |
+| `dns-txt.email-domain.v1` | `control`       | DNSSEC-authenticated `example.com` zone published proof hash. |
 
-This verifies domain control only. It does not prove that the ENS authority controls the mailbox `alice@example.com`.
+DNS domain control does not prove access to `alice@example.com`. The email
+profile accepts a simple mailbox form only: non-empty local part, final `@`, and
+valid IDNA domain; display names and comments are unsupported.
 
-## Mailbox-attestation flow
-
-Publisher sets:
-
-```text
-text("verification[text][email]") = "ensrv1 m=issuer-attestation u=https://issuer.example/p/123 h=0x..."
-```
-
-The issuer profile defines mailbox verification, issuer identity, revocation, and trust policy.
-
-## Result
-
-A successful `dns-txt` result means:
-
-```text
-The email domain proof passed for this ENS record.
-```
-
-A successful `issuer-attestation` result means:
-
-```text
-An accepted issuer attested to the email claim.
-```
-
-Neither result implies that the email is safe, official, or globally trusted.
+Mailbox control requires a future concrete issuer or provider profile with
+private challenge, exact credential format, revocation, and client trust policy.
+The abstract `issuer-attestation` family is not a valid descriptor method.

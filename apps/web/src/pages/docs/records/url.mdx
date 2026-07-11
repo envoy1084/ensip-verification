@@ -1,87 +1,32 @@
 ---
 title: URL Records
-description: Verify text(url) records with HTTPS or DNS proofs.
+description: Authorization, HTTPS-origin, and DNSSEC control options for text(url).
 ---
 
-# Record Flow: URL Records
+# URL Records
 
-## Target record
-
-```text
-text("url") = "https://example.com"
-```
-
-## Verification key
+Target and descriptor:
 
 ```text
-verification[text][url]
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-## Recommended methods
+Supported relationships:
 
-| Method | Use when |
-| --- | --- |
-| `https-origin` | The website can publish `/.well-known/ens-record-verification`. |
-| `dns-txt` | DNS control is the preferred proof surface. |
-| `issuer-attestation` | A third-party issuer verifies the association under client policy. |
+| Method                   | Relationship    | Evidence                                            |
+| ------------------------ | --------------- | --------------------------------------------------- |
+| `authority-signature.v1` | `authorization` | Current ENS authority signed exact URL bytes.       |
+| `https-origin.v1`        | `control`       | HTTPS origin publishes deterministic proof.         |
+| `dns-txt.url.v1`         | `control`       | DNSSEC-authenticated URL host publishes proof hash. |
 
-## HTTPS flow
+`valueHash` always covers the complete exact URL string. HTTPS target excludes
+path, query, and fragment; changing any of them still changes `valueHash` and
+invalidates the old proof.
 
-Publisher sets:
+Use HTTPS origin when the web server can publish a well-known resource. Use DNS
+when the zone is DNSSEC-signed and DNS publication is operationally preferable.
 
-```text
-text("url") = "https://example.com"
-text("verification[text][url]") = "ensrv1 m=https-origin"
-```
-
-Publisher hosts:
-
-```text
-https://example.com/.well-known/ens-record-verification
-```
-
-The proof contains a signed claim with:
-
-```json
-{
-  "recordType": "text",
-  "recordKey": "url",
-  "method": "https-origin",
-  "target": "https://example.com"
-}
-```
-
-The verifier derives `target` from the live URL origin and hashes the exact live text value for `valueHash`.
-
-## DNS flow
-
-Publisher sets:
-
-```text
-text("verification[text][url]") = "ensrv1 m=dns-txt"
-```
-
-DNS publishes:
-
-```text
-_ens-record-verification.example.com TXT "ensrv1 u=ipfs://bafy... h=0x..."
-```
-
-The verifier checks DNS TXT, proof bytes, claim binding, current ENS authority, and expiry.
-
-## Result
-
-A successful result means:
-
-```text
-The URL record is verified for this ENS name under the selected method.
-```
-
-It does not mean:
-
-```text
-safe website
-official website
-legal domain owner
-not a scam
-```
+A control result proves current origin or DNS-zone participation. It does not
+prove the URL path is controlled independently, the website is safe, or the
+domain is official.

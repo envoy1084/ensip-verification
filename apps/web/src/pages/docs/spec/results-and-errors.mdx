@@ -1,19 +1,17 @@
 ---
 title: Results and Errors
-description: Verification result object, public status, assurance metadata, and error precedence.
+description: Public result, evidence relationships, errors, and retry behavior.
 ---
 
 # Results and Errors
 
-The public verification result is either `verified` or `none`.
-
-## Result Shape
+## Result
 
 ```ts
 type VerificationResult =
   | {
       status: "verified";
-      kind: "control" | "attestation";
+      relationship: "authorization" | "control" | "attestation";
       method: string;
       name: string;
       node: `0x${string}`;
@@ -29,50 +27,74 @@ type VerificationResult =
   | {
       status: "none";
       error?: VerificationError;
+      retryable?: boolean;
       checkedAt?: number;
     };
 ```
 
-## Assurance Metadata
+There are no intermediate public trust states. Errors explain why no positive
+result was produced.
 
-Assurance metadata is optional. It MUST NOT create additional public statuses.
+## Error Precedence
+
+Use the first applicable error that can be determined without performing work
+blocked by client policy:
+
+| Order | Error                         | Retryable                                     |
+| ----: | ----------------------------- | --------------------------------------------- |
+|     1 | `invalid_request`             | No                                            |
+|     2 | `unsupported_record`          | No, until client support changes              |
+|     3 | `resolution_unavailable`      | Yes                                           |
+|     4 | `record_missing`              | Yes                                           |
+|     5 | `not_configured`              | Yes                                           |
+|     6 | `invalid_descriptor`          | No                                            |
+|     7 | `unsupported_version`         | No, until client support changes              |
+|     8 | `unsupported_method`          | No, until client support changes              |
+|     9 | `privacy_blocked`             | No, until policy changes                      |
+|    10 | `proof_unavailable`           | Yes                                           |
+|    11 | `proof_integrity_mismatch`    | No                                            |
+|    12 | `proof_invalid`               | No                                            |
+|    13 | `claim_mismatch`              | No                                            |
+|    14 | `value_mismatch`              | No                                            |
+|    15 | `target_mismatch`             | No                                            |
+|    16 | `not_yet_valid`               | Yes                                           |
+|    17 | `expired`                     | No, until proof changes                       |
+|    18 | `unsupported_authority`       | No, until ENS state or client support changes |
+|    19 | `authority_signature_invalid` | No                                            |
+|    20 | `target_proof_invalid`        | No                                            |
+|    21 | `insecure_dns`                | No, until authenticated DNS is available      |
+|    22 | `revocation_unavailable`      | Yes                                           |
+|    23 | `revoked`                     | No                                            |
+|    24 | `untrusted_issuer`            | No, until policy changes                      |
+
+Method-specific errors map into this set.
+
+## Assurance
+
+Assurance metadata records checked evidence; it never changes public status.
 
 ```ts
 type VerificationAssurance = {
-  dnssec?: boolean;
-  proofIntegrity?: "none" | "hash-pinned" | "content-addressed";
+  dnssec?: "validated" | "unsigned";
+  proofIntegrity?: "hash-pinned" | "content-addressed";
   publication?: "live" | "portable" | "issuer-revocable";
   authority?: "eoa" | "erc1271";
 };
 ```
 
-## Error Precedence
+An absent field means not checked or not applicable. `dnssec: "validated"`
+requires a complete validated chain to an accepted trust anchor.
 
-Use the first applicable error in this table.
+## UI Constraint
 
-| Order | Error | Condition |
-| ---: | --- | --- |
-| 1 | `invalid_request` | Invalid input name, record type, record key, or coin type. |
-| 2 | `unsupported_record` | Record type or resolver profile unsupported. |
-| 3 | `record_missing` | Live target resolver record absent. |
-| 4 | `not_configured` | Verification descriptor absent or empty. |
-| 5 | `invalid_descriptor` | Descriptor malformed or duplicate field present. |
-| 6 | `unsupported_method` | Descriptor method unknown or unsupported. |
-| 7 | `privacy_blocked` | External fetch blocked by client policy. |
-| 8 | `proof_unavailable` | Proof resource unavailable. |
-| 9 | `proof_integrity_mismatch` | Descriptor `h` mismatch. |
-| 10 | `proof_invalid` | Proof envelope malformed or method payload invalid. |
-| 11 | `claim_mismatch` | Claim name, node, record type, record key, authority profile, or method mismatch. |
-| 12 | `value_mismatch` | Claim value hash differs from live resolver value. |
-| 13 | `target_mismatch` | Claim target differs from method-derived target. |
-| 14 | `expired` | Claim, authority, proof, issuer, or method expiry reached. |
-| 15 | `unsupported_authority` | Current ENS authority cannot be determined. |
-| 16 | `signature_invalid` | ENS authority signature invalid. |
-| 17 | `revoked` | Required revocation check reports revoked. |
-| 18 | `untrusted_issuer` | Issuer not accepted by client policy. |
+Display the exact relationship, for example:
 
-Method-specific errors MUST map into this set.
+```text
+Current ENS authority authorized this record.
+HTTPS origin published a matching proof.
+Target account signed a matching proof.
+Example Issuer attested to this claim.
+```
 
-## UI Rule
-
-User interfaces SHOULD display `verified` only as a record-level verification result. They MUST NOT display it as a safety, endorsement, official-status, legal-ownership, or anti-phishing claim.
+Never translate the result into safe, official, trusted, non-malicious, legal
+owner, or ENS-endorsed.

@@ -1,69 +1,65 @@
 ---
 title: Specification Overview
-description: Architecture and design goals.
+description: Protocol layers, invariants, and normative document map.
 ---
 
 # Specification Overview
 
-ENS Resolver Record Verification is a small base protocol plus method profiles.
+ENS Resolver Record Verification adds verifiable evidence to an existing ENS
+resolver record. It does not replace the record or require a new contract.
 
-The base protocol defines:
+## Protocol Layers
 
-```text
-verification key syntax
-descriptor syntax
-common signed claim
-current ENS authority
-raw resolver-value hashing
-lifecycle and cache semantics
-result and error model
-method-profile requirements
+```mermaid
+flowchart LR
+  A["Universal Resolver<br/>live record + descriptor"] --> B["Verification kernel<br/>claim + authority + lifecycle"]
+  B --> C["Method profile<br/>target evidence"]
+  C --> D["verified or none"]
 ```
 
-Method profiles define target-specific proof systems. Examples include HTTPS origins, DNS TXT records, blockchain account signatures, service-account proofs, contenthash bindings, and issuer attestations.
+The layers have separate responsibilities:
 
-## Design Goals
+| Layer               | Responsibility                                                                |
+| ------------------- | ----------------------------------------------------------------------------- |
+| ENS resolution      | Return the live target record and verification descriptor for the exact name. |
+| Verification kernel | Bind exact bytes, current exact-name authority, time, method, and target.     |
+| Method profile      | Define target canonicalization and external evidence.                         |
+| Client policy       | Decide which methods, issuers, fetch modes, and cache limits are acceptable.  |
 
-1. Verify specific resolver records, not whole ENS names.
-2. Bind proofs to live resolver values.
-3. Fail closed after ownership transfer, name expiry, resolver-value change, or descriptor removal.
-4. Avoid onchain JSON and large text-record payloads.
-5. Keep public status limited to `verified` and `none`.
-6. Keep proof systems outside the base ENSIP.
-7. Support contract authorities through ERC-1271.
-8. Preserve future extension for new record classes and methods.
+## Invariants
 
-## Non-Goals
+A verifier returns `verified` only when all of the following hold at evaluation
+time:
 
-This specification does not define:
+1. The exact live resolver value exists.
+2. The exact live verification descriptor is valid and selects the method.
+3. The proof binds the normalized name, node, record selector, and raw value
+   hash.
+4. The proof was signed by the current authority for the exact ENS name.
+5. The method-specific evidence validates.
+6. Every applicable validity, freshness, and revocation check passes.
 
-```text
-brand verification
-legal ownership verification
-anti-phishing reputation
-safety scoring
-universal issuer trust
-resolver-writer delegation
-parent-owner authority for child names
-a global revocation registry
-```
+Verification never changes ordinary ENS resolution. Failure returns `none`; it
+does not invalidate or hide the underlying resolver record.
 
-## Architecture
+## Positive Relationships
 
-```text
-ENS resolver record
-  -> verification text record
-    -> compact descriptor
-      -> method profile
-        -> proof resource
-          -> current-authority signature + target proof
-```
+| Relationship    | Required evidence                                            |
+| --------------- | ------------------------------------------------------------ |
+| `authorization` | Current ENS authority signed the exact live resolver value.  |
+| `control`       | Authorization plus participation by the external target.     |
+| `attestation`   | Authorization plus an attestation accepted by client policy. |
 
-Example:
+None of these relationships means safe, official, non-malicious, legally owned,
+or endorsed by ENS.
 
-```text
-text("url") = "https://example.com"
-text("verification[text][url]") = "ensrv1 m=https-origin"
-```
+## Normative Source
 
-The descriptor selects `https-origin`. The method profile defines where the proof is published and how it is validated.
+The complete normative proposal is the [ENSIP](./ensip). The companion pages
+explain the same rules by implementation concern:
+
+- [Discovery Records](./discovery-records)
+- [Verification Descriptor](./verification-descriptor)
+- [Claims and Signatures](./claims-and-signatures)
+- [Authority and Lifecycle](./authority-and-lifecycle)
+- [Results and Errors](./results-and-errors)

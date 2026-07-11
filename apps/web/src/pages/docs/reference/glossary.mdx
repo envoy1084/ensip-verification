@@ -1,56 +1,65 @@
 ---
 title: Glossary
-description: Terms used by ENS Resolver Record Verification.
+description: Normative protocol terms.
 ---
 
 # Glossary
 
 ## Target Record
 
-The ENS resolver record being verified, such as `text("url")`, `addr(60)`, or `contenthash`.
+Existing ENS resolver record being evaluated.
+
+## Record Selector
+
+Resolver profile and key or parameter, such as `text("url")`, `addr(60)`, or
+`contenthash()`.
 
 ## Verification Record
 
-The ENS text record whose key begins with `verification[...]` and whose value is a compact descriptor.
+ENSIP-5 text record whose key identifies a target selector and whose value is a
+descriptor.
 
-## Verification Descriptor
+## Descriptor
 
-The compact string stored in the verification record.
-
-Example:
+Closed ASCII value such as:
 
 ```text
-ensrv1 m=https-origin
+ensrv1 a=1 m=https-origin.v1
 ```
 
-## Method Profile
+## Authority Version
 
-A specification that defines how a method validates proof material.
+Numeric exact-name authority lookup and expiry algorithm signed by the claim.
 
-## Current ENS Authority
+## Method
 
-The account recognized by an authority profile as controlling the exact ENS name for verification purposes.
+Immutable target derivation and evidence algorithm.
 
-## Control Verification
+## Proof Key
 
-A positive result where the external target itself participates in the proof.
+Stable, domain-separated publication slot for one name, selector, authority
+version, and method.
 
-## Attestation Verification
+## Authorization
 
-A positive result where an issuer asserts the binding and clients apply trust policy.
+Current exact-name authority signed the exact live resolver value.
 
-## valueHash
+## Control
 
-`keccak256` hash of the exact live resolver value bytes.
+Authorization plus participation by the method-defined external target.
 
-## target
+## Attestation
 
-The method-defined canonical external target.
+Authorization plus an issuer statement accepted by client policy.
 
-## effectiveValidUntil
+## Evaluation Block
 
-The earliest applicable expiry for a positive result.
+One block number/hash used for all ENS reads in an evaluation.
 
-## cacheUntil
+## Effective Validity
 
-The latest time a cached positive result may be reused.
+Earliest applicable claim, authority, method proof, issuer, or method expiry.
+
+## Cache Until
+
+Latest time a cached positive result may be reused for its permitted context.

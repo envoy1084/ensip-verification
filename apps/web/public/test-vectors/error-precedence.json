@@ -3,9 +3,11 @@
   "errors": [
     "invalid_request",
     "unsupported_record",
+    "resolution_unavailable",
     "record_missing",
     "not_configured",
     "invalid_descriptor",
+    "unsupported_version",
     "unsupported_method",
     "privacy_blocked",
     "proof_unavailable",
@@ -14,9 +16,13 @@
     "claim_mismatch",
     "value_mismatch",
     "target_mismatch",
+    "not_yet_valid",
     "expired",
     "unsupported_authority",
-    "signature_invalid",
+    "authority_signature_invalid",
+    "target_proof_invalid",
+    "insecure_dns",
+    "revocation_unavailable",
     "revoked",
     "untrusted_issuer"
   ]

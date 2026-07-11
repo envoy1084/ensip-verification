@@ -1,117 +1,64 @@
 ---
 title: Publish a Verification
-description: General publisher flow for ENS record verification.
+description: Safe setup, renewal, rotation, and revocation order.
 ---
 
 # Publish a Verification
 
-This guide describes the publisher flow common to all methods.
+## Initial Publication
 
-## 1. Choose the Target Record
+1. Set or confirm the final target resolver value.
+2. Resolve that value through canonical Universal Resolver.
+3. Choose one concrete method supported by the selector.
+4. Derive exact `recordType`, `recordKey`, raw `valueHash`, canonical target,
+   Authority Algorithm 1, and method maximum lifetime.
+5. Create the strict common claim.
+6. Sign with current exact-name authority.
+7. Obtain method evidence, including a target-chain signature when required.
+8. Publish proof bytes at the method location or descriptor `u`.
+9. If using `h`, hash decoded proof body bytes.
+10. Verify the external publication independently.
+11. Set the descriptor last.
+12. Run final live verification.
 
-Identify the exact resolver record:
+Descriptor-last publication prevents clients from selecting a proof that is not
+yet available.
 
-```text
-text("url")
-text("com.github")
-addr(60)
-contenthash
-```
-
-## 2. Choose the Method
-
-Examples:
-
-| Target | Method |
-| --- | --- |
-| HTTPS URL | `https-origin` |
-| Domain proof | `dns-txt` |
-| Address record | `account-signature` |
-| GitHub account | `service-account.github` |
-| Contenthash | `contenthash-binding` |
-| Issuer-backed claim | `issuer-attestation` |
-
-## 3. Set the Target Record
-
-Set or confirm the target resolver record first. The proof will bind to the exact live value.
-
-## 4. Compute `valueHash`
-
-Use raw resolver-value bytes:
+## Descriptors
 
 ```text
-text:        UTF-8 bytes
-addr:        native binary address bytes
-contenthash: raw contenthash bytes
-data:        raw data bytes
+ensrv1 a=1 m=https-origin.v1
+ensrv1 a=1 m=authority-signature.v1 u=https://proofs.example/p/123
+ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/p/456 h=0x...
 ```
 
-## 5. Create the Common Claim
+## Renewal
 
-Set:
+If proof location is stable:
 
-```text
-name
-node
-recordType
-recordKey
-valueHash
-method
-target
-authorityProfile
-validUntil
-nonce
-```
+1. create a new claim from current live value;
+2. publish new proof bytes;
+3. update descriptor `h` when present;
+4. verify final live state.
 
-## 6. Sign with Current ENS Authority
+For deterministic HTTPS publication, replace the proof at the stable
+`proofKey` path. Caches remain bounded to 5 minutes.
 
-For `ens-mainnet-v1`, the signer is:
+## Record Rotation
 
-```text
-wrapped name: Name Wrapper owner
-unwrapped .eth 2LD: Base Registrar registrant
-other unwrapped exact name: ENS Registry owner
-```
+When target value changes:
 
-EOAs sign EIP-712. Contract authorities use ERC-1271.
+1. write final target record;
+2. resolve final bytes;
+3. create and publish proof for the new value;
+4. update descriptor last when it contains `u` or `h`;
+5. verify final state.
 
-## 7. Publish Proof Material
+Intermediate states may return `none`; they must never return a false positive
+because `valueHash` binds exact current bytes.
 
-Publish according to the method profile:
+## Revocation
 
-```text
-HTTPS well-known file
-DNS TXT record
-provider proof surface
-content-addressed proof object
-issuer proof endpoint
-```
-
-## 8. Set Verification Descriptor
-
-Examples:
-
-```text
-ensrv1 m=https-origin
-ensrv1 m=account-signature u=ipfs://bafy...
-ensrv1 m=issuer-attestation u=https://issuer.example/proof h=0x...
-```
-
-## 9. Test Verification
-
-Run an SDK verifier in direct-fetch mode, then test privacy mode and cache behavior.
-
-## 10. Revoke
-
-Any of the following revokes positive verification:
-
-```text
-delete descriptor
-change descriptor method/u/h
-change target resolver value
-remove live target proof
-transfer name
-let claim expire
-let name or wrapper expire
-issuer revokes attestation
-```
+Delete or empty the verification descriptor for immediate ENS-side revocation.
+Also remove live target publication when applicable. Cached positive results
+expire at their bounded `cacheUntil`; high-trust clients revalidate immediately.

@@ -1,69 +1,50 @@
 ---
 title: Test Vectors
-description: Required implementation test-vector scope.
+description: Required conformance corpus and execution rules.
 ---
 
 # Test Vectors
 
-A conforming SDK should include vectors for all P0 behavior.
+The public `test-vectors` directory is the machine-readable conformance corpus.
+A complete implementation must cover:
 
-## Descriptor Vectors
+## Core
 
-```text
-valid descriptor
-missing m
-duplicate m
-unknown extension field
-malformed h
-bracketed text key
-```
+- ENSIP-15 normalized names and namehash;
+- verification-key construction, including nested brackets;
+- valid, malformed, duplicate, unknown, and unsupported descriptors;
+- raw `valueHash` for text, address, contenthash, and data bytes;
+- EIP-712 type hash, domain separator, common digest, and `proofKey`;
+- canonical decimal and hex parsing;
+- duplicate JSON member rejection.
 
-## Value Hash Vectors
+## Authority
 
-```text
-text url exact UTF-8 bytes
-text agent-endpoint[mcp]
-addr 60 native bytes
-contenthash raw bytes
-```
+- unwrapped `.eth` registrant versus Registry manager;
+- exact unwrapped subname across parent transfer and re-registration;
+- wrapped owner, child expiry, and parent grace behavior;
+- EOA signatures;
+- ERC-1271 valid, wrong magic, revert, and unavailable calls;
+- wildcard/offchain record with no authenticated exact authority;
+- unsupported authority version.
 
-## Signature Vectors
+## Methods
 
-```text
-EIP-712 digest
-EOA authority valid
-EOA authority wrong signer
-ERC-1271 authority valid
-ERC-1271 authority invalid
-target EVM account valid
-target EVM account invalid
-```
+- WHATWG/IDNA URL targets and invalid cases;
+- deterministic HTTPS proof path;
+- DNS base32 owner, DNSSEC states, TXT conflicts, and TTL cap;
+- ENSIP-9/11 to CAIP-10 EVM mapping;
+- target-chain EIP-712 digest, EOA, and ERC-1271 validation;
+- authority-only empty method proof.
 
-## Authority Vectors
+## Lifecycle And Network Policy
 
-```text
-unwrapped alice.eth uses Base Registrar registrant
-unwrapped alice.eth manager differs from registrant
-wrapped alice.eth uses Name Wrapper owner
-wrapped subname uses Name Wrapper owner
-unwrapped subname uses ENS Registry owner of exact node
-imported DNS name uses ENS Registry owner
-expired .eth returns none
-zero owner returns none
-```
+- future issuance, exact expiry, excessive signed interval;
+- descriptor deletion/change and live value change;
+- evaluation-block reorganization;
+- SSRF addresses, DNS rebinding, redirects, timeouts, body/decompression limits;
+- privacy-blocked and retryability results;
+- cache-bound calculations.
 
-## Lifecycle Vectors
-
-```text
-descriptor deleted
-method changed
-u changed
-h mismatch
-record value changed
-claim expired
-proof removed
-issuer revoked
-privacy blocked
-```
-
-The `test-vectors/` folder in this package contains starter JSON files.
+Vectors contain exact input bytes and exact expected output or error. At least
+two independent implementations should pass the corpus before finalization.

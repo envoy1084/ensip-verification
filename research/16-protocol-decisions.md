@@ -74,25 +74,28 @@ ENSRecordVerification(
   string recordType,
   string recordKey,
   bytes32 valueHash,
+  uint32 authorityVersion,
   string method,
   string target,
   uint64 issuedAt,
-  uint64 validUntil,
-  bytes32 nonce
+  uint64 validUntil
 )
 ```
 
 Method-specific data is not added to this struct. A method proof binds to the
 common claim digest when it needs an additional signature or attestation.
 
-`issuedAt` makes maximum proof lifetime enforceable. Every method defines a
-maximum lifetime. `nonce` is a cryptographically random 32-byte proof
-identifier; it is not a global revocation nonce.
+`issuedAt` is signer-asserted, not an independent timestamp. It makes the signed
+validity interval enforceable and lets clients reject future-dated claims.
+Every method defines a maximum lifetime.
 
-## 5. Deployment Separation Uses The EIP-712 Domain
+## 5. Authority Evolution Is Explicit
 
-The claim does not contain a registry-version or authority-profile string.
-Deployment separation is already provided by the EIP-712 domain:
+The descriptor contains `a=<authorityVersion>` and the claim signs the same
+numeric value. Authority Algorithm 1 defines current Ethereum mainnet rules.
+Unsupported authority versions fail closed and methods cannot override them.
+
+The EIP-712 domain uses the long-lived canonical Universal Resolver proxy:
 
 ```text
 name
@@ -101,10 +104,11 @@ chainId
 verifyingContract
 ```
 
-For current Ethereum mainnet, `verifyingContract` is the ENS Registry. A future
-registry deployment uses its canonical registry/root and, when authority
-semantics change, a new domain version. Proofs from different deployments
-cannot be replayed across domains.
+For current Ethereum mainnet, `verifyingContract` is
+`0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe`. The proxy is a stable deployment
+anchor; it does not execute signature verification. Future authority semantics
+allocate a new authority version without changing record discovery or method
+profiles. Old clients reject the new value instead of applying Algorithm 1.
 
 ## 6. CAIP-10 Account Targets
 
@@ -145,16 +149,16 @@ record selector.
 The descriptor is:
 
 ```text
-ensrv1 m=<method> [u=<uri> h=<hash>]
+ensrv1 a=<authority-version> m=<method> [u=<uri>] [h=<hash>]
 ```
 
 Rules:
 
-- `m` occurs exactly once.
-- `u` and `h` occur together or are both absent.
+- `a` and `m` occur exactly once.
 - `h` is lowercase `0x`-prefixed `keccak256` of retrieved proof body bytes.
 - Unknown and duplicate fields are invalid.
-- Method profiles declare whether `u` and `h` are required or forbidden.
+- Method profiles declare whether `u` and `h` are required, permitted, or
+  forbidden.
 - Incompatible additions require a new descriptor version.
 
 Rejecting unknown fields prevents older clients from ignoring future
@@ -162,11 +166,18 @@ security-critical constraints.
 
 ## 9. Deterministic Proof Selection
 
-Every claim has:
+Every record-method publication slot has:
 
 ```text
-proofId = keccak256(
+PROOF_KEY_TYPEHASH = keccak256(
+  "ENSRecordVerificationProofKey(bytes32 domainSeparator,uint32 authorityVersion,bytes32 node,bytes32 recordTypeHash,bytes32 recordKeyHash,bytes32 methodHash)"
+)
+
+proofKey = keccak256(
   abi.encode(
+    PROOF_KEY_TYPEHASH,
+    eip712DomainSeparator,
+    authorityVersion,
     node,
     keccak256(bytes(recordType)),
     keccak256(bytes(recordKey)),
@@ -175,14 +186,15 @@ proofId = keccak256(
 )
 ```
 
-`https-origin` serves one proof per `proofId` at:
+`https-origin.v1` serves one proof per `proofKey` at:
 
 ```text
-<origin>/.well-known/ens-record-verification/<lowercase-proofId>
+<origin>/.well-known/ens-record-verification/<64-lowercase-hex-without-0x>
 ```
 
-DNS TXT entries include the same `proofId`. This removes ambiguous scanning and
-allows one origin or DNS zone to verify multiple ENS records.
+DNS profiles encode `proofKey` as lowercase unpadded base32 in a claim-specific
+owner name. This removes ambiguous scanning and allows one origin or DNS zone to
+verify multiple ENS records.
 
 ## 10. One Strict JSON Envelope
 
@@ -225,14 +237,14 @@ performance hints and never replace live validation.
 
 ## 13. Initial Method Set
 
-| Method                        | Relationship    | Status                                                            |
-| ----------------------------- | --------------- | ----------------------------------------------------------------- |
-| `authority-signature`         | `authorization` | Normative                                                         |
-| `https-origin`                | `control`       | Normative                                                         |
-| `dns-txt`                     | `control`       | Normative for URL, email-domain, and HTTPS agent endpoint targets |
-| `account-signature`           | `control`       | Normative for initial EVM account profiles                        |
-| `service-account.<provider>`  | `control`       | Abstract family until a provider profile is complete              |
-| `issuer-attestation.<format>` | `attestation`   | Abstract family until a format profile is complete                |
+| Method                        | Relationship    | Status                                               |
+| ----------------------------- | --------------- | ---------------------------------------------------- |
+| `authority-signature.v1`      | `authorization` | Normative                                            |
+| `https-origin.v1`             | `control`       | Normative                                            |
+| `dns-txt.*.v1`                | `control`       | Normative concrete profiles with DNSSEC              |
+| `account-signature.eip155.v1` | `control`       | Normative for unambiguous ENSIP-9/11 EVM coin types  |
+| `service-account.<provider>`  | `control`       | Abstract family until a provider profile is complete |
+| `issuer-attestation.<format>` | `attestation`   | Abstract family until a format profile is complete   |
 
 Method identifiers are immutable. Adding support for a previously unsupported
 coin or provider profile does not reinterpret an existing proof. Incompatible

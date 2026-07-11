@@ -1,97 +1,108 @@
 ---
-title: Discovery Records
-description: Verification text-record key syntax.
+title: Resolution and Discovery
+description: Universal Resolver reads and verification record key construction.
 ---
 
-# Discovery Records
+# Resolution and Discovery
 
-Verification records are ENS text records. The key identifies the resolver record being verified.
+## Resolution Entry Point
 
-## Text Records
+Clients MUST resolve the target record and verification descriptor for the same
+normalized, DNS-encoded exact name through the canonical Universal Resolver
+defined by ENSIP-23. Calls SHOULD use one Universal Resolver smart multicall.
 
-For:
-
-```text
-text(node, <key>)
-```
-
-use:
+On Ethereum mainnet, the long-lived Universal Resolver proxy is:
 
 ```text
-verification[text][<key>]
+0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
 ```
 
-The key is constructed by concatenation:
+Universal Resolver handles direct, inherited, wildcard, and CCIP Read resolver
+paths. Both records MUST be resolved for the same exact DNS-encoded name and at
+the same block reference.
+
+Universal Resolver is the record-resolution boundary. It does not determine
+which account may sign a verification claim.
+
+The returned resolver is diagnostic metadata. A gateway, gateway signer,
+resolver writer, resolver delegate, or resolver-supplied owner value is not
+verification authority.
+
+## Verification Keys
+
+Verification descriptors are ENSIP-5 text records. The key identifies the
+target resolver record.
+
+| Target selector        | Verification text key            |
+| ---------------------- | -------------------------------- |
+| `text(node, key)`      | `verification[text][<key>]`      |
+| `addr(node, coinType)` | `verification[addr][<coinType>]` |
+| `contenthash(node)`    | `verification[contenthash]`      |
+| `data(node, key)`      | `verification[data][<key>]`      |
+
+### Text
+
+Construct the key by exact concatenation:
 
 ```text
-"verification[text][" + key + "]"
+"verification[text][" + textKey + "]"
 ```
 
-`<key>` is the exact text-record key. It MAY contain brackets.
-
-Examples:
+`textKey` MUST be non-empty. It MAY contain `[` or `]`. Parsers check the fixed
+prefix and final `]`; they do not recursively match brackets.
 
 ```text
-verification[text][url]
-verification[text][email]
-verification[text][com.github]
-verification[text][agent-endpoint[mcp]]
+text key:         agent-endpoint[mcp]
+verification key: verification[text][agent-endpoint[mcp]]
 ```
 
-A parser MUST NOT recursively match brackets. If parsing is required, treat the final `]` as the close delimiter and everything after `verification[text][` as the text key.
+### Address
 
-## Address Records
-
-For:
-
-```text
-addr(node, <coinType>)
-```
-
-use:
-
-```text
-verification[addr][<coinType>]
-```
-
-`<coinType>` is decimal, unsigned, and without leading zeroes.
-
-Examples:
+`coinType` MUST be canonical unsigned decimal: no sign and no leading zeroes
+unless the value is exactly `0`.
 
 ```text
 verification[addr][60]
-verification[addr][0]
-verification[addr][501]
+verification[addr][2147483658]
 ```
 
-## Contenthash Records
+### Contenthash
 
-For:
-
-```text
-contenthash(node)
-```
-
-use:
+Contenthash uses one unparameterized key:
 
 ```text
 verification[contenthash]
 ```
 
-No parameter is used.
+### Data
 
-## Data Records
+`verification[data][<key>]` is reserved for ENSIP-24 data records. Clients MAY
+return `unsupported_record` until a concrete data method supports the key.
 
-For:
+## Missing Values
+
+The target is missing when its resolver profile returns its defined empty
+value:
+
+| Record type   | Missing value     |
+| ------------- | ----------------- |
+| `text`        | Empty string      |
+| `addr`        | Zero-length bytes |
+| `contenthash` | Zero-length bytes |
+| `data`        | Zero-length bytes |
+
+An absent or empty verification descriptor means `none/not_configured`.
+
+## Block Consistency
+
+All onchain reads used by one evaluation MUST use one block number or block
+hash. A result SHOULD retain:
 
 ```text
-data(node, <key>)
+ensBlockNumber
+ensBlockHash
+resolver
 ```
 
-use:
-
-```text
-verification[data][<key>]
-```
-
-The `data` namespace is reserved. Clients MAY return `none/unsupported_record` until concrete data-record method profiles exist.
+If the referenced block is removed by a reorganization, the cached result is
+invalid and MUST be re-evaluated.

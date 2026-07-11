@@ -1,19 +1,17 @@
 ---
 title: Schemas
-description: Proof envelope and typed-data schemas.
+description: Common envelope, strict claim, and parser requirements.
 ---
 
 # Schemas
 
-The common JSON schema is provided at:
+Common JSON Schema:
 
 ```text
-schemas/ens-record-verification-proof.schema.json
+/schemas/ens-record-verification-proof.schema.json
 ```
 
-JSON Schema is not sufficient for all validation requirements. Implementations MUST reject duplicate JSON object member names before schema validation.
-
-## Common Proof Envelope
+## Envelope
 
 ```json
 {
@@ -24,16 +22,14 @@ JSON Schema is not sufficient for all validation requirements. Implementations M
     "recordType": "text",
     "recordKey": "url",
     "valueHash": "0x...",
-    "method": "https-origin",
+    "authorityVersion": "1",
+    "method": "https-origin.v1",
     "target": "https://example.com",
-    "authorityProfile": "ens-mainnet-v1",
-    "validUntil": "1783209600",
-    "nonce": "0x..."
+    "issuedAt": "1783728000",
+    "validUntil": "1786320000"
   },
-  "authoritySig": {
-    "type": "eip712",
-    "signature": "0x..."
-  }
+  "authoritySignature": "0x...",
+  "methodProof": {}
 }
 ```
 
@@ -46,10 +42,30 @@ ENSRecordVerification(
   string recordType,
   string recordKey,
   bytes32 valueHash,
+  uint32 authorityVersion,
   string method,
   string target,
-  string authorityProfile,
-  uint64 validUntil,
-  bytes32 nonce
+  uint64 issuedAt,
+  uint64 validUntil
 )
 ```
+
+No extensions are permitted.
+
+## Parser Requirements Beyond JSON Schema
+
+Before schema validation:
+
+- reject invalid UTF-8 and BOM;
+- reject duplicate members at any depth;
+- enforce 256 KiB total bytes;
+- enforce depth 16, 128 members/object, and field string limits.
+
+After schema validation:
+
+- range-check decimal `uint32` and `uint64` strings;
+- validate ENSIP-15 name normalization;
+- validate method-specific closed `methodProof` schema;
+- encode parsed fields into the exact EIP-712 type.
+
+The JSON byte serialization is not signed or canonicalized.
