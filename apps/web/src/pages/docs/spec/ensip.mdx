@@ -11,28 +11,32 @@ ensip:
 
 ## Abstract
 
-This ENSIP defines record-level verification for ENS resolver records. An ENS
-name publishes a compact verification descriptor for a target resolver record.
-A verifier resolves the live target record and descriptor, validates a common
-claim signed by the current ENS authority, and evaluates the selected method
-profile.
+This ENSIP defines verification for individual ENS records. A name publishes a
+second text record that selects a verification method. A verifier checks the
+current ENS record, a signature from the current authority for the name, and the
+proof required by that method.
 
-The protocol uses existing ENS text records and requires no new resolver
-interface or verification contract.
+The protocol uses existing ENS text records. It requires no resolver change or
+new contract.
 
 ## Motivation
 
-An ENS resolver response identifies the value currently returned by a resolver.
-It does not establish that the current ENS authority signed that value or that
-an external target participated in a corresponding proof.
+An ENS resolver answers questions such as:
 
-For example, `text("url") = "https://example.com"` does not establish that the
-HTTPS origin publishes evidence for the ENS record. `addr(60)` does not
-establish that the target account signed the record.
+```text
+What is the url record for alice.eth?
+```
 
-This ENSIP binds method-specific evidence to one exact ENS name, resolver
-selector, and live resolver value. A positive result does not establish safety,
-official status, legal ownership, reputation, or non-malicious behavior.
+It can return `https://example.com`, but that answer alone does not show that
+`example.com` recognizes the ENS record. The same applies to an address record:
+the resolver value alone does not show that the target account signed it.
+
+This ENSIP lets a name publish instructions for checking one record. The proof
+is tied to the current record value, so changing the record invalidates the old
+proof.
+
+A positive result describes the checks that passed. It does not establish that
+the target is safe, official, legally owned, reputable, or non-malicious.
 
 ## Specification
 
@@ -434,24 +438,24 @@ and lifecycle checks all pass.
 
 ## Rationale
 
-Discovery keys follow ENS resolver record classes. This binds each descriptor to
-one resolver selector without introducing product-specific categories or a new
-resolver interface.
+Verification keys follow existing ENS record types. A text record uses
+`verification[text][...]`, an address uses `verification[addr][...]`, and a
+contenthash uses `verification[contenthash]`. This avoids creating separate
+categories for websites, wallets, profiles, and agents.
 
-The descriptor remains small because claims and proof payloads are stored
-offchain. The descriptor contains only method selection, proof location, and
-optional byte integrity.
+The ENS text record remains small. It selects the method and, when needed,
+points to a proof. The signed claim and proof are stored outside ENS.
 
-`valueHash` binds exact resolver bytes. Method-specific target canonicalization
-is separate because URL, account, email, and contenthash semantics differ.
+`valueHash` covers the exact resolver value. Methods interpret that value
+separately. For example, the URL method derives an HTTPS origin while the
+address method derives an account identifier.
 
-Authority is versioned independently of method profiles. Changes to ENS
-authority semantics do not require changes to discovery records, common claims,
-or target methods.
+Authority rules have their own version because ENS ownership rules can change
+without changing record keys or proof methods.
 
-The claim contains no nonce. A nonce has no replay effect without shared
-consumed-nonce state. Live resolver, descriptor, authority, method, and expiry
-checks determine whether a proof remains valid.
+The claim has no nonce. Verification already checks the current record,
+verification record, ENS authority, method proof, and expiry. A nonce would not
+add replay protection without a separate shared nonce registry.
 
 ## Backwards Compatibility
 

@@ -1,39 +1,41 @@
-# ENS Resolver Record Verification
+# ENS Record Verification
 
-ENS resolver records return values selected by a resolver. They do not by
-themselves establish that current ENS authority signed the value or that an
-external target published matching evidence.
-
-This protocol evaluates one target resolver record against:
-
-1. a compact verification descriptor stored in ENS;
-2. a common claim bound to the exact live resolver value;
-3. a signature from current ENS authority;
-4. method-specific target evidence;
-5. expiry, freshness, and revocation rules.
-
-A successful evaluation returns `verified` with relationship `authorization`,
-`control`, or `attestation`. Any required check that does not pass returns
-`none`.
-
-## Example
+An ENS name can store records such as a website URL, an address, an email
+address, or an agent endpoint.
 
 ```text
-text("url") = "https://example.com/profile"
+alice.eth
+└─ text("url") = "https://example.com"
+```
+
+The resolver tells a client what value is set. It does not tell the client
+whether the website or account also recognizes that record.
+
+ENS Record Verification adds a second text record that tells clients how to
+check the value.
+
+```text
 text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-The verifier derives target `https://example.com`, loads the proof from the
-method-defined well-known path, compares the claim with the live URL bytes,
-validates current ENS authority, and checks current origin publication.
+For this example, a verifier checks:
 
-The result does not establish that the website is safe, official, legally
-owned, or non-malicious.
+1. the current `url` record on `alice.eth`;
+2. the verification text record on the same name;
+3. a signature from the current authority for `alice.eth`;
+4. a proof published by `https://example.com`;
+5. the proof's expiry.
 
-## Documentation
+If every check passes, the client returns `verified/control`. Otherwise it
+returns `none`. The original `url` record still resolves in either case.
 
-- [ENSIP](/docs/spec/ensip): normative base protocol.
-- [Quickstart](/docs/quickstart): complete publication and verification path.
-- [Protocol Overview](/docs/spec/overview): components and document map.
-- [Method Profiles](/docs/methods/overview): concrete target-evidence methods.
-- [Build a Verifier](/docs/guides/build-a-verifier): implementation pipeline.
+Verification describes what was checked. It does not mean the website is safe,
+official, or endorsed by ENS.
+
+## Start Here
+
+- [Quickstart](/docs/quickstart): publish and verify one URL record.
+- [Protocol Overview](/docs/spec/overview): understand the records and checks.
+- [ENSIP](/docs/spec/ensip): read the normative protocol.
+- [Method Profiles](/docs/methods/overview): implement each proof method.
+- [Build a Verifier](/docs/guides/build-a-verifier): implement the full verifier.

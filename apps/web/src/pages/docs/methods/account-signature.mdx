@@ -7,9 +7,9 @@ description: Target-account signature for supported EVM address records.
 
 ## Purpose
 
-`account-signature.eip155.v1` verifies that the current ENS authority and the
-target EVM account signed the same common claim. It produces
-`verified/control`.
+`account-signature.eip155.v1` checks two signatures: one from current ENS
+authority and one from the EVM account stored in the address record. A
+successful check returns `verified/control`.
 
 ## Supported Records
 

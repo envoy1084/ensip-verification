@@ -7,8 +7,8 @@ description: Complete authority-authorization flow for contenthash records.
 
 ## Overview
 
-Version 1 verifies contenthash records with `authority-signature.v1`. The method
-binds current ENS authority to the exact raw contenthash bytes.
+Version 1 checks that current ENS authority signed the exact bytes returned by
+`contenthash()`. It uses `authority-signature.v1`.
 
 ## When To Use This Method
 

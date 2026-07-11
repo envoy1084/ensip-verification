@@ -7,9 +7,9 @@ description: Current ENS authority authorization of an exact resolver value.
 
 ## Purpose
 
-`authority-signature.v1` verifies that the current ENS authority signed a common
-claim for the exact live target resolver record. It produces
-`verified/authorization`.
+`authority-signature.v1` checks that current ENS authority signed the exact
+record value. It does not check a website, domain, account, or other external
+target. A successful check returns `verified/authorization`.
 
 ## Supported Records
 

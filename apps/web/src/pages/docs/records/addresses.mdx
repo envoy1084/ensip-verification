@@ -7,8 +7,9 @@ description: Complete flow for ENS address authorization and EVM account control
 
 ## Overview
 
-Address verification binds exact native resolver bytes to current ENS authority.
-Supported EVM records may additionally require a target-account signature.
+An ENS address record contains the address bytes used by a wallet. Verification
+can check a signature from current ENS authority and, for supported EVM
+addresses, a second signature from the account in the record.
 
 ## When To Use This Method
 

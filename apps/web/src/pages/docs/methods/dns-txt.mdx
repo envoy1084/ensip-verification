@@ -7,8 +7,9 @@ description: DNSSEC-authenticated publication for domain-derived records.
 
 ## Purpose
 
-The DNS TXT profiles verify that a DNSSEC-authenticated zone publishes the hash
-of a proof for a live ENS resolver record. They produce `verified/control`.
+The DNS TXT methods check that the domain named by an ENS record publishes a
+matching proof hash in DNS. DNSSEC must authenticate the DNS response. A
+successful check returns `verified/control`.
 
 ## Supported Records
 

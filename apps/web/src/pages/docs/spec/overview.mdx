@@ -1,55 +1,70 @@
 ---
 title: Protocol Overview
-description: Scope, components, and normative source.
+description: What is published, what is checked, and what a result means.
 ---
 
 # Protocol Overview
 
-ENS Resolver Record Verification evaluates a relationship between an exact ENS
-record and signed or externally published evidence. It does not change ENS
-resolution and requires no new contract.
+ENS Record Verification adds proof information to an existing ENS record. It
+does not replace the record or change normal ENS resolution.
+
+## Records
+
+Assume `alice.eth` contains:
+
+```text
+text("url") = "https://example.com/profile"
+```
+
+The name can opt into verification by setting another ENS text record:
+
+```text
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+```
+
+The first record is the value being verified. The second record is the
+verification descriptor. It selects the verification method.
+
+## Verification
 
 ```mermaid
 flowchart LR
-  A["Resolve live record and descriptor"] --> B["Bind exact record bytes"]
-  B --> C["Validate exact-name authority"]
-  C --> D["Validate method evidence"]
-  D --> E["Return relationship or error"]
+  A["Read both ENS records"] --> B["Check the signed value"]
+  B --> C["Check current ENS authority"]
+  C --> D["Check the website, domain, or account proof"]
+  D --> E["Return verified or none"]
 ```
 
-## Components
+A verifier reads both records at the same Ethereum block. It then checks that:
 
-| Component           | Function                                                                  |
-| ------------------- | ------------------------------------------------------------------------- |
-| Target record       | Existing `text`, `addr`, `contenthash`, or `data` resolver value.         |
-| Verification record | ENSIP-5 text record containing a descriptor.                              |
-| Descriptor          | Selects an authority version, concrete method, and proof location.        |
-| Common claim        | Binds the name, selector, exact value hash, method, target, and lifetime. |
-| Authority algorithm | Identifies the current authority for the exact name.                      |
-| Method profile      | Derives the target and validates target evidence.                         |
+1. the signed claim contains the same ENS name and record;
+2. `valueHash` matches the current resolver value;
+3. the signer is the current authority for the exact ENS name;
+4. the selected method proof is valid;
+5. the claim and proof have not expired or been revoked.
 
-## Result Relationships
+## Results
 
-| Relationship    | Evidence                                                       |
-| --------------- | -------------------------------------------------------------- |
-| `authorization` | Current ENS authority signed the exact live record.            |
-| `control`       | Authorization plus evidence published or signed by the target. |
-| `attestation`   | Authorization plus an issuer accepted by client policy.        |
+| Result                   | Meaning                                                                     |
+| ------------------------ | --------------------------------------------------------------------------- |
+| `verified/authorization` | Current ENS authority signed this exact record.                             |
+| `verified/control`       | Current ENS authority signed it and the target published or signed a proof. |
+| `verified/attestation`   | Current ENS authority signed it and an accepted issuer provided evidence.   |
+| `none`                   | One or more required checks did not pass.                                   |
 
-No relationship establishes safety, reputation, legal ownership, or ENS
+The target may be a website origin, DNS domain, or blockchain account. The
+method page defines the exact check.
+
+Verification does not establish safety, reputation, legal ownership, or ENS
 endorsement.
 
-## Normative Source
+## Read The Specification
 
-The [ENSIP](./ensip) is the sole normative protocol definition. Companion pages
-organize the same protocol for implementation and do not define independent
-requirements.
-
-Read next:
+The [ENSIP](./ensip) is the normative protocol. Companion pages explain each
+part separately:
 
 1. [Resolution and Discovery](./discovery-records)
 2. [Verification Descriptor](./verification-descriptor)
 3. [Claims and Signatures](./claims-and-signatures)
 4. [Authority and Lifecycle](./authority-and-lifecycle)
 5. [Method Profiles](../methods/overview)
-6. [Build a Verifier](../guides/build-a-verifier)

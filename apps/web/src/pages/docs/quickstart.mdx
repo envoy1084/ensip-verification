@@ -1,34 +1,37 @@
 ---
 title: Quickstart
-description: Publish and verify an HTTPS-origin proof for text(url).
+description: Publish and verify one ENS URL record.
 ---
 
 # Quickstart
 
-This example verifies:
+This example links the `url` record on `alice.eth` to the HTTPS origin
+`https://example.com`.
 
 ```text
-name:   alice.eth
-record: text("url")
-value:  https://example.com/profile
-method: https-origin.v1
+alice.eth
+└─ text("url") = "https://example.com/profile"
 ```
 
 ## Publish A Verification
 
-### Set The Descriptor
+### 1. Set The Verification Record
 
-Set this ENSIP-5 text record on `alice.eth`:
+Add this text record to the same ENS name:
 
 ```text
-key:   verification[text][url]
-value: ensrv1 a=1 m=https-origin.v1
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-The method derives target `https://example.com`. It does not use descriptor
-fields `u` or `h`.
+The value says:
 
-### Construct The Claim
+- use authority rules version `1`;
+- use the `https-origin.v1` method;
+- derive the proof location from the URL record.
+
+### 2. Create And Sign The Claim
+
+Resolve the current `url` value and construct:
 
 ```json
 {
@@ -45,21 +48,16 @@ fields `u` or `h`.
 }
 ```
 
-For these values:
+`valueHash` is the hash of the exact string
+`https://example.com/profile`. `target` is the HTTPS origin derived from that
+string.
 
-```text
-domainSeparator = 0x4aa03d8f35d35bf28ea16a04b59c78b036eafa8416735987f304654b0a28051f
-claimStructHash = 0x5f26087985a826799dd8aad913529225a4602fd0af3f3734f2d7fac1c2a4a93f
-claimDigest     = 0xdc43dd5f7ea3e51a999a5977739ea0af6de5ad27fec207fba4ebfbff0ec02a49
-proofKey        = 0x3e1afa3eb523cdefc3d8faa94c15e05fe1af4fb5096f71e127890e3763f5a380
-```
+Use timestamps for the real publication. Sign this EIP-712 claim with the
+current authority for `alice.eth`.
 
-Use timestamps appropriate to the actual publication. The values above are a
-cryptographic test vector, not a currently valid proof.
+### 3. Publish The Proof
 
-### Sign And Publish
-
-Sign the common EIP-712 claim with the current exact-name authority. Publish:
+Place the claim and signature in the common proof envelope:
 
 ```json
 {
@@ -81,32 +79,39 @@ Sign the common EIP-712 claim with the current exact-name authority. Publish:
 }
 ```
 
-at:
+For the example claim, publish it at:
 
 ```text
 https://example.com/.well-known/ens-record-verification/3e1afa3eb523cdefc3d8faa94c15e05fe1af4fb5096f71e127890e3763f5a380
 ```
 
-Return status 200 and media type:
+Return HTTP status 200 and:
 
 ```text
-application/ens-record-verification+json
+Content-Type: application/ens-record-verification+json
 ```
 
 ## Verify A Record
 
-The verifier:
+A verifier performs these steps:
 
-1. normalizes `alice.eth`;
-2. resolves `text("url")` and `verification[text][url]` at one block;
-3. parses the descriptor;
-4. hashes the exact URL bytes and derives the HTTPS origin;
-5. calculates `proofKey` and fetches the well-known resource;
-6. compares every claim field with live inputs;
-7. determines current exact-name authority and validates its signature;
-8. applies lifetime and freshness checks;
-9. returns `verified/control`.
+1. Resolve `text("url")` and `text("verification[text][url]")` on `alice.eth`.
+2. Confirm that both values were read at the same Ethereum block.
+3. Hash the exact URL record and derive `https://example.com`.
+4. Calculate the proof path and fetch the JSON envelope.
+5. Compare every signed field with the current ENS record.
+6. Confirm that the signature belongs to the current authority for `alice.eth`.
+7. Confirm that the proof is currently published by `https://example.com`.
+8. Check expiry and cache limits.
 
-Any mismatch returns `none` and an error from the
-[error registry](./reference/errors). The underlying `url` record still resolves
-normally.
+If every check passes, return:
+
+```text
+verified/control
+```
+
+Otherwise return `none` with an [error code](./reference/errors). The original
+`url` record remains available through normal ENS resolution.
+
+The exact hashes for this example are available in the
+[test vector](./reference/test-vectors).
