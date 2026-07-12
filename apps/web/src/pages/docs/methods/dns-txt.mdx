@@ -7,9 +7,10 @@ description: DNSSEC-authenticated publication for domain-derived records.
 
 ## Purpose
 
-The DNS TXT methods check that the domain named by an ENS record publishes a
-matching proof hash in DNS. DNSSEC must authenticate the DNS response. A
-successful check returns `verified/control`.
+The DNS TXT methods demonstrate control of a domain derived from an ENS record.
+The domain must publish a matching proof hash in DNS, and DNSSEC must
+authenticate the response. The proof remains bound to the exact live record
+and current ENS authority. A successful check returns `verified/control`.
 
 ## Supported Records
 
@@ -116,8 +117,9 @@ anchor.
 
 ## Result
 
-Successful validation returns `verified/control` for `dns:<ascii-domain>` and
-reports `dnssec: "validated"`.
+Successful validation demonstrates control of `dns:<ascii-domain>` for the
+exact live ENS record, returns `verified/control`, and reports
+`dnssec: "validated"`.
 
 ## Cache And Lifecycle
 
@@ -137,8 +139,8 @@ or endpoint is safe. The email profile does not verify mailbox access.
 
 Allowed:
 
-- `DNSSEC-authenticated domain published a matching proof.`
-- `Domain control verified for this ENS record.`
+- `Control of the DNSSEC-authenticated domain was demonstrated for this ENS record.`
+- `The domain published a DNSSEC-authenticated proof for this ENS record.`
 
 Forbidden:
 

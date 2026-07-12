@@ -11,32 +11,52 @@ ensip:
 
 ## Abstract
 
-This ENSIP defines verification for individual ENS records. A name publishes a
-second text record that selects a verification method. A verifier checks the
-current ENS record, a signature from the current authority for the name, and the
-proof required by that method.
+This ENSIP defines a record-scoped verification layer for ENS resolver records.
+A name publishes a verification descriptor for a specific resolver record. A
+verifier binds a common claim to the live record value, authenticates the
+current ENS authority for the exact name, and validates the evidence required
+by the selected method. Depending on that method, the result establishes record
+authorization, external-target control, or a policy-accepted attestation.
 
 The protocol uses existing ENS text records. It requires no resolver change or
 new contract.
 
 ## Motivation
 
-An ENS resolver answers questions such as:
+ENS resolver records are a general-purpose discovery mechanism. A resolver can
+publish text records, multichain addresses, contenthash values, and other data
+through standardized resolver interfaces.
+
+For example:
 
 ```text
-What is the url record for alice.eth?
+text("url")        = "https://example.com"
+text("com.github") = "alice"
+addr(60)           = 0x1234...
+contenthash()      = ipfs://bafy...
 ```
 
-It can return `https://example.com`, but that answer alone does not show that
-`example.com` recognizes the ENS record. The same applies to an address record:
-the resolver value alone does not show that the target account signed it.
+These records define what a resolver returns. They do not prove that the
+current ENS authority controls the website, provider account, blockchain
+account, content root, or other external target represented by the value.
+Clients that present such values as verified associations would treat
+self-asserted resolver data as proof of external control.
 
-This ENSIP lets a name publish instructions for checking one record. The proof
-is tied to the current record value, so changing the record invalidates the old
-proof.
+This ENSIP lets a name publish verification metadata for one record at a time.
+The selected method defines evidence of target control or an attestation that a
+client may accept under local policy. The common claim binds that evidence to
+the exact name, selector, resolver value, authority algorithm, and method.
+Changing any bound value invalidates the old proof.
 
-A positive result describes the checks that passed. It does not establish that
-the target is safe, official, legally owned, reputable, or non-malicious.
+Some records are harmless metadata and require no verification. Others affect
+payments, identity linking, application connections, agent endpoints, content
+publication, or issuer-backed claims. Record-scoped verification lets clients
+evaluate those associations without defining a global trust system.
+
+A positive result proves only the relationship defined by its method and result
+kind. It does not establish that a target is safe, official, legally owned,
+reputable, non-malicious, or endorsed by ENS. It does not make an issuer
+globally trusted.
 
 ## Specification
 
@@ -66,6 +86,9 @@ validated relationship:
 - `control`: authorization plus evidence from the method target;
 - `attestation`: authorization plus evidence from an issuer accepted by client
   policy.
+
+The base protocol reserves `attestation` for compatible method profiles.
+Version 1 does not define a concrete attestation method.
 
 ### Discovery Records
 

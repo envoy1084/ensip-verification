@@ -5,8 +5,9 @@ description: Publish and verify one ENS URL record.
 
 # Quickstart
 
-This example links the `url` record on `alice.eth` to the HTTPS origin
-`https://example.com`.
+This example demonstrates control of the HTTPS origin `https://example.com`
+for the current `url` record on `alice.eth`. The origin publishes a proof bound
+to the exact record, and the current ENS authority signs the same claim.
 
 ```text
 alice.eth
@@ -104,7 +105,9 @@ A verifier performs these steps:
 7. Confirm that the proof is currently published by `https://example.com`.
 8. Check expiry and cache limits.
 
-If every check passes, return:
+Together, these checks establish that the current ENS authority authorized the
+exact live record and demonstrated control of its HTTPS origin. If every check
+passes, return:
 
 ```text
 verified/control

@@ -7,9 +7,10 @@ description: Target-account signature for supported EVM address records.
 
 ## Purpose
 
-`account-signature.eip155.v1` checks two signatures: one from current ENS
-authority and one from the EVM account stored in the address record. A
-successful check returns `verified/control`.
+`account-signature.eip155.v1` demonstrates control of the EVM account
+represented by an ENS address record. The current ENS authority authorizes the
+exact live record, and the target account signs evidence bound to the same
+common claim. A successful check returns `verified/control`.
 
 ## Supported Records
 
@@ -114,8 +115,8 @@ and `v` equal to 27 or 28. For a contract target, call ERC-1271 and require
 
 ## Result
 
-Successful validation returns `verified/control` for the canonical CAIP-10
-account.
+Successful validation demonstrates control of the canonical CAIP-10 account
+for the exact live ENS record and returns `verified/control`.
 
 ## Cache And Lifecycle
 
@@ -134,8 +135,8 @@ by the ENS authority.
 
 Allowed:
 
-- `Target account signed a matching proof.`
-- `Address control verified for this ENS record.`
+- `Control of the target account was demonstrated for this ENS record.`
+- `The target account signed a proof bound to this ENS record.`
 
 Forbidden:
 

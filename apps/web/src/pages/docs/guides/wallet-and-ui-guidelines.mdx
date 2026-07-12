@@ -24,13 +24,13 @@ Recommended client modes:
 
 ## Display Contract
 
-| Relationship           | Permitted text                                            |
-| ---------------------- | --------------------------------------------------------- |
-| `authorization`        | “Current ENS authority authorized this record.”           |
-| `control` with HTTPS   | “HTTPS origin published a matching proof.”                |
-| `control` with DNS     | “DNSSEC-authenticated domain published a matching proof.” |
-| `control` with account | “Target account signed a matching proof.”                 |
-| `attestation`          | “Accepted issuer attested to this claim.”                 |
+| Relationship           | Permitted text                                                          |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `authorization`        | “Current ENS authority authorized this exact record.”                   |
+| `control` with HTTPS   | “Control of the HTTPS origin was demonstrated for this ENS record.”     |
+| `control` with DNS     | “Control of the DNSSEC-authenticated domain was demonstrated.”          |
+| `control` with account | “Control of the target account was demonstrated for this ENS record.”   |
+| `attestation`          | “An issuer accepted under client policy attested to this record claim.” |
 
 Do not display “safe,” “official,” “trusted,” “verified owner,” “not phishing,”
 or “endorsed by ENS.”

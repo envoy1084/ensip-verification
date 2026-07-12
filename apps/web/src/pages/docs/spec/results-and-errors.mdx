@@ -35,11 +35,11 @@ other languages expose equivalent fields.
 
 ## Relationships
 
-| Relationship    | Required evidence                           | Permitted display meaning                     |
-| --------------- | ------------------------------------------- | --------------------------------------------- |
-| `authorization` | Current exact-name authority signature      | Authority authorized this exact record.       |
-| `control`       | Authorization plus method target evidence   | Target published or signed matching evidence. |
-| `attestation`   | Authorization plus accepted issuer evidence | Accepted issuer attested to this claim.       |
+| Relationship    | Required evidence                           | Permitted display meaning                                                  |
+| --------------- | ------------------------------------------- | -------------------------------------------------------------------------- |
+| `authorization` | Current exact-name authority signature      | Current ENS authority authorized the exact live record.                    |
+| `control`       | Authorization plus method target evidence   | Method evidence demonstrated control of the record's canonical target.     |
+| `attestation`   | Authorization plus accepted issuer evidence | An issuer accepted under client policy attested to the record-bound claim. |
 
 Do not infer safety, reputation, legal ownership, or ENS endorsement.
 

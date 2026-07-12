@@ -5,9 +5,11 @@ description: Concrete method registry and common profile requirements.
 
 # Method Profiles
 
-A verification method defines the check performed after current ENS authority
-signs the record. For example, a method can check a website, DNS domain, or
-blockchain account. Each verification record selects one method.
+A verification method defines how to derive the external target represented by
+a resolver record and how to validate evidence of its control or an accepted
+policy-bound attestation. Every positive result also requires the current ENS
+authority to authorize the exact live record. Each verification descriptor
+selects one method.
 
 ## Registry
 

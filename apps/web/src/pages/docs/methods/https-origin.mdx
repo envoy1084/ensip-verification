@@ -7,8 +7,10 @@ description: Live same-origin publication for HTTPS URL records.
 
 ## Purpose
 
-`https-origin.v1` checks that the website origin named by an ENS text record
-publishes a matching proof. A successful check returns `verified/control`.
+`https-origin.v1` demonstrates control of the serialized HTTPS origin derived
+from an ENS text record. The origin must serve a proof bound to the exact live
+record and its current ENS authority. A successful check returns
+`verified/control`.
 
 ## Supported Records
 
@@ -101,8 +103,8 @@ explicit port.
 
 ## Result
 
-Successful validation returns `verified/control` for the serialized HTTPS
-origin.
+Successful validation demonstrates control of the serialized HTTPS origin for
+the exact live ENS record and returns `verified/control`.
 
 ## Cache And Lifecycle
 
@@ -112,16 +114,16 @@ invalidates the method after the live publication cache expires.
 
 ## Security Considerations
 
-The method verifies publication by an origin. It does not validate every path,
-resource, operator, or user of that origin. A compromised origin can publish a
-valid proof.
+The method uses same-origin publication as evidence of origin control. It does
+not validate every path, resource, operator, or user of that origin. A
+compromised origin can publish a valid proof.
 
 ## UI Copy
 
 Allowed:
 
-- `HTTPS origin verified for this ENS record.`
-- `HTTPS origin published a matching proof.`
+- `Control of the HTTPS origin was demonstrated for this ENS record.`
+- `The HTTPS origin served a proof bound to this ENS record.`
 
 Forbidden:
 

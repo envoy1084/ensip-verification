@@ -1,7 +1,8 @@
 # Record Verification
 
-This repository contains the Vocs documentation site for the ENS resolver
-record verification draft.
+This repository contains the specification and companion documentation for
+record-scoped verification of external targets represented by ENS resolver
+records.
 
 ## Docs App
 

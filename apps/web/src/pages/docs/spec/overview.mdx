@@ -5,8 +5,9 @@ description: What is published, what is checked, and what a result means.
 
 # Protocol Overview
 
-Record Verification adds proof information to an existing ENS record. It
-does not replace the record or change normal ENS resolution.
+Record Verification adds a proof layer to an existing ENS resolver record. It
+binds a method-specific proof to one exact name, record selector, and live
+resolver value. It does not replace the record or change normal ENS resolution.
 
 ## Records
 
@@ -22,22 +23,24 @@ The name can opt into verification by setting another ENS text record:
 text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-The first record is the value being verified. The second record is the
-verification descriptor. It selects the verification method.
+The first record is the target resolver record. The second is its verification
+descriptor. The descriptor selects the authority rules and method used to
+validate authorization and, when required by the method, target control or a
+policy-accepted attestation.
 
 ## Verification
 
 ```mermaid
 flowchart LR
-  A["Read both ENS records"] --> B["Check the signed value"]
-  B --> C["Check current ENS authority"]
-  C --> D["Check the website, domain, or account proof"]
-  D --> E["Return verified or none"]
+  A["Read live record and descriptor"] --> B["Bind proof to exact value"]
+  B --> C["Validate current ENS authority"]
+  C --> D["Validate method evidence, if required"]
+  D --> E["Return authorization, control, attestation, or none"]
 ```
 
 A verifier reads both records at the same Ethereum block. It then checks that:
 
-1. the signed claim contains the same ENS name and record;
+1. the signed claim identifies the same ENS name and record selector;
 2. `valueHash` matches the current resolver value;
 3. the signer is the current authority for the exact ENS name;
 4. the selected method proof is valid;
@@ -45,18 +48,21 @@ A verifier reads both records at the same Ethereum block. It then checks that:
 
 ## Results
 
-| Result                   | Meaning                                                                     |
-| ------------------------ | --------------------------------------------------------------------------- |
-| `verified/authorization` | Current ENS authority signed this exact record.                             |
-| `verified/control`       | Current ENS authority signed it and the target published or signed a proof. |
-| `verified/attestation`   | Current ENS authority signed it and an accepted issuer provided evidence.   |
-| `none`                   | One or more required checks did not pass.                                   |
+| Result                   | Meaning                                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------------- |
+| `verified/authorization` | Current ENS authority authorized the exact live record.                                  |
+| `verified/control`       | Method-specific evidence demonstrated control of the record's canonical external target. |
+| `verified/attestation`   | An issuer accepted under client policy attested to the record-bound claim.               |
+| `none`                   | One or more required checks did not pass.                                                |
 
-The target may be a website origin, DNS domain, or blockchain account. The
-method page defines the exact check.
+The target may be an HTTPS origin, DNS domain, blockchain account, or another
+resource defined by a method profile. The method profile defines what evidence
+must validate and therefore what a positive result means.
 
-Verification does not establish safety, reputation, legal ownership, or ENS
-endorsement.
+Verification proves only the relationship described by the returned result. It
+does not establish safety, reputation, legal ownership, or ENS endorsement.
+The base protocol reserves `attestation`; version 1 does not define a concrete
+attestation method.
 
 ## Read The Specification
 

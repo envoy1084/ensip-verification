@@ -1,36 +1,73 @@
 # Record Verification
 
-An ENS name can store records such as a website URL, an address, an email
-address, or an agent endpoint.
+ENS resolver records are a general-purpose discovery mechanism for resources
+associated with an ENS name. A resolver can publish text records, multichain
+address records, contenthash records, and future record types through
+standardized resolver interfaces.
+
+These records are intentionally flexible. They define the value returned by a
+resolver; they do not prove that the current ENS authority controls the
+external resource represented by that value.
+
+Record Verification defines a record-scoped verification layer for ENS
+resolver records. A name can advertise verification metadata for one specific
+record. A client can then validate that the current ENS authority authorized the
+exact live record and, when required by the selected method, that the record's
+external target is controlled or covered by an attestation accepted under
+client policy.
+
+## Problem Statement
+
+An ENS resolver record proves that a resolver returns a value for a key. It
+does not, by itself, prove control of the external target represented by that
+value.
 
 ```text
-alice.eth
-└─ text("url") = "https://example.com"
+text("url")        = "https://example.com"
+text("com.github") = "alice"
+addr(60)           = 0x1234...
+contenthash()      = ipfs://bafy...
 ```
 
-The resolver tells a client what value is set. It does not tell the client
-whether the website or account also recognizes that record.
+The party authorized to update the resolver can set these values. That update
+does not prove control of `example.com`, the GitHub account `alice`, the target
+blockchain account, or the published content root. Without a separate proof, a
+client must treat each association as self-asserted resolver data.
 
-Record Verification adds a second text record that tells clients how to
-check the value.
+Some records are descriptive metadata and need no verification. Others affect
+payments, account linking, application connections, agent endpoints, or issuer
+claims. For those records, clients need a precise way to determine what was
+proved and which live resolver value the proof covers.
+
+## How It Works
+
+A name opts in one record at a time by publishing a verification descriptor:
 
 ```text
+text("url") = "https://example.com/profile"
 text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-For this example, a verifier checks:
+For this URL record, a verifier checks:
 
-1. the current `url` record on `alice.eth`;
-2. the verification text record on the same name;
-3. a signature from the current authority for `alice.eth`;
-4. a proof published by `https://example.com`;
-5. the proof's expiry.
+1. the live `url` value and its verification descriptor;
+2. a claim bound to the exact ENS name, record selector, and resolver value;
+3. a signature from the current ENS authority for the exact name;
+4. the proof required by `https-origin.v1` at `https://example.com`;
+5. proof validity, expiry, revocation, and cache limits.
 
-If every check passes, the client returns `verified/control`. Otherwise it
-returns `none`. The original `url` record still resolves in either case.
+If every required check passes, the result is `verified/control`. Otherwise the
+result is `none`. Verification never changes whether the original ENS record
+resolves.
 
-Verification describes what was checked. It does not mean the website is safe,
-official, or endorsed by ENS.
+The result is deliberately narrow. It proves a bounded relationship between
+the ENS name, one resolver record, its current value, and the method target. It
+does not prove that a URL is safe, an address is non-malicious, a social account
+is legally authentic, content is trustworthy, or an issuer is globally
+trusted.
+
+The base protocol reserves an `attestation` result for future method profiles.
+Version 1 does not define a concrete attestation method.
 
 ## Start Here
 

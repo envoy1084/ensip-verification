@@ -8,8 +8,9 @@ description: Complete flow for ENSIP-26 agent endpoint records.
 ## Overview
 
 ENSIP-26 defines `agent-endpoint[<protocol>]` text records. Version 1 can verify
-authority authorization, HTTPS-origin publication, or DNSSEC publication for an
-HTTPS endpoint.
+authorization of the exact endpoint record by current ENS authority and, when
+a control method is selected, control of its derived HTTPS origin or DNS
+domain.
 
 ## When To Use This Method
 
@@ -64,5 +65,5 @@ both resolve to the same origin.
 
 ## Security Notes
 
-Endpoint verification does not validate the agent protocol, server code,
-authorization policy, response content, or operational safety.
+Origin or domain control does not validate the endpoint's agent protocol,
+server code, authorization policy, response content, or operational safety.
