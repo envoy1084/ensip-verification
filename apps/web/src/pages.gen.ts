@@ -11,6 +11,7 @@ type Page =
   | { path: '/docs/components'; render: 'static' }
   | { path: '/docs/components/results'; render: 'static' }
   | { path: '/docs/components/verification-descriptor'; render: 'static' }
+  | { path: '/docs'; render: 'static' }
   | { path: '/docs/methods/account-signature'; render: 'static' }
   | { path: '/docs/methods/dns-txt'; render: 'static' }
   | { path: '/docs/methods/https-origin'; render: 'static' }
