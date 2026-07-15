@@ -14,7 +14,7 @@ export default defineConfig({
     {
       text: "Components",
       items: [
-        { text: "Overview", link: "/docs/components/overview" },
+        { text: "Overview", link: "/docs/components" },
         {
           text: "Discovery Records",
           link: "/docs/components/discovery-records",

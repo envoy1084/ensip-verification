@@ -8,7 +8,7 @@ type Page =
   | { path: '/docs/components/authority-and-lifecycle'; render: 'static' }
   | { path: '/docs/components/claims-and-signatures'; render: 'static' }
   | { path: '/docs/components/discovery-records'; render: 'static' }
-  | { path: '/docs/components/overview'; render: 'static' }
+  | { path: '/docs/components'; render: 'static' }
   | { path: '/docs/components/results'; render: 'static' }
   | { path: '/docs/components/verification-descriptor'; render: 'static' }
   | { path: '/docs/methods/account-signature'; render: 'static' }
