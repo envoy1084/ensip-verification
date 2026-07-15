@@ -20,7 +20,7 @@ text("url") = "https://example.com/profile"
 The name can opt into verification by setting another ENS text record:
 
 ```text
-text("verification[text][url]") = "ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=https-origin.v1"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1 h=0x<64-lowercase-hex>"
 ```
 
 The first record is the target resolver record. The second is its verification

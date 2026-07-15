@@ -108,7 +108,7 @@ An empty target value or empty descriptor cannot produce a positive result.
 The descriptor is an ASCII string:
 
 ```text
-ensrv1 a=<authority-version> ca=<current-authority> m=<method> [u=<uri>] [h=<hash>] [p=<inline-proof>]
+ensrv1 a=<authority-version> m=<method> [u=<uri>] [h=<hash>]
 ```
 
 ```text
@@ -118,21 +118,19 @@ field-name  = 1*(%x61-7A / %x30-39 / "-")
 field-value = 1*(%x21-7E)
 ```
 
-| Field | Requirement                                                              |
-| ----- | ------------------------------------------------------------------------ |
-| `a`   | Required once. Canonical decimal `uint32` authority version.             |
-| `ca`  | Required once. Lowercase 20-byte current-authority address.              |
-| `m`   | Required once. Concrete identifier matching `[a-z0-9][a-z0-9.-]{0,63}`.  |
-| `u`   | Method-defined absolute proof URI, maximum 1,024 bytes.                  |
-| `h`   | Lowercase `0x` followed by 64 hexadecimal digits.                        |
-| `p`   | Canonical unpadded base64url inline envelope, maximum 6,144 ASCII bytes. |
+| Field | Requirement                                                             |
+| ----- | ----------------------------------------------------------------------- |
+| `a`   | Required once. Canonical decimal `uint32` authority version.            |
+| `m`   | Required once. Concrete identifier matching `[a-z0-9][a-z0-9.-]{0,63}`. |
+| `u`   | Method-defined absolute proof URI, maximum 1,024 bytes.                 |
+| `h`   | Lowercase `0x` followed by 64 hexadecimal digits.                       |
 
-A descriptor MUST NOT exceed 8,192 bytes. Clients MUST reject non-ASCII input,
+A descriptor MUST NOT exceed 2,048 bytes. Clients MUST reject non-ASCII input,
 control characters, empty or duplicate fields, unknown fields, invalid lexical
 forms, and fields forbidden by the selected method.
 
-Generators MUST emit one space between fields and field order `a`, `ca`, `m`,
-`u`, `h`, `p`. Unknown descriptor versions, authority versions, and methods fail
+Generators MUST emit one space between fields and field order `a`, `m`, `u`,
+`h`. Unknown descriptor versions, authority versions, and methods fail
 closed.
 
 When `h` is present:
@@ -145,10 +143,6 @@ h = keccak256(proofResourceBytes)
 before UTF-8 decoding or JSON parsing. A content-addressed method MAY use its
 URI identifier instead of `h`.
 
-When `p` is present, its strict unpadded base64url decoding is the complete
-proof-envelope byte sequence. The decoded envelope MUST NOT exceed 4,608 bytes.
-A method MUST NOT permit `p` with `u` or `h`.
-
 ### Common Claim
 
 Every method MUST use this exact EIP-712 type:
@@ -157,19 +151,19 @@ Every method MUST use this exact EIP-712 type:
 ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,address authority,string method,string target,uint64 issuedAt,uint64 validUntil)
 ```
 
-| Field              | Requirement                                                |
-| ------------------ | ---------------------------------------------------------- |
-| `name`             | ENSIP-15 normalized exact name.                            |
-| `node`             | `namehash(name)`.                                          |
-| `recordType`       | Exact target resolver record type.                         |
-| `recordKey`        | Exact key or canonical numeric parameter.                  |
-| `valueHash`        | Keccak-256 of exact live resolver return bytes.            |
-| `authorityVersion` | Descriptor field `a`.                                      |
-| `authority`        | Descriptor field `ca`, matching live exact-name authority. |
-| `method`           | Descriptor field `m`.                                      |
-| `target`           | Canonical target derived by the method.                    |
-| `issuedAt`         | Proof publisher's Unix time in seconds.                    |
-| `validUntil`       | First Unix time at which the proof is invalid.             |
+| Field              | Requirement                                        |
+| ------------------ | -------------------------------------------------- |
+| `name`             | ENSIP-15 normalized exact name.                    |
+| `node`             | `namehash(name)`.                                  |
+| `recordType`       | Exact target resolver record type.                 |
+| `recordKey`        | Exact key or canonical numeric parameter.          |
+| `valueHash`        | Keccak-256 of exact live resolver return bytes.    |
+| `authorityVersion` | Descriptor field `a`.                              |
+| `authority`        | Live exact-name authority at the evaluation block. |
+| `method`           | Descriptor field `m`.                              |
+| `target`           | Canonical target derived by the method.            |
+| `issuedAt`         | Proof publisher's Unix time in seconds.            |
+| `validUntil`       | First Unix time at which the proof is invalid.     |
 
 The common envelope is:
 
@@ -189,7 +183,7 @@ The common envelope is:
     "issuedAt": "1783728000",
     "validUntil": "1786320000"
   },
-  "methodProof": {}
+  "proof": {}
 }
 ```
 
@@ -238,7 +232,7 @@ Descriptor `a=1` selects Authority Algorithm 1 on Ethereum mainnet.
 
 Clients MUST NOT substitute an ancestor owner, resolver writer, wildcard
 resolver, Universal Resolver, CCIP Read gateway, or gateway signer. The selected
-address MUST equal descriptor field `ca` and claim field `authority`.
+address MUST equal claim field `authority`.
 
 ### Proof Key
 
@@ -328,12 +322,12 @@ A concrete method MUST define:
 - an immutable method identifier and one verification type;
 - supported resolver selectors;
 - canonical target derivation;
-- permitted `u`, `h`, and `p` combinations;
+- permitted `u` and `h` combinations;
 - exact proof location and closed proof schema;
 - exact method evidence and its binding to the complete common claim;
 - maximum lifetime, freshness, and revocation behavior;
 - deterministic acceptance and rejection conditions;
-- security considerations and conformance vectors.
+- security considerations and interoperability requirements.
 
 Version 1 defines:
 
@@ -348,7 +342,7 @@ Version 1 defines:
 
 ```text
 text("url") = "https://example.com/profile"
-text("verification[text][url]") = "ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=https-origin.v1"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1 h=0x<64-lowercase-hex>"
 ```
 
 The verifier hashes the exact URL bytes, derives `https://example.com`, compares
@@ -358,8 +352,9 @@ the live authority with the claim, and retrieves the common envelope from:
 https://example.com/.well-known/ens-record-verification/<proof-key-hex>
 ```
 
-Same-origin publication of the matching, unexpired proof demonstrates control
-of the origin for this exact record.
+It then requires the retrieved bytes to match descriptor `h`. Same-origin
+publication of the matching, unexpired proof demonstrates control of the origin
+for this exact record.
 
 ## Rationale
 
@@ -367,18 +362,16 @@ Verification keys mirror existing resolver selectors. This keeps verification
 record-scoped and avoids separate key families for websites, wallets, profiles,
 and future applications.
 
-The descriptor selects a method and proof source. External or inline proof
-bytes carry the record-bound claim. `valueHash` covers the resolver's exact raw
+The descriptor selects a method and external proof source. Proof bytes carry
+the record-bound claim. `valueHash` covers the resolver's exact raw
 value while each method separately derives its semantic target.
 
-The current authority is committed in both the descriptor and claim. A name
-transfer therefore invalidates the descriptor until it is republished with the
-new authority. The verification descriptor establishes the ENS-side
-association; method evidence establishes target control or attestation.
-
-Inline proof mode avoids external retrieval for small signatures. HTTPS and
-content-addressed URIs support larger proofs without placing all proof bytes in
-ENS.
+The current authority is carried in the claim and compared with live authority
+state. The descriptor commits to the proof bytes through `h` or a
+content-addressed URI. A name transfer therefore invalidates the old proof, and
+a proof for the new authority requires a new ENS descriptor commitment. The
+verification descriptor establishes the ENS-side association; method evidence
+establishes target control or attestation.
 
 ## Backwards Compatibility
 

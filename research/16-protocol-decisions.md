@@ -206,12 +206,12 @@ The common envelope is:
   "v": "ensrv1",
   "claim": {},
   "authoritySignature": "0x...",
-  "methodProof": {}
+  "proof": {}
 }
 ```
 
-Common objects reject unknown and duplicate members. `methodProof` is validated
-by the selected method schema. JSON bytes are not signed; the EIP-712 claim is
+Common objects reject unknown and duplicate members. `proof` is validated by
+the selected method rules. JSON bytes are not signed; the EIP-712 claim is
 signed.
 
 ## 11. Proof-byte Integrity

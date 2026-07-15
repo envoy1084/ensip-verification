@@ -50,12 +50,7 @@ export default defineConfig({
     },
     {
       text: "Reference",
-      items: [
-        { text: "Test Vectors", link: "/docs/reference/test-vectors" },
-        { text: "Schemas", link: "/docs/reference/schemas" },
-        { text: "Glossary", link: "/docs/reference/glossary" },
-        { text: "References", link: "/docs/reference/references" },
-      ],
+      items: [{ text: "References", link: "/docs/reference/references" }],
     },
   ],
 });

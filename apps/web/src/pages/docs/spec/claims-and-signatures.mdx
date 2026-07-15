@@ -10,9 +10,10 @@ one ENS name, one resolver record, its exact live value, the current ENS
 authority, and the external target derived by the method.
 
 The protocol does not require a signature from the ENS authority. Publishing
-the verification descriptor supplies the ENS-side association. Descriptor
-field `ca` and claim field `authority` must both match live authority state, so
-an authority change makes the existing descriptor non-positive.
+the verification descriptor supplies the ENS-side association. Claim field
+`authority` must match live authority state. The descriptor commits to the
+proof bytes through `h` or a content-addressed `u`, so replacing the authority
+inside a proof requires a new ENS descriptor.
 
 ## Common Claim
 
@@ -25,19 +26,19 @@ ENSRecordVerification(string name,bytes32 node,string recordType,string recordKe
 The type is closed. Implementations MUST NOT add, remove, rename, or reorder
 fields.
 
-| Field              | Source                                               |
-| ------------------ | ---------------------------------------------------- |
-| `name`             | ENSIP-15 normalized input name.                      |
-| `node`             | `namehash(name)`.                                    |
-| `recordType`       | Selected resolver record type.                       |
-| `recordKey`        | Exact selector key or canonical numeric parameter.   |
-| `valueHash`        | Keccak-256 of the exact live resolver return bytes.  |
-| `authorityVersion` | Descriptor field `a`.                                |
-| `authority`        | Descriptor `ca`, matching live exact-name authority. |
-| `method`           | Descriptor field `m`.                                |
-| `target`           | Canonical external target derived by the method.     |
-| `issuedAt`         | Proof publisher's Unix time in seconds.              |
-| `validUntil`       | First Unix time at which the proof is invalid.       |
+| Field              | Source                                              |
+| ------------------ | --------------------------------------------------- |
+| `name`             | ENSIP-15 normalized input name.                     |
+| `node`             | `namehash(name)`.                                   |
+| `recordType`       | Selected resolver record type.                      |
+| `recordKey`        | Exact selector key or canonical numeric parameter.  |
+| `valueHash`        | Keccak-256 of the exact live resolver return bytes. |
+| `authorityVersion` | Descriptor field `a`.                               |
+| `authority`        | Live exact-name authority at the evaluation block.  |
+| `method`           | Descriptor field `m`.                               |
+| `target`           | Canonical external target derived by the method.    |
+| `issuedAt`         | Proof publisher's Unix time in seconds.             |
+| `validUntil`       | First Unix time at which the proof is invalid.      |
 
 `issuedAt` and `validUntil` are JSON decimal strings and EIP-712 unsigned
 integers. Reject signs, whitespace, leading zeroes, and values outside `uint64`.
@@ -112,12 +113,12 @@ authority so an authority transfer selects a different publication slot.
     "issuedAt": "1783728000",
     "validUntil": "1786320000"
   },
-  "methodProof": {}
+  "proof": {}
 }
 ```
 
 The envelope and claim are closed objects. Implementations MUST detect duplicate
-members before constructing a map. `methodProof` is a method-defined closed
+members before constructing a map. `proof` is a method-defined closed
 object.
 
 The JSON bytes are not signed. Parse the claim, compare every field with live

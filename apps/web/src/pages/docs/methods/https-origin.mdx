@@ -14,11 +14,12 @@ and current ENS authority.
 ## Descriptor
 
 ```text
-ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=https-origin.v1
+ensrv1 a=1 m=https-origin.v1 h=0x<64-lowercase-hex>
 ```
 
-`u`, `h`, and `p` are forbidden. The record value determines the proof origin
-and the protocol determines the path.
+`h` is required and commits to the exact proof-resource bytes. `u` is forbidden:
+the record value determines the proof origin and the protocol determines the
+path.
 
 ## Target Derivation
 
@@ -64,7 +65,7 @@ carrier-grade NAT, documentation, multicast, and unspecified addresses. Apply
 the same check to every returned address and the address actually used for the
 connection.
 
-The envelope contains the common claim and an empty `methodProof` object.
+The envelope contains the common claim and an empty `proof` object.
 `validUntil - issuedAt` MUST NOT exceed 30 days. A live positive evaluation
 MUST NOT be cached for more than five minutes.
 
@@ -76,9 +77,10 @@ The verifier MUST:
 2. fetch the deterministic same-origin resource without ambient credentials;
 3. reject redirects, invalid WebPKI TLS, disallowed network destinations, and
    responses outside the defined status, media-type, encoding, or size rules;
-4. parse the closed envelope and compare the complete common claim;
-5. require `methodProof` to be empty;
-6. require the proof to be within its validity interval.
+4. require `keccak256(proofResourceBytes) == h` before parsing the resource;
+5. parse the closed envelope and compare the complete common claim;
+6. require `proof` to be empty;
+7. require the proof to be within its validity interval.
 
 When every check succeeds, return `verified: true` with
 `verificationType: "control"`. Otherwise return `verified: false`.

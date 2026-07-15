@@ -13,7 +13,7 @@ record with proof published by the derived target.
 
 ```text
 text("url") = "https://example.com/profile"
-text("verification[text][url]") = "ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=https-origin.v1"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1 h=0x<64-lowercase-hex>"
 ```
 
 The verification descriptor applies only to `text("url")`. It does not verify
@@ -63,9 +63,10 @@ The verifier performs these steps:
 5. Parse the URL and derive its serialized HTTPS origin.
 6. Construct the complete expected common claim.
 7. Derive the proof key and fetch the deterministic same-origin resource.
-8. Require the published envelope to match every expected claim field.
-9. Require the proof to be live and within its validity interval.
-10. Return `verified: true` with `verificationType: "control"`.
+8. Require the retrieved bytes to match descriptor `h`.
+9. Require the published envelope to match every expected claim field.
+10. Require the proof to be live and within its validity interval.
+11. Return `verified: true` with `verificationType: "control"`.
 
 If any required step does not succeed, return `verified: false`. The URL record
 continues to resolve normally.

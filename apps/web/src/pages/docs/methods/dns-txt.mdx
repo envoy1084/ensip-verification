@@ -14,10 +14,10 @@ and DNSSEC authenticates the TXT response.
 ## Descriptor
 
 ```text
-ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=dns-txt.url.v1 u=https://proofs.example/alice-url.json h=0x<64-hex>
+ensrv1 a=1 m=dns-txt.url.v1 u=https://proofs.example/alice-url.json h=0x<64-hex>
 ```
 
-`u` and `h` are required. `u` MUST be an HTTPS URI. `p` is forbidden.
+`u` and `h` are required. `u` MUST be an HTTPS URI.
 
 ## Target And TXT Record
 
@@ -57,7 +57,7 @@ The verifier MUST:
    redirects, using the HTTPS-origin encoding and 256 KiB decoded-size limits;
 5. require `keccak256(proofResourceBytes) == h`;
 6. parse the envelope and compare the complete common claim;
-7. require an empty `methodProof` and a valid proof interval.
+7. require an empty `proof` and a valid proof interval.
 
 When every check succeeds, return `verified: true` with
 `verificationType: "control"`. Otherwise return `verified: false`.

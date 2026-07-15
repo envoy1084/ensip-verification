@@ -9,27 +9,22 @@ Account-signature methods demonstrate control of the account represented by an
 ENS address record. The target account signs evidence bound to the complete
 common claim.
 
-## Publication Modes
+## Proof Locations
 
-Address methods permit exactly one proof source:
+Address methods use one external proof source:
 
 ```text
-# Inline envelope
-ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=account-signature.eip155.v1 p=<base64url-envelope>
-
 # Content-addressed raw envelope
-ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=account-signature.bip322.v1 u=ipfs://bafk...
+ensrv1 a=1 m=account-signature.bip322.v1 u=ipfs://bafk...
 
 # Hash-pinned HTTPS envelope
-ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=account-signature.eip155.v1 u=https://proofs.example/address.json h=0x<64-hex>
+ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/address.json h=0x<64-hex>
 ```
 
-For inline publication, `p` is required and `u` and `h` are forbidden. For
-IPFS, `u` is required, the CID MUST match the retrieved bytes, and `h` is
+For IPFS, `u` is required, the CID MUST match the retrieved bytes, and `h` is
 forbidden. Version 1 accepts only a pathless CIDv1 URI using lowercase base32,
 the `raw` codec, and `sha2-256`; query and fragment components are forbidden.
-The raw block bytes are the envelope bytes. For HTTPS, `u` and `h` are required
-and `p` is forbidden.
+The raw block bytes are the envelope bytes. For HTTPS, `u` and `h` are required.
 
 For both account methods, `validUntil - issuedAt` MUST NOT exceed 90 days.
 
@@ -66,7 +61,7 @@ chainId:           target EIP-155 chain ID
 verifyingContract: target account address
 ```
 
-`methodProof` contains exactly:
+`proof` contains exactly:
 
 ```json
 {
@@ -105,7 +100,7 @@ consensus-serialized witness stack. Missing variant prefixes are rejected.
 BIP-322's required script rules apply, including `SIGHASH_ALL`, or
 `SIGHASH_DEFAULT` where BIP-322 permits it.
 
-`methodProof` contains exactly:
+`proof` contains exactly:
 
 ```json
 {

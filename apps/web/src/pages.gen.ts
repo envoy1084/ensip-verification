@@ -11,10 +11,7 @@ type Page =
   | { path: '/docs/methods/overview'; render: 'static' }
   | { path: '/docs/records/addresses'; render: 'static' }
   | { path: '/docs/records/url'; render: 'static' }
-  | { path: '/docs/reference/glossary'; render: 'static' }
   | { path: '/docs/reference/references'; render: 'static' }
-  | { path: '/docs/reference/schemas'; render: 'static' }
-  | { path: '/docs/reference/test-vectors'; render: 'static' }
   | { path: '/docs/spec/authority-and-lifecycle'; render: 'static' }
   | { path: '/docs/spec/claims-and-signatures'; render: 'static' }
   | { path: '/docs/spec/discovery-records'; render: 'static' }
