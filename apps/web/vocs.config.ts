@@ -2,7 +2,8 @@ import { defineConfig } from "vocs/config";
 
 export default defineConfig({
   title: "Record Verification",
-  description: "Verify external targets published in ENS resolver records.",
+  description:
+    "ENS records identify external resources but do not prove who controls them. Bind proof to the live record value so clients can verify the connection.",
   mcp: {
     enabled: true,
   },

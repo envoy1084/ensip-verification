@@ -79,14 +79,14 @@ export function Landing() {
         <div className="vocs:mx-auto vocs:w-full vocs:max-w-[900px] vocs:px-8 vocs:max-[700px]:px-5">
           <section className="vocs:w-[min(100%,700px)]">
             <h1 className="vocs:m-0 vocs:mb-[18px] vocs:text-[clamp(40px,5.6vw,68px)] vocs:font-semibold vocs:leading-[0.96] vocs:tracking-[-0.025em] vocs:text-heading vocs:max-[700px]:text-[clamp(40px,12vw,54px)]">
-              Verify external targets.{" "}
-              <span className="vocs:text-secondary">
-                Bind proofs to ENS records.
-              </span>
+              ENSIP-X
+              <br />
+              <span className="vocs:text-secondary">Record Verification</span>
             </h1>
             <p className="vocs:m-0 vocs:mb-8 vocs:text-xl vocs:leading-[1.6] vocs:text-secondary vocs:max-[700px]:text-[17px]">
-              Check that a live resolver value is approved by the current ENS
-              authority and backed by a valid method proof.
+              ENS records identify external resources but do not prove who
+              controls them. Bind proof to the live record value so clients can
+              verify the connection.
             </p>
             <div className="vocs:mb-10 vocs:flex vocs:flex-wrap vocs:gap-3">
               <Link
