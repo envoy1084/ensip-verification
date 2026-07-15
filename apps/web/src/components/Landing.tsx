@@ -10,6 +10,7 @@ import { Link } from "vocs";
 type PackageManager = "npm" | "pnpm" | "bun";
 
 const packageManagers = ["npm", "pnpm", "bun"] as const;
+const showPackageInstall = false;
 
 const commands = {
   npm: "npm add ens-record-verification",
@@ -105,50 +106,53 @@ export function Landing() {
               </a>
             </div>
 
-            <div className="vocs:mb-4 vocs:w-[min(100%,620px)] vocs:overflow-hidden vocs:rounded-[var(--vocs-radius-lg)] vocs:border vocs:border-solid vocs:border-primary vocs:bg-surface vocs:max-[700px]:w-full">
-              <div className="vocs:flex vocs:items-stretch vocs:gap-1 vocs:border-b vocs:border-solid vocs:border-primary vocs:px-1">
-                {packageManagers.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    data-package-manager={item}
-                    data-active={packageManager === item || undefined}
-                    onClick={selectPackageManager}
-                    className={`vocs:-mb-px vocs:inline-flex vocs:cursor-pointer vocs:items-center vocs:gap-2 vocs:border-0 vocs:border-b-2 vocs:border-solid vocs:bg-transparent vocs:px-3.5 vocs:pb-[9px] vocs:pt-[11px] vocs:text-[13px] vocs:font-medium vocs:transition-colors vocs:duration-100 vocs:[&_svg]:size-[15px] ${
-                      packageManager === item
-                        ? "vocs:border-white vocs:text-heading"
-                        : "vocs:border-transparent vocs:text-muted vocs:hover:text-heading"
-                    }`}
-                  >
-                    {packageIcons[item]}
-                    {item}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                aria-label="Copy install command"
-                onClick={copyCommand}
-                className="vocs:flex vocs:min-h-[68px] vocs:w-full vocs:cursor-pointer vocs:items-center vocs:gap-[18px] vocs:border-0 vocs:bg-transparent vocs:py-[18px] vocs:pl-0 vocs:pr-3 vocs:text-left vocs:transition-colors vocs:duration-100 vocs:hover:bg-surfaceTint"
-              >
-                <code className="vocs:font-mono vocs:text-lg vocs:text-accent">
-                  <span className="vocs:text-muted">
-                    {commands[packageManager].split(" ")[0]}
-                  </span>{" "}
-                  {commands[packageManager].split(" ").slice(1).join(" ")}
-                </code>
-                <span
-                  data-copied={copiedCommand || undefined}
-                  className="vocs:ml-auto vocs:inline-flex vocs:size-8 vocs:items-center vocs:justify-center vocs:text-muted vocs:transition-colors vocs:duration-100 vocs:data-copied:text-success vocs:[&_svg]:size-4"
+            {/* Temporarily hide package installation until the package is ready. */}
+            {showPackageInstall && (
+              <div className="vocs:mb-4 vocs:w-[min(100%,620px)] vocs:overflow-hidden vocs:rounded-[var(--vocs-radius-lg)] vocs:border vocs:border-solid vocs:border-primary vocs:bg-surface vocs:max-[700px]:w-full">
+                <div className="vocs:flex vocs:items-stretch vocs:gap-1 vocs:border-b vocs:border-solid vocs:border-primary vocs:px-1">
+                  {packageManagers.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      data-package-manager={item}
+                      data-active={packageManager === item || undefined}
+                      onClick={selectPackageManager}
+                      className={`vocs:-mb-px vocs:inline-flex vocs:cursor-pointer vocs:items-center vocs:gap-2 vocs:border-0 vocs:border-b-2 vocs:border-solid vocs:bg-transparent vocs:px-3.5 vocs:pb-[9px] vocs:pt-[11px] vocs:text-[13px] vocs:font-medium vocs:transition-colors vocs:duration-100 vocs:[&_svg]:size-[15px] ${
+                        packageManager === item
+                          ? "vocs:border-white vocs:text-heading"
+                          : "vocs:border-transparent vocs:text-muted vocs:hover:text-heading"
+                      }`}
+                    >
+                      {packageIcons[item]}
+                      {item}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Copy install command"
+                  onClick={copyCommand}
+                  className="vocs:flex vocs:min-h-[68px] vocs:w-full vocs:cursor-pointer vocs:items-center vocs:gap-[18px] vocs:border-0 vocs:bg-transparent vocs:py-[18px] vocs:pl-0 vocs:pr-3 vocs:text-left vocs:transition-colors vocs:duration-100 vocs:hover:bg-surfaceTint"
                 >
-                  {copiedCommand ? (
-                    <CheckIcon aria-hidden />
-                  ) : (
-                    <CopyIcon aria-hidden />
-                  )}
-                </span>
-              </button>
-            </div>
+                  <code className="vocs:font-mono vocs:text-lg vocs:text-accent">
+                    <span className="vocs:text-muted">
+                      {commands[packageManager].split(" ")[0]}
+                    </span>{" "}
+                    {commands[packageManager].split(" ").slice(1).join(" ")}
+                  </code>
+                  <span
+                    data-copied={copiedCommand || undefined}
+                    className="vocs:ml-auto vocs:inline-flex vocs:size-8 vocs:items-center vocs:justify-center vocs:text-muted vocs:transition-colors vocs:duration-100 vocs:data-copied:text-success vocs:[&_svg]:size-4"
+                  >
+                    {copiedCommand ? (
+                      <CheckIcon aria-hidden />
+                    ) : (
+                      <CopyIcon aria-hidden />
+                    )}
+                  </span>
+                </button>
+              </div>
+            )}
 
             <button
               type="button"
