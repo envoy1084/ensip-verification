@@ -11,9 +11,8 @@ external resource represented by that value.
 
 Record Verification defines a record-scoped verification layer for ENS
 resolver records. A name can advertise verification metadata for one specific
-record. A client can then validate that the current ENS authority authorized the
-exact live record and, when required by the selected method, that the record's
-external target is controlled or covered by an attestation accepted under
+record. A client can then validate that the external target represented by the
+exact live record is controlled or covered by an attestation accepted under
 client policy.
 
 ## Problem Statement
@@ -45,20 +44,20 @@ A name opts in one record at a time by publishing a verification descriptor:
 
 ```text
 text("url") = "https://example.com/profile"
-text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+text("verification[text][url]") = "ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=https-origin.v1"
 ```
 
 For this URL record, a verifier checks:
 
 1. the live `url` value and its verification descriptor;
 2. a claim bound to the exact ENS name, record selector, and resolver value;
-3. a signature from the current ENS authority for the exact name;
-4. the proof required by `https-origin.v1` at `https://example.com`;
-5. proof validity, expiry, revocation, and cache limits.
+3. the current ENS authority bound into the claim;
+4. the proof published by `https://example.com`;
+5. proof validity and expiry.
 
-If every required check passes, the result is `verified/control`. Otherwise the
-result is `none`. Verification never changes whether the original ENS record
-resolves.
+If every required check passes, the result contains `verified: true` and
+`verificationType: "control"`. Otherwise it contains `verified: false`.
+Verification never changes whether the original ENS record resolves.
 
 The result is deliberately narrow. It proves a bounded relationship between
 the ENS name, one resolver record, its current value, and the method target. It
@@ -69,10 +68,14 @@ trusted.
 The base protocol reserves an `attestation` result for future method profiles.
 Version 1 does not define a concrete attestation method.
 
+Resolver write permission can be delegated. A positive control result proves
+target control for the exact resolver-published association; it does not prove
+that the current ENS authority personally operates the target.
+
 ## Start Here
 
-- [Quickstart](/docs/quickstart): publish and verify one URL record.
 - [Protocol Overview](/docs/spec/overview): understand the records and checks.
 - [ENSIP](/docs/spec/ensip): read the normative protocol.
 - [Method Profiles](/docs/methods/overview): implement each proof method.
-- [Build a Verifier](/docs/guides/build-a-verifier): implement the full verifier.
+- [URL Records](/docs/records/url): follow the complete URL verification flow.
+- [Address Records](/docs/records/addresses): follow the target-signature flow.

@@ -3,7 +3,7 @@
   "$id": "https://ens.domains/schemas/ens-record-verification-proof.schema.json",
   "title": "Record Verification Proof Envelope",
   "type": "object",
-  "required": ["v", "claim", "authoritySignature", "methodProof"],
+  "required": ["v", "claim", "methodProof"],
   "additionalProperties": false,
   "properties": {
     "v": {
@@ -18,6 +18,7 @@
         "recordKey",
         "valueHash",
         "authorityVersion",
+        "authority",
         "method",
         "target",
         "issuedAt",
@@ -48,6 +49,9 @@
           "type": "string",
           "pattern": "^(0|[1-9][0-9]{0,9})$"
         },
+        "authority": {
+          "$ref": "#/$defs/address"
+        },
         "method": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9.-]{0,63}$"
@@ -64,9 +68,6 @@
         }
       }
     },
-    "authoritySignature": {
-      "$ref": "#/$defs/bytes"
-    },
     "methodProof": {
       "type": "object"
     }
@@ -75,6 +76,10 @@
     "bytes32": {
       "type": "string",
       "pattern": "^0x[0-9a-f]{64}$"
+    },
+    "address": {
+      "type": "string",
+      "pattern": "^0x[0-9a-f]{40}$"
     },
     "bytes": {
       "type": "string",

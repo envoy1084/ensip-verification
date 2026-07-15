@@ -5,8 +5,9 @@ description: Authority Algorithm 1, validity, invalidation, and cache bounds.
 
 # Authority and Lifecycle
 
-Authority identifies who may sign the common claim. It is independent of the
-resolver or account allowed to write resolver records.
+Authority identifies the current exact-name ENS authority bound into the common
+claim. It is independent of the resolver or account allowed to write resolver
+records. Version 1 does not require the authority to sign the claim.
 
 ## Authority Algorithm 1
 
@@ -35,8 +36,9 @@ Use the evaluation block for every call and its block timestamp for expiry.
 4. For every other exact name, require and select the nonzero Registry owner.
 
 Do not fall back to an ancestor, resolver writer, Universal Resolver, wildcard
-resolver, or CCIP Read gateway. If no exact authenticated authority is
-available, return `unsupported_authority`.
+resolver, or CCIP Read gateway. Verification cannot succeed when the exact
+authority cannot be determined. The selected address must equal descriptor
+field `ca` and common-claim field `authority`.
 
 ## Subnames
 
@@ -60,7 +62,7 @@ now < validUntil
 validUntil - issuedAt <= methodMaxLifetime
 ```
 
-`issuedAt` is not a trusted timestamp. It bounds the signed interval and rejects
+`issuedAt` is not a trusted timestamp. It bounds the proof interval and rejects
 future-dated claims beyond the allowed clock skew.
 
 The semantic expiry is the earliest applicable bound:
@@ -78,13 +80,13 @@ Omit a bound only when the selected authority or method does not define it.
 
 ## Invalidation
 
-Re-evaluation returns a non-positive result after any of these changes:
+Re-evaluation returns `verified: false` after any of these changes:
 
 - target record changed;
 - verification descriptor changed or was deleted;
 - exact authority changed or expired;
 - live method publication was removed;
-- required status reports revocation;
+- method evidence is revoked under the selected method;
 - effective validity expired;
 - evaluation block was reorganized.
 

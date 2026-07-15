@@ -1,63 +1,50 @@
 ---
 title: Method Profiles
-description: Concrete method registry and common profile requirements.
+description: Methods that prove control of targets represented by ENS records.
 ---
 
 # Method Profiles
 
-A verification method defines how to derive the external target represented by
-a resolver record and how to validate evidence of its control or an accepted
-policy-bound attestation. Every positive result also requires the current ENS
-authority to authorize the exact live record. Each verification descriptor
-selects one method.
+A method profile defines how a verifier derives an external target from a live
+ENS record and how the target proves the common claim. A descriptor selects one
+concrete method.
 
-## Registry
+## Version 1 Registry
 
-| Identifier                                           | Selectors                    | Relationship    | `u`       | `h`       | Maximum lifetime |
-| ---------------------------------------------------- | ---------------------------- | --------------- | --------- | --------- | ---------------- |
-| [`authority-signature.v1`](./authority-signature)    | Any supported selector       | `authorization` | Required  | Permitted | 90 days          |
-| [`https-origin.v1`](./https-origin)                  | HTTPS URL text records       | `control`       | Forbidden | Forbidden | 30 days          |
-| [`dns-txt.url.v1`](./dns-txt)                        | `text("url")`                | `control`       | Required  | Required  | 30 days          |
-| [`dns-txt.email-domain.v1`](./dns-txt)               | `text("email")`              | `control`       | Required  | Required  | 30 days          |
-| [`dns-txt.https-endpoint.v1`](./dns-txt)             | HTTPS `agent-endpoint[...]`  | `control`       | Required  | Required  | 30 days          |
-| [`account-signature.eip155.v1`](./account-signature) | Supported EVM `addr` records | `control`       | Required  | Permitted | 90 days          |
+| Method                                               | Records                       | Verification type | Evidence                                      |
+| ---------------------------------------------------- | ----------------------------- | ----------------- | --------------------------------------------- |
+| [`https-origin.v1`](./https-origin)                  | HTTPS URL text records        | `control`         | Live proof served by the derived HTTPS origin |
+| [`dns-txt.url.v1`](./dns-txt)                        | `text("url")`                 | `control`         | DNSSEC-authenticated proof hash               |
+| [`account-signature.eip155.v1`](./account-signature) | Supported EVM address records | `control`         | EOA or ERC-1271 target signature              |
+| [`account-signature.bip322.v1`](./account-signature) | Bitcoin `addr(0)`             | `control`         | BIP-322 target signature                      |
 
-This is a closed registry for version 1. Generic identifiers such as
-`dns-txt`, `service-account`, and `issuer-attestation` are not concrete methods.
+Every version 1 method requires evidence from the external target. Version 1
+does not define an attestation method.
 
-## Common Processing
+## Common Requirements
 
-Every method receives a context that has already passed:
+Before applying a method, a verifier:
 
-1. ENSIP-15 name normalization;
-2. same-block target and descriptor resolution;
-3. descriptor parsing and method selection;
-4. strict proof-envelope parsing;
-5. exact common-claim comparison;
-6. current exact-name authority validation;
-7. common claim lifetime validation.
+1. resolves the target record and descriptor at one evaluation block;
+2. derives the exact `valueHash` from the live resolver bytes;
+3. determines current exact-name ENS authority at that block;
+4. parses the proof envelope and compares every common claim field;
+5. checks the proof validity interval;
+6. applies the selected method to the same common claim.
 
-The method then:
+A method succeeds only when its evidence proves the complete record-bound
+claim. Proving a target without matching the live ENS record is insufficient.
 
-1. validates selector compatibility;
-2. derives one canonical target;
-3. validates its closed `methodProof` object or live publication;
-4. returns its fixed relationship and method freshness bound.
+## Requirements For New Methods
 
-Method identifiers are immutable. An incompatible target derivation, proof
-format, or validation rule requires a new identifier.
+A new method specification MUST define:
 
-## Registering Another Method
-
-A new concrete method specification must define:
-
-- identifier and supported selectors;
-- descriptor field policy;
-- exact target derivation;
-- proof location and closed proof schema;
-- binding to the complete common claim digest;
-- signature, issuer, or publication validation;
-- maximum lifetime and cache bounds;
-- revocation behavior;
-- error mapping;
-- conformance vectors.
+- an immutable method identifier;
+- supported resolver selectors;
+- one canonical target derivation;
+- permitted descriptor publication modes;
+- exact proof-envelope fields;
+- exact bytes or digest proven by the target or issuer;
+- validity, freshness, and revocation rules;
+- deterministic acceptance and rejection conditions;
+- security boundaries and conformance vectors.

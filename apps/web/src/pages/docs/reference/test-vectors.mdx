@@ -13,7 +13,6 @@ Available vectors:
 | <a href="/test-vectors/descriptor-valid-basic.json">`descriptor-valid-basic.json`</a>         | Valid descriptor parsing.                                               |
 | <a href="/test-vectors/descriptor-duplicate-field.json">`descriptor-duplicate-field.json`</a> | Duplicate-field rejection.                                              |
 | <a href="/test-vectors/bracketed-text-key.json">`bracketed-text-key.json`</a>                 | Nested-bracket verification-key construction.                           |
-| <a href="/test-vectors/error-precedence.json">`error-precedence.json`</a>                     | Canonical error ordering.                                               |
 
 ## Conformance Coverage
 
@@ -21,16 +20,17 @@ The corpus is not complete. A conforming release also requires vectors for:
 
 - ENSIP-15 valid and invalid names;
 - every descriptor field and lexical boundary;
-- exact text, address, contenthash, and data hashing;
+- exact text and address hashing;
 - duplicate JSON members and parser resource limits;
-- wrapped, unwrapped, `.eth`, subname, wildcard, and ERC-1271 authority cases;
-- URL and DNS target derivation;
+- wrapped, unwrapped, `.eth`, and subname authority cases;
+- URL, DNS, EVM, and Bitcoin target derivation;
 - DNSSEC answer, alias, conflict, and TTL behavior;
 - ENSIP-9/11 to CAIP-10 mapping and target signatures;
+- EOA, ERC-1271, and BIP-322 target signatures;
+- inline, IPFS, and hash-pinned HTTPS proof publication;
 - exact expiry, future issuance, revocation, and cache bounds;
 - SSRF, redirect, timeout, size, and decompression rejection;
-- every primary error.
 
-Each vector must contain exact input bytes and one exact expected value or
-error. Final interoperability requires two independent implementations passing
-the same complete corpus.
+Each vector must contain exact input bytes and one exact expected acceptance,
+rejection, or derived value. Final interoperability requires two independent
+implementations passing the same complete corpus.

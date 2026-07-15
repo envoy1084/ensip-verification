@@ -3,7 +3,7 @@
   "ensip": "ENSIP",
   "discovery-records": "Discovery Records",
   "verification-descriptor": "Verification Descriptor",
-  "claims-and-signatures": "Claims and Signatures",
+  "claims-and-signatures": "Claims and Target Proofs",
   "authority-and-lifecycle": "Authority and Lifecycle",
-  "results-and-errors": "Results and Errors"
+  "results": "Verification Results"
 }

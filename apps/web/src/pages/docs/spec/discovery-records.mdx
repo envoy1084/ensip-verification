@@ -6,19 +6,13 @@ description: Target selectors, verification keys, and block snapshot requirement
 # Resolution and Discovery
 
 This page maps resolver calls to verification text records. The normative rules
-are defined by the [ENSIP](./ensip#target-record-resolution).
+are defined by the [ENSIP](./ensip#discovery-records).
 
 ## Resolution Input
 
-A verifier starts with:
-
-```ts
-type RecordSelector =
-  | { recordType: "text"; recordKey: string }
-  | { recordType: "addr"; recordKey: string }
-  | { recordType: "contenthash"; recordKey: "" }
-  | { recordType: "data"; recordKey: string };
-```
+A verifier starts with an ENS name, a resolver function, and the function's
+exact key or numeric argument. Together, the function and argument form the
+record selector.
 
 The name is ENSIP-15 normalized before constructing resolver calldata.
 

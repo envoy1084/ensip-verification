@@ -11,6 +11,18 @@ Machine-readable common schema:
     Record Verification proof schema
   </a>
 
+Method-proof schemas:
+
+- <a href="/schemas/empty-method-proof.schema.json">
+    Empty proof used by HTTPS-origin and DNS TXT methods
+  </a>
+- <a href="/schemas/account-signature-eip155-method-proof.schema.json">
+    EIP-155 account-signature proof
+  </a>
+- <a href="/schemas/account-signature-bip322-method-proof.schema.json">
+    BIP-322 account-signature proof
+  </a>
+
 The schema validates the common envelope and claim shape. Method profiles
 validate `methodProof` as a separate closed object.
 
@@ -36,7 +48,7 @@ duplicate members.
 The exact common type string is:
 
 ```text
-ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,string method,string target,uint64 issuedAt,uint64 validUntil)
+ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,address authority,string method,string target,uint64 issuedAt,uint64 validUntil)
 ```
 
 JSON bytes are not canonicalized or signed. Descriptor `h`, when present, binds

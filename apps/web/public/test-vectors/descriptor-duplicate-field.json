@@ -1,8 +1,7 @@
 {
   "name": "duplicate method field",
-  "descriptor": "ensrv1 a=1 m=https-origin.v1 m=authority-signature.v1",
+  "descriptor": "ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=https-origin.v1 m=dns-txt.url.v1",
   "expected": {
-    "ok": false,
-    "error": "invalid_descriptor"
+    "ok": false
   }
 }

@@ -1,42 +1,50 @@
 ---
-title: Claims and Signatures
-description: Common EIP-712 claim, proof key, and signature encodings.
+title: Claims and Target Proofs
+description: Common EIP-712 claim, proof key, and method evidence.
 ---
 
-# Claims and Signatures
+# Claims and Target Proofs
 
-Every concrete method uses the same common claim. Method-specific evidence
-commits to its EIP-712 digest.
+Every method binds its evidence to the same common claim. The claim identifies
+one ENS name, one resolver record, its exact live value, the current ENS
+authority, and the external target derived by the method.
+
+The protocol does not require a signature from the ENS authority. Publishing
+the verification descriptor supplies the ENS-side association. Descriptor
+field `ca` and claim field `authority` must both match live authority state, so
+an authority change makes the existing descriptor non-positive.
 
 ## Common Claim
 
 The exact EIP-712 type string is:
 
 ```text
-ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,string method,string target,uint64 issuedAt,uint64 validUntil)
+ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,address authority,string method,string target,uint64 issuedAt,uint64 validUntil)
 ```
 
-The type is closed. Do not add, remove, rename, or reorder fields.
+The type is closed. Implementations MUST NOT add, remove, rename, or reorder
+fields.
 
-| Field              | Source                                             |
-| ------------------ | -------------------------------------------------- |
-| `name`             | ENSIP-15 normalized input name.                    |
-| `node`             | `namehash(name)`.                                  |
-| `recordType`       | Selected resolver record type.                     |
-| `recordKey`        | Exact selector key or canonical numeric parameter. |
-| `valueHash`        | Keccak-256 of exact live resolver return bytes.    |
-| `authorityVersion` | Descriptor field `a`.                              |
-| `method`           | Descriptor field `m`.                              |
-| `target`           | Canonical value derived by the method.             |
-| `issuedAt`         | Signer-asserted Unix time in seconds.              |
-| `validUntil`       | First invalid Unix time in seconds.                |
+| Field              | Source                                               |
+| ------------------ | ---------------------------------------------------- |
+| `name`             | ENSIP-15 normalized input name.                      |
+| `node`             | `namehash(name)`.                                    |
+| `recordType`       | Selected resolver record type.                       |
+| `recordKey`        | Exact selector key or canonical numeric parameter.   |
+| `valueHash`        | Keccak-256 of the exact live resolver return bytes.  |
+| `authorityVersion` | Descriptor field `a`.                                |
+| `authority`        | Descriptor `ca`, matching live exact-name authority. |
+| `method`           | Descriptor field `m`.                                |
+| `target`           | Canonical external target derived by the method.     |
+| `issuedAt`         | Proof publisher's Unix time in seconds.              |
+| `validUntil`       | First Unix time at which the proof is invalid.       |
 
 `issuedAt` and `validUntil` are JSON decimal strings and EIP-712 unsigned
 integers. Reject signs, whitespace, leading zeroes, and values outside `uint64`.
 
 ## Domain
 
-Authority Algorithm 1 on Ethereum mainnet uses:
+Version 1 on Ethereum mainnet uses:
 
 ```text
 name:              ENS Record Verification
@@ -46,24 +54,26 @@ verifyingContract: 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
 ```
 
 The Universal Resolver address is a domain-separation anchor. It does not
-validate the signature.
+authorize the proof or participate in target-signature validation.
 
-## Authority Signature
+## Method Evidence
 
-For an EOA, accept only a 65-byte secp256k1 signature with canonical low `s` and
-`v` equal to 27 or 28. EIP-2098 compact signatures are not accepted by version
+A method proves the common claim in one of three ways:
 
-1.
+- live publication by the derived target, as in `https-origin.v1`;
+- a target-native signature over the common claim digest, as in the account
+  signature methods;
+- an issuer attestation defined by a future method profile.
 
-For a contract, call ERC-1271 `isValidSignature(digest, signature)` at the
-evaluation block. Accept only `0x1626ba7e`. Treat a revert, malformed return, or
-other value as `authority_signature_invalid`.
+For a signature method, the target signs a method-specific message that commits
+to the complete EIP-712 common claim digest. The method profile defines the
+native signature scheme and exact message bytes.
 
 ## Proof Key
 
 ```solidity
 PROOF_KEY_TYPEHASH = keccak256(
-  "ENSRecordVerificationProofKey(bytes32 domainSeparator,uint32 authorityVersion,bytes32 node,bytes32 recordTypeHash,bytes32 recordKeyHash,bytes32 methodHash)"
+  "ENSRecordVerificationProofKey(bytes32 domainSeparator,uint32 authorityVersion,address authority,bytes32 node,bytes32 recordTypeHash,bytes32 recordKeyHash,bytes32 methodHash)"
 );
 
 proofKey = keccak256(
@@ -71,6 +81,7 @@ proofKey = keccak256(
     PROOF_KEY_TYPEHASH,
     domainSeparator,
     authorityVersion,
+    authority,
     node,
     keccak256(bytes(recordType)),
     keccak256(bytes(recordKey)),
@@ -79,9 +90,9 @@ proofKey = keccak256(
 );
 ```
 
-Encode all strings as exact UTF-8 bytes. `node` already commits to the normalized
-name. The key excludes record value and timestamps so one publication location
-can be reused for renewal and record rotation.
+The proof key excludes the record value and timestamps so the same publication
+location can be reused after a record update or proof renewal. It includes the
+authority so an authority transfer selects a different publication slot.
 
 ## Proof Envelope
 
@@ -95,21 +106,19 @@ can be reused for renewal and record rotation.
     "recordKey": "url",
     "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
     "authorityVersion": "1",
+    "authority": "0x1234567890abcdef1234567890abcdef12345678",
     "method": "https-origin.v1",
     "target": "https://example.com",
     "issuedAt": "1783728000",
     "validUntil": "1786320000"
   },
-  "authoritySignature": "0x...",
   "methodProof": {}
 }
 ```
 
-The envelope and claim are closed objects. Detect duplicate members before
-constructing a map. `methodProof` is a method-defined closed object.
+The envelope and claim are closed objects. Implementations MUST detect duplicate
+members before constructing a map. `methodProof` is a method-defined closed
+object.
 
-The JSON bytes are not signed. Parse the claim, validate every field against
-live inputs, and encode the resulting values as EIP-712.
-
-See the [schema reference](../reference/schemas) and
-[cryptographic vector](../reference/test-vectors).
+The JSON bytes are not signed. Parse the claim, compare every field with live
+inputs, encode the fields as EIP-712, and then apply the selected method.

@@ -9,10 +9,7 @@ export default defineConfig({
   sidebar: [
     {
       text: "Start",
-      items: [
-        { text: "Introduction", link: "/" },
-        { text: "Quickstart", link: "/docs/quickstart" },
-      ],
+      items: [{ text: "Introduction", link: "/" }],
     },
     {
       text: "Specification",
@@ -25,24 +22,20 @@ export default defineConfig({
           link: "/docs/spec/verification-descriptor",
         },
         {
-          text: "Claims and Signatures",
+          text: "Claims and Target Proofs",
           link: "/docs/spec/claims-and-signatures",
         },
         {
           text: "Authority and Lifecycle",
           link: "/docs/spec/authority-and-lifecycle",
         },
-        { text: "Results and Errors", link: "/docs/spec/results-and-errors" },
+        { text: "Verification Results", link: "/docs/spec/results" },
       ],
     },
     {
       text: "Method Profiles",
       items: [
         { text: "Overview", link: "/docs/methods/overview" },
-        {
-          text: "Authority Signature",
-          link: "/docs/methods/authority-signature",
-        },
         { text: "HTTPS Origin", link: "/docs/methods/https-origin" },
         { text: "DNS TXT", link: "/docs/methods/dns-txt" },
         { text: "Account Signature", link: "/docs/methods/account-signature" },
@@ -52,31 +45,12 @@ export default defineConfig({
       text: "Record Guides",
       items: [
         { text: "URL Records", link: "/docs/records/url" },
-        { text: "Social Accounts", link: "/docs/records/social-accounts" },
         { text: "Address Records", link: "/docs/records/addresses" },
-        { text: "Contenthash", link: "/docs/records/contenthash" },
-        { text: "Email Records", link: "/docs/records/email" },
-        { text: "Agent Endpoints", link: "/docs/records/agent-endpoints" },
-      ],
-    },
-    {
-      text: "Implementation Guides",
-      items: [
-        {
-          text: "Publish a Verification",
-          link: "/docs/guides/publish-a-verification",
-        },
-        { text: "Build a Verifier", link: "/docs/guides/build-a-verifier" },
-        {
-          text: "Wallet and UI Guidelines",
-          link: "/docs/guides/wallet-and-ui-guidelines",
-        },
       ],
     },
     {
       text: "Reference",
       items: [
-        { text: "Errors", link: "/docs/reference/errors" },
         { text: "Test Vectors", link: "/docs/reference/test-vectors" },
         { text: "Schemas", link: "/docs/reference/schemas" },
         { text: "Glossary", link: "/docs/reference/glossary" },

@@ -5,22 +5,12 @@ import type { PathsForPages } from 'waku/router'
 
 // prettier-ignore
 type Page =
-  | { path: '/docs/guides/build-a-verifier'; render: 'static' }
-  | { path: '/docs/guides/publish-a-verification'; render: 'static' }
-  | { path: '/docs/guides/wallet-and-ui-guidelines'; render: 'static' }
   | { path: '/docs/methods/account-signature'; render: 'static' }
-  | { path: '/docs/methods/authority-signature'; render: 'static' }
   | { path: '/docs/methods/dns-txt'; render: 'static' }
   | { path: '/docs/methods/https-origin'; render: 'static' }
   | { path: '/docs/methods/overview'; render: 'static' }
-  | { path: '/docs/quickstart'; render: 'static' }
   | { path: '/docs/records/addresses'; render: 'static' }
-  | { path: '/docs/records/agent-endpoints'; render: 'static' }
-  | { path: '/docs/records/contenthash'; render: 'static' }
-  | { path: '/docs/records/email'; render: 'static' }
-  | { path: '/docs/records/social-accounts'; render: 'static' }
   | { path: '/docs/records/url'; render: 'static' }
-  | { path: '/docs/reference/errors'; render: 'static' }
   | { path: '/docs/reference/glossary'; render: 'static' }
   | { path: '/docs/reference/references'; render: 'static' }
   | { path: '/docs/reference/schemas'; render: 'static' }
@@ -30,7 +20,7 @@ type Page =
   | { path: '/docs/spec/discovery-records'; render: 'static' }
   | { path: '/docs/spec/ensip'; render: 'static' }
   | { path: '/docs/spec/overview'; render: 'static' }
-  | { path: '/docs/spec/results-and-errors'; render: 'static' }
+  | { path: '/docs/spec/results'; render: 'static' }
   | { path: '/docs/spec/verification-descriptor'; render: 'static' }
   | { path: '/'; render: 'static' }
 

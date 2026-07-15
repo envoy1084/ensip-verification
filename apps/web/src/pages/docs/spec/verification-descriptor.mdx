@@ -8,13 +8,13 @@ description: Descriptor grammar, parsing, and proof-resource fields.
 A verification text record contains one descriptor:
 
 ```text
-ensrv1 a=<authority-version> m=<method> [u=<uri>] [h=<hash>]
+ensrv1 a=<authority-version> ca=<current-authority> m=<method> [u=<uri>] [h=<hash>] [p=<inline-proof>]
 ```
 
 Example:
 
 ```text
-ensrv1 a=1 m=https-origin.v1
+ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=https-origin.v1
 ```
 
 ## Grammar
@@ -28,30 +28,35 @@ field-value = 1*(%x21-7E)
 
 Split each field on its first `=`. Descriptors are ASCII and are not signed.
 Whitespace has no semantic meaning beyond separating fields. Generators emit
-one `SP` and field order `a`, `m`, `u`, `h`.
+one `SP` and field order `a`, `ca`, `m`, `u`, `h`, `p`.
 
 ## Fields
 
-| Field | Format                            | Meaning                           |
-| ----- | --------------------------------- | --------------------------------- |
-| `a`   | `uint32` in canonical decimal     | Authority algorithm version.      |
-| `m`   | `[a-z0-9][a-z0-9.-]{0,63}`        | Concrete method identifier.       |
-| `u`   | Absolute URI, maximum 1,024 bytes | Method-defined proof resource.    |
-| `h`   | `0x` plus 64 lowercase hex digits | Keccak-256 of decoded body bytes. |
+| Field | Format                                        | Meaning                        |
+| ----- | --------------------------------------------- | ------------------------------ |
+| `a`   | `uint32` in canonical decimal                 | Authority algorithm version.   |
+| `ca`  | Lowercase 20-byte Ethereum address            | Committed current authority.   |
+| `m`   | `[a-z0-9][a-z0-9.-]{0,63}`                    | Concrete method identifier.    |
+| `u`   | Absolute URI, maximum 1,024 bytes             | External proof resource.       |
+| `h`   | `0x` plus 64 lowercase hex digits             | Keccak-256 of retrieved bytes. |
+| `p`   | Unpadded base64url, maximum 6,144 ASCII bytes | Inline proof-envelope bytes.   |
 
-`a` and `m` occur exactly once. Method profiles specify whether `u` and `h` are
-required, permitted, or forbidden.
+`a`, `ca`, and `m` occur exactly once. The verifier derives current exact-name
+authority using `a` and requires it to equal `ca`. This comparison prevents a
+descriptor from remaining valid after an authority transfer. Method profiles
+specify whether `u`, `h`, and `p` are required, permitted, or forbidden. A
+method MUST NOT permit `p` with `u` or `h` in the same descriptor.
 
 ## Parser Procedure
 
-1. Reject input longer than 2,048 bytes.
+1. Reject input longer than 8,192 bytes.
 2. Reject non-ASCII input or control characters.
 3. Require the first token to equal `ensrv1`.
 4. Parse every remaining token as one `name=value` field.
 5. Reject empty names or values.
 6. Reject duplicate or unknown fields.
-7. Parse `a` as canonical decimal `uint32`.
-8. Validate `m`, `u`, and `h` lexical form.
+7. Parse `a` as canonical decimal `uint32` and `ca` as an address.
+8. Validate `m`, `u`, `h`, and `p` lexical form.
 9. Apply the selected method's field policy.
 
 Unknown descriptor versions, authority versions, and concrete methods fail
@@ -65,10 +70,20 @@ When `h` is present:
 keccak256(proofResourceBytes) == h
 ```
 
-`proofResourceBytes` is the HTTP body after transfer and content decoding and
-before UTF-8 decoding or JSON parsing. Re-serializing JSON changes these bytes
-and therefore changes `h`.
+`proofResourceBytes` is the retrieved resource after transport content decoding
+and before UTF-8 decoding or JSON parsing. Re-serializing JSON changes these
+bytes and therefore changes `h`.
 
-See [Method Profiles](../methods/overview) for descriptor field requirements and
-[Build a Verifier](../guides/build-a-verifier#proof-retrieval) for retrieval
-limits.
+For a content-addressed `u`, such as `ipfs://`, the method profile MAY use the
+content identifier as the integrity commitment and forbid `h`.
+
+## Inline Proof
+
+When `p` is present, decode it using strict unpadded base64url. The decoded
+bytes are the complete proof envelope. Reject padding, non-alphabet characters,
+and encodings that do not round-trip to the same string. The 6,144-byte limit
+applies to the encoded ASCII field value; the decoded envelope MUST NOT exceed
+4,608 bytes.
+
+See [Method Profiles](../methods/overview) for method-specific descriptor field
+requirements.

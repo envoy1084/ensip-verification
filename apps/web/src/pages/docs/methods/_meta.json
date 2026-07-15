@@ -1,6 +1,5 @@
 {
   "overview": "Overview",
-  "authority-signature": "Authority Signature",
   "https-origin": "HTTPS Origin",
   "dns-txt": "DNS TXT",
   "account-signature": "Account Signature"

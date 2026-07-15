@@ -1,8 +1,4 @@
 {
   "url": "URL Records",
-  "social-accounts": "Social Accounts",
-  "addresses": "Address Records",
-  "contenthash": "Contenthash",
-  "email": "Email Records",
-  "agent-endpoints": "Agent Endpoints"
+  "addresses": "Address Records"
 }

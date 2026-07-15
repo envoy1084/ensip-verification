@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ens.domains/schemas/account-signature-eip155-method-proof.schema.json",
+  "title": "EIP-155 Account Signature Method Proof",
+  "type": "object",
+  "required": ["targetSignature"],
+  "additionalProperties": false,
+  "properties": {
+    "targetSignature": {
+      "type": "string",
+      "pattern": "^0x(?:[0-9a-f]{2})+$"
+    }
+  }
+}

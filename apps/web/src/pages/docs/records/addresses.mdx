@@ -1,75 +1,114 @@
 ---
-title: Verifying Address Records
-description: Complete flow for ENS address authorization and EVM account control.
+title: Address Record Verification
+description: Record binding and native target-signature flows for ENS address records.
 ---
 
-# Verifying Address Records
+# Address Record Verification
 
-## Overview
+An ENS address record contains chain-specific account bytes. Address
+verification requires a native signature from the account represented by the
+exact live record.
 
-An ENS address record contains account bytes used by wallets and applications.
-Record Verification can bind the exact live bytes to authorization by current
-ENS authority and, for supported EVM accounts, evidence of control from the
-account represented by those bytes.
+## Records
 
-## When To Use This Method
-
-Use `authority-signature.v1` for authority authorization only. Use
-`account-signature.eip155.v1` when the target EVM account can sign the complete
-common claim.
-
-## Records To Set
+EVM example:
 
 ```text
 addr(60) = 0x1234567890abcdef1234567890abcdef12345678
-text("verification[addr][60]") = "ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/alice-address.json"
+text("verification[addr][60]") = "ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=account-signature.eip155.v1 p=<inline-proof>"
 ```
 
-## Proof To Publish
-
-Publish the common envelope at descriptor `u`. Include:
-
-```json
-{
-  "methodProof": {
-    "targetSignature": "0x<signature>"
-  }
-}
-```
-
-The common claim target is:
+Bitcoin example:
 
 ```text
-eip155:1:0x1234567890abcdef1234567890abcdef12345678
+addr(0) = <ENSIP-9 Bitcoin scriptPubKey bytes>
+text("verification[addr][0]") = "ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=account-signature.bip322.v1 u=ipfs://bafk..."
 ```
+
+The coin type is part of the selector. A proof for `addr(60)` cannot verify
+`addr(0)` or another address record.
+
+## Bound Values
+
+The common claim binds:
+
+```text
+name, node
+recordType = addr
+recordKey  = canonical decimal coin type
+valueHash  = keccak256(exact resolver address bytes)
+authority  = current exact-name ENS authority
+method, canonical target, issuedAt, validUntil
+```
+
+The target signs a method-specific message that commits to the complete common
+claim digest. It does not sign only the displayed address string.
+
+## Publication Flow
+
+```mermaid
+sequenceDiagram
+  participant P as Publisher
+  participant ENS as ENS Resolver
+  participant A as ENS Authority Contracts
+  participant T as Target Account
+  participant S as Inline, IPFS, or HTTPS Storage
+
+  P->>ENS: Read exact addr bytes
+  P->>A: Read current exact-name authority
+  P->>P: Construct common claim and digest
+  P->>T: Request native signature over method message
+  T-->>P: EIP-712, ERC-1271, or BIP-322 proof
+  P->>S: Publish proof envelope
+  P->>ENS: Set verification descriptor
+```
+
+For inline publication, the proof envelope is encoded directly in descriptor
+field `p`; no storage request occurs.
 
 ## Verification Flow
 
-1. Resolve the exact address bytes and descriptor.
-2. Hash the native address bytes.
-3. Map coin type 60 to `eip155:1`.
-4. Derive the CAIP-10 target.
-5. Fetch and validate the common envelope.
-6. Validate current ENS authority signature.
-7. Validate the target-account signature on Ethereum.
-8. Apply lifecycle checks and return `verified/control`.
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant ENS as ENS Resolver
+  participant A as ENS Authority Contracts
+  participant S as Proof Storage
+  participant T as Target Chain
 
-## Failure Cases
+  C->>ENS: Resolve addr and descriptor at block B
+  ENS-->>C: Exact address bytes and descriptor
+  C->>A: Resolve exact-name authority at block B
+  A-->>C: Current authority
+  alt External proof
+    C->>S: Fetch u and verify h or IPFS CID
+    S-->>C: Proof envelope
+  else Inline proof
+    C->>C: Decode descriptor p
+  end
+  C->>C: Reconstruct and compare complete common claim
+  C->>T: Validate native target signature
+  T-->>C: Signature valid for live target
+  C-->>C: verified true, verificationType control
+```
 
-| Condition                               | Result                      |
-| --------------------------------------- | --------------------------- |
-| Unsupported coin type or address length | `none/unsupported_record`   |
-| Derived CAIP-10 account differs         | `none/target_mismatch`      |
-| Target-chain RPC unavailable            | `none/proof_unavailable`    |
-| Target signature invalid                | `none/target_proof_invalid` |
+The verifier performs these steps:
 
-## Example
+1. Resolve the exact address bytes and descriptor at one ENS block.
+2. Hash the raw resolver bytes and derive the target for the selected coin type.
+3. Determine current exact-name ENS authority at the same block.
+4. Decode inline `p` or retrieve external `u` with its required integrity check.
+5. Reconstruct the expected common claim and compare every field.
+6. Construct the method-specific target-signature message.
+7. Validate the EOA, ERC-1271, or BIP-322 proof against the live target account.
+8. Require the proof to be within its validity interval.
+9. Return `verified: true` with `verificationType: "control"`.
 
-Coin type 60 maps to Ethereum mainnet. ENSIP-11 coin type
-`0x80000001` also maps to chain ID 1. Both require exactly 20 address bytes and
-produce the same CAIP-10 account target for the same bytes.
+If any required step does not succeed, return `verified: false`.
 
-## Security Notes
+## What The Result Means
 
-Account control does not establish that the account is uncompromised, safe to
-pay, or legally owned by the current ENS authority.
+A positive result demonstrates that credentials controlling the target account
+approved a claim bound to this exact live ENS address record. It does not prove
+that the ENS authority and target account are the same person, that the account
+is uncompromised, or that sending funds is safe.

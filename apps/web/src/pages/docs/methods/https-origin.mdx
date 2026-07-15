@@ -1,39 +1,42 @@
 ---
 title: https-origin.v1
-description: Live same-origin publication for HTTPS URL records.
+description: Same-origin control proof for HTTPS URL records.
 ---
 
 # Method: `https-origin.v1`
 
 ## Purpose
 
-`https-origin.v1` demonstrates control of the serialized HTTPS origin derived
-from an ENS text record. The origin must serve a proof bound to the exact live
-record and its current ENS authority. A successful check returns
-`verified/control`.
+`https-origin.v1` demonstrates control of the HTTPS origin derived from an ENS
+text record. The origin serves a proof envelope bound to the exact live record
+and current ENS authority.
 
-## Supported Records
-
-The method supports text records whose exact value is an absolute HTTPS URL,
-including `text("url")` and HTTPS `agent-endpoint[...]` records.
-
-## Discovery Descriptor
-
-The proof location is deterministic. `u` and `h` are forbidden.
+## Descriptor
 
 ```text
-ensrv1 a=1 m=https-origin.v1
+ensrv1 a=1 ca=0x1234567890abcdef1234567890abcdef12345678 m=https-origin.v1
 ```
 
-## Publisher Flow
+`u`, `h`, and `p` are forbidden. The record value determines the proof origin
+and the protocol determines the path.
 
-1. Resolve the live text record.
-2. Derive the serialized HTTPS origin.
-3. Construct the common claim with a lifetime no longer than 30 days.
-4. Sign the claim with current ENS authority.
-5. Calculate `proofKey`.
-6. Publish the envelope at the well-known path on the derived origin.
-7. Set the verification descriptor in ENS.
+## Target Derivation
+
+Parse the exact text-record value with the WHATWG URL algorithm. Require an
+absolute HTTPS URL without credentials, fragment, opaque host, or IPv6 zone
+identifier. Serialize the origin using WHATWG rules, omitting port 443.
+
+For:
+
+```text
+https://example.com/profile
+```
+
+the claim target is:
+
+```text
+https://example.com
+```
 
 ## Proof Location
 
@@ -41,106 +44,47 @@ ensrv1 a=1 m=https-origin.v1
 <origin>/.well-known/ens-record-verification/<proof-key-hex>
 ```
 
-`proof-key-hex` is the 32-byte proof key encoded as 64 lowercase hexadecimal
-digits without `0x`.
+`proof-key-hex` is the 32-byte proof key encoded as exactly 64 lowercase
+hexadecimal digits without a `0x` prefix.
 
-The response uses status 200 and media type:
+The origin returns status 200, no redirect, and media type:
 
 ```text
 application/ens-record-verification+json
 ```
 
-## Proof Payload
+The `Content-Type` media-type essence must match exactly; parameters are
+forbidden. The verifier uses WebPKI-authenticated TLS, sends no cookies,
+authorization headers, or other ambient credentials, and accepts at most 256
+KiB after content decoding. Only `identity` and `gzip` content encodings are
+accepted, and decoded size MUST NOT exceed 20 times encoded size.
 
-The payload is the common envelope. `methodProof` is empty because live
-same-origin publication is the method evidence.
+Before connecting, resolve the host and reject loopback, link-local, private,
+carrier-grade NAT, documentation, multicast, and unspecified addresses. Apply
+the same check to every returned address and the address actually used for the
+connection.
 
-```json
-{
-  "v": "ensrv1",
-  "claim": {
-    "name": "alice.eth",
-    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
-    "recordType": "text",
-    "recordKey": "url",
-    "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
-    "authorityVersion": "1",
-    "method": "https-origin.v1",
-    "target": "https://example.com",
-    "issuedAt": "1783728000",
-    "validUntil": "1786320000"
-  },
-  "authoritySignature": "0x<65-byte-signature>",
-  "methodProof": {}
-}
-```
+The envelope contains the common claim and an empty `methodProof` object.
+`validUntil - issuedAt` MUST NOT exceed 30 days. A live positive evaluation
+MUST NOT be cached for more than five minutes.
 
-## Verifier Flow
+## Verification
 
-1. Resolve the live target text record and descriptor at one block.
-2. Parse the URL and derive the HTTPS origin.
-3. Calculate `valueHash`, common claim digest, and `proofKey`.
-4. Fetch the well-known proof without credentials or redirects.
-5. Parse and compare the complete common claim.
-6. Resolve current ENS authority and validate its signature.
-7. Require an empty `methodProof`.
-8. Apply common lifecycle and cache rules.
+The verifier MUST:
 
-## Validation Rules
+1. derive the HTTPS origin and proof key from live ENS inputs;
+2. fetch the deterministic same-origin resource without ambient credentials;
+3. reject redirects, invalid WebPKI TLS, disallowed network destinations, and
+   responses outside the defined status, media-type, encoding, or size rules;
+4. parse the closed envelope and compare the complete common claim;
+5. require `methodProof` to be empty;
+6. require the proof to be within its validity interval.
 
-The URL parser uses the WHATWG URL algorithm and its IDNA processing. Reject a
-non-HTTPS scheme, credentials, fragment, empty or opaque host, invalid port, or
-IPv6 zone identifier. Omit port 443 from the target and retain any other valid
-explicit port.
+When every check succeeds, return `verified: true` with
+`verificationType: "control"`. Otherwise return `verified: false`.
 
-| Check                                              | Failure              |
-| -------------------------------------------------- | -------------------- |
-| URL cannot produce a supported HTTPS origin        | `target_mismatch`    |
-| `u` or `h` present                                 | `invalid_descriptor` |
-| TLS, status, redirect, CORS, or media type invalid | `proof_unavailable`  |
-| Envelope or `methodProof` invalid                  | `proof_invalid`      |
-| Live origin differs from claim target              | `target_mismatch`    |
+## Security Boundary
 
-## Result
-
-Successful validation demonstrates control of the serialized HTTPS origin for
-the exact live ENS record and returns `verified/control`.
-
-## Cache And Lifecycle
-
-Maximum claim lifetime is 30 days. Positive caching is limited to five minutes
-and may be shortened by HTTP freshness or client policy. Removing the proof
-invalidates the method after the live publication cache expires.
-
-## Security Considerations
-
-The method uses same-origin publication as evidence of origin control. It does
-not validate every path, resource, operator, or user of that origin. A
-compromised origin can publish a valid proof.
-
-## UI Copy
-
-Allowed:
-
-- `Control of the HTTPS origin was demonstrated for this ENS record.`
-- `The HTTPS origin served a proof bound to this ENS record.`
-
-Forbidden:
-
-- `Official website.`
-- `Safe website.`
-- `Website owner verified.`
-
-## Example
-
-```text
-text("url") = "https://example.com/profile"
-text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
-```
-
-Derived target and proof location:
-
-```text
-target = https://example.com
-https://example.com/.well-known/ens-record-verification/3e1afa3eb523cdefc3d8faa94c15e05fe1af4fb5096f71e127890e3763f5a380
-```
+The method demonstrates control of the serialized origin for the exact ENS
+record. It does not establish that any page, operator, or service on the origin
+is safe, official, or non-malicious.

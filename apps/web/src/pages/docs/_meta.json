@@ -1,9 +1,7 @@
 {
   "index": "Introduction",
-  "quickstart": "Quickstart",
   "spec": "Specification",
   "methods": "Method Profiles",
   "records": "Record Guides",
-  "guides": "Implementation Guides",
   "reference": "Reference"
 }

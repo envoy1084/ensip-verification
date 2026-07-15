@@ -13,6 +13,7 @@
     "recordKey": "url",
     "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
     "authorityVersion": "1",
+    "authority": "0x1234567890abcdef1234567890abcdef12345678",
     "method": "https-origin.v1",
     "target": "https://example.com",
     "issuedAt": "1783728000",
@@ -23,14 +24,14 @@
     "domainNameHash": "0x5735972f14763d14f4d8859d8e5cb25d372629d5084156d07e91dfb172649c9e",
     "domainVersionHash": "0xc89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6",
     "domainSeparator": "0x4aa03d8f35d35bf28ea16a04b59c78b036eafa8416735987f304654b0a28051f",
-    "claimTypeHash": "0x6ec4d89e8a36ee2185c3a23daf25810c6318e693c58e73896de6f54063cfa25c",
+    "claimTypeHash": "0xa40ff36f3189ec95e12e6d89e8cbfcdc35f598bebca66561e8c1221b8cd78c2d",
     "recordTypeHash": "0x9599d5e4e43121196cadfeaea326e46f58d9db74299decfd64bd3b700350ccd9",
     "recordKeyHash": "0xb68b5f5089998f2978a1dcc681e8ef27962b90d5c26c4c0b9c1945814ffa5ef0",
     "methodHash": "0xaf38b73e74bc9904999e705f4a3f83a3edb7dd636d01dc97fda1c48fdf43c09f",
     "targetHash": "0xedba3f8cfcd4165f73cd4641ced2b2ec0d3ba4338e3eec30edd58777d86b53b2",
-    "claimStructHash": "0x5f26087985a826799dd8aad913529225a4602fd0af3f3734f2d7fac1c2a4a93f",
-    "claimDigest": "0xdc43dd5f7ea3e51a999a5977739ea0af6de5ad27fec207fba4ebfbff0ec02a49",
-    "proofKeyTypeHash": "0x50a40c100ccaa5ca240727561336f80366327f471de6d48194f5febd6f680ed3",
-    "proofKey": "0x3e1afa3eb523cdefc3d8faa94c15e05fe1af4fb5096f71e127890e3763f5a380"
+    "claimStructHash": "0x3598240a66023467261d422f7973ef617224a9cfca884a4ba948c75102a4beb3",
+    "claimDigest": "0x1361623cd0794c0b6ab28000b27fb9d62ce7fb86f66e8a8d46bb7ea3115d1ef6",
+    "proofKeyTypeHash": "0x996584489ccc072f5c54146ea3a0e61365e835b39d5d3fa7ffb5c33bdbc008b0",
+    "proofKey": "0x6dea46da6201b4f7e8d83628cc1e1bcda6f8e0f514b84509b433ae752785e64a"
   }
 }
