@@ -53,7 +53,7 @@ export function Landing() {
   }, []);
 
   return (
-    <div className="relative left-1/2 z-50 mt-[calc(-1*var(--vocs-spacing-banner)-var(--vocs-spacing-content-py))] mb-[calc(-1*var(--vocs-spacing-content-py))] flex h-[100svh] w-screen -translate-x-1/2 flex-col overflow-hidden bg-primary text-heading max-[700px]:h-auto max-[700px]:min-h-[100svh] max-[700px]:overflow-visible">
+    <div className="relative left-1/2 z-50 mt-[calc(-1*var(--vocs-spacing-banner)-var(--vocs-spacing-content-py))] mb-[calc(-1*var(--vocs-spacing-content-py))] flex h-[100svh] w-screen -translate-x-1/2 flex-col overflow-hidden bg-(--vocs-background-color-primary) text-(--vocs-text-color-heading) max-[700px]:h-auto max-[700px]:min-h-[100svh] max-[700px]:overflow-visible">
       <div className="pointer-events-none absolute inset-0 opacity-35 dark:opacity-20 [background-image:repeating-linear-gradient(45deg,transparent_0_27px,light-dark(var(--vocs-color-gray12),var(--vocs-border-color-primary))_27px_28px,transparent_28px_56px),repeating-linear-gradient(-45deg,transparent_0_27px,light-dark(var(--vocs-color-gray12),var(--vocs-border-color-primary))_27px_28px,transparent_28px_56px)]" />
       <header className="relative pb-4 pt-8 max-[700px]:pt-6">
         <div className="mx-auto flex w-full max-w-[900px] items-center justify-between gap-6 px-8 max-[700px]:px-5">
@@ -62,13 +62,13 @@ export function Landing() {
             aria-label="Record Verification"
             className="inline-flex no-underline"
           >
-            <span className="text-[18px] font-semibold text-heading">
+            <span className="text-[18px] font-semibold text-(--vocs-text-color-heading)">
               Record Verification
             </span>
           </a>
           <a
             href="/docs"
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-secondary no-underline transition-colors duration-100 hover:text-heading [&_svg]:size-3.5"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-(--vocs-text-color-secondary) no-underline transition-colors duration-100 hover:text-(--vocs-text-color-heading) [&_svg]:size-3.5"
           >
             Docs
             <ArrowUpRightIcon aria-hidden />
@@ -79,12 +79,14 @@ export function Landing() {
       <main className="relative flex min-h-0 flex-1 items-center pb-10 pt-6 max-[700px]:items-start max-[700px]:pb-8 max-[700px]:pt-10">
         <div className="mx-auto w-full max-w-[900px] px-8 max-[700px]:px-5">
           <section className="w-[min(100%,700px)]">
-            <h1 className="m-0 mb-[18px] text-[clamp(40px,5.6vw,68px)] font-semibold leading-[0.96] tracking-[-0.025em] text-heading max-[700px]:text-[clamp(40px,12vw,54px)]">
+            <h1 className="m-0 mb-[18px] text-[clamp(40px,5.6vw,68px)] font-semibold leading-[0.96] tracking-[-0.025em] text-(--vocs-text-color-heading) max-[700px]:text-[clamp(40px,12vw,54px)]">
               ENSIP-X
               <br />
-              <span className="text-secondary">Record Verification</span>
+              <span className="text-(--vocs-text-color-secondary)">
+                Record Verification
+              </span>
             </h1>
-            <p className="m-0 mb-8 text-xl leading-[1.6] text-secondary max-[700px]:text-[17px]">
+            <p className="m-0 mb-8 text-xl leading-[1.6] text-(--vocs-text-color-secondary) max-[700px]:text-[17px]">
               ENS records identify external resources but do not prove who
               controls them. Bind proof to the live record value so clients can
               verify the connection.
@@ -92,14 +94,14 @@ export function Landing() {
             <div className="mb-10 flex flex-wrap gap-3">
               <Link
                 to="/docs"
-                className="inline-flex min-h-12 items-center justify-center gap-2.5 rounded-[var(--vocs-radius-lg)] border border-solid border-accent bg-accent px-[22px] text-[15px] font-medium text-accentInvert no-underline transition-opacity duration-100 hover:opacity-90 max-[700px]:w-full [&_svg]:size-3.5"
+                className="inline-flex min-h-12 items-center justify-center gap-2.5 rounded-[var(--vocs-radius-lg)] border border-solid border-(--vocs-color-accent) bg-(--vocs-color-accent) px-[22px] text-[15px] font-medium text-(--vocs-color-accentInvert) no-underline transition-opacity duration-100 hover:opacity-90 max-[700px]:w-full [&_svg]:size-3.5"
               >
                 Read the docs
                 <ArrowUpRightIcon aria-hidden />
               </Link>
               <a
                 href="https://github.com/envoy1084/ensip-verification"
-                className="inline-flex min-h-12 items-center justify-center gap-2.5 rounded-[var(--vocs-radius-lg)] border border-solid border-primary bg-surface px-[22px] text-[15px] font-medium text-heading no-underline transition-colors duration-100 hover:border-secondary hover:bg-surfaceTint max-[700px]:w-full [&_svg]:size-3.5"
+                className="inline-flex min-h-12 items-center justify-center gap-2.5 rounded-[var(--vocs-radius-lg)] border border-solid border-(--vocs-border-color-primary) bg-(--vocs-background-color-surface) px-[22px] text-[15px] font-medium text-(--vocs-text-color-heading) no-underline transition-colors duration-100 hover:border-(--vocs-border-color-secondary) hover:bg-(--vocs-background-color-surfaceTint) max-[700px]:w-full [&_svg]:size-3.5"
               >
                 <GitHubIcon aria-hidden />
                 GitHub
@@ -108,8 +110,8 @@ export function Landing() {
 
             {/* Temporarily hide package installation until the package is ready. */}
             {showPackageInstall && (
-              <div className="mb-4 w-[min(100%,620px)] overflow-hidden rounded-[var(--vocs-radius-lg)] border border-solid border-primary bg-surface max-[700px]:w-full">
-                <div className="flex items-stretch gap-1 border-b border-solid border-primary px-1">
+              <div className="mb-4 w-[min(100%,620px)] overflow-hidden rounded-[var(--vocs-radius-lg)] border border-solid border-(--vocs-border-color-primary) bg-(--vocs-background-color-surface) max-[700px]:w-full">
+                <div className="flex items-stretch gap-1 border-b border-solid border-(--vocs-border-color-primary) px-1">
                   {packageManagers.map((item) => (
                     <button
                       key={item}
@@ -119,8 +121,8 @@ export function Landing() {
                       onClick={selectPackageManager}
                       className={`-mb-px inline-flex cursor-pointer items-center gap-2 border-0 border-b-2 border-solid bg-transparent px-3.5 pb-[9px] pt-[11px] text-[13px] font-medium transition-colors duration-100 [&_svg]:size-[15px] ${
                         packageManager === item
-                          ? "border-white text-heading"
-                          : "border-transparent text-muted hover:text-heading"
+                          ? "border-white text-(--vocs-text-color-heading)"
+                          : "border-transparent text-(--vocs-text-color-muted) hover:text-(--vocs-text-color-heading)"
                       }`}
                     >
                       {packageIcons[item]}
@@ -132,17 +134,17 @@ export function Landing() {
                   type="button"
                   aria-label="Copy install command"
                   onClick={copyCommand}
-                  className="flex min-h-[68px] w-full cursor-pointer items-center gap-[18px] border-0 bg-transparent py-[18px] pl-0 pr-3 text-left transition-colors duration-100 hover:bg-surfaceTint"
+                  className="flex min-h-[68px] w-full cursor-pointer items-center gap-[18px] border-0 bg-transparent py-[18px] pl-0 pr-3 text-left transition-colors duration-100 hover:bg-(--vocs-background-color-surfaceTint)"
                 >
-                  <code className="font-mono text-lg text-accent">
-                    <span className="text-muted">
+                  <code className="font-mono text-lg text-(--vocs-color-accent)">
+                    <span className="text-(--vocs-text-color-muted)">
                       {commands[packageManager].split(" ")[0]}
                     </span>{" "}
                     {commands[packageManager].split(" ").slice(1).join(" ")}
                   </code>
                   <span
                     data-copied={copiedCommand || undefined}
-                    className="ml-auto inline-flex size-8 items-center justify-center text-muted transition-colors duration-100 data-copied:text-success [&_svg]:size-4"
+                    className="ml-auto inline-flex size-8 items-center justify-center text-(--vocs-text-color-muted) transition-colors duration-100 data-copied:text-(--vocs-color-success) [&_svg]:size-4"
                   >
                     {copiedCommand ? (
                       <CheckIcon aria-hidden />
@@ -156,12 +158,12 @@ export function Landing() {
 
             <button
               type="button"
-              className="flex min-h-[52px] w-[min(100%,620px)] cursor-pointer items-center gap-3 rounded-[var(--vocs-radius-lg)] border border-solid border-primary bg-surface px-5 text-left text-[15px] font-normal text-secondary transition-colors duration-100 hover:bg-surfaceTint hover:text-heading max-[700px]:w-full"
+              className="flex min-h-[52px] w-[min(100%,620px)] cursor-pointer items-center gap-3 rounded-[var(--vocs-radius-lg)] border border-solid border-(--vocs-border-color-primary) bg-(--vocs-background-color-surface) px-5 text-left text-[15px] font-normal text-(--vocs-text-color-secondary) transition-colors duration-100 hover:bg-(--vocs-background-color-surfaceTint) hover:text-(--vocs-text-color-heading) max-[700px]:w-full"
               onClick={copyPrompt}
             >
               <span
                 data-copied={copiedPrompt || undefined}
-                className="inline-block size-[7px] bg-accent shadow-[0_0_10px_oklch(from_var(--vocs-color-accent)_l_c_h_/_28%)] data-copied:bg-success"
+                className="inline-block size-[7px] bg-(--vocs-color-accent) shadow-[0_0_10px_oklch(from_var(--vocs-color-accent)_l_c_h_/_28%)] data-copied:bg-(--vocs-color-success)"
               />
               {copiedPrompt
                 ? "Copied to clipboard"
