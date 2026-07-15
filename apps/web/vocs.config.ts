@@ -4,6 +4,19 @@ export default defineConfig({
   title: "Record Verification",
   description:
     "ENS records identify external resources but do not prove who controls them. Bind proof to the live record value so clients can verify the connection.",
+  baseUrl:
+    process.env.VERCEL_ENV === "production"
+      ? "https://ensip-verification.vercel.app"
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "https://ensip-verification.vercel.app",
+  checkDeadlinks: true,
+  editLink: {
+    link: "https://github.com/envoy1084/ensip-verification/edit/main/apps/web/src/pages/:path",
+  },
+  socials: [
+    { icon: "github", link: "https://github.com/envoy1084/ensip-verification" },
+  ],
   mcp: {
     enabled: true,
   },
