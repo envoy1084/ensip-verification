@@ -2,6 +2,7 @@
 dist
 tmp
 out-tsc
+apps/web/.source
 
 # dependencies
 node_modules
