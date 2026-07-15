@@ -53,22 +53,22 @@ export function Landing() {
   }, []);
 
   return (
-    <div className="vocs:relative vocs:left-1/2 vocs:z-50 vocs:mt-[calc(-1*var(--vocs-spacing-banner)-var(--vocs-spacing-content-py))] vocs:mb-[calc(-1*var(--vocs-spacing-content-py))] vocs:flex vocs:h-[100svh] vocs:w-screen vocs:-translate-x-1/2 vocs:flex-col vocs:overflow-hidden vocs:bg-primary vocs:text-heading vocs:max-[700px]:h-auto vocs:max-[700px]:min-h-[100svh] vocs:max-[700px]:overflow-visible">
-      <div className="vocs:pointer-events-none vocs:absolute vocs:inset-0 vocs:opacity-35 vocs:dark:opacity-20 vocs:[background-image:repeating-linear-gradient(45deg,transparent_0_27px,light-dark(var(--vocs-color-gray12),var(--vocs-border-color-primary))_27px_28px,transparent_28px_56px),repeating-linear-gradient(-45deg,transparent_0_27px,light-dark(var(--vocs-color-gray12),var(--vocs-border-color-primary))_27px_28px,transparent_28px_56px)]" />
-      <header className="vocs:relative vocs:pb-4 vocs:pt-8 vocs:max-[700px]:pt-6">
-        <div className="vocs:mx-auto vocs:flex vocs:w-full vocs:max-w-[900px] vocs:items-center vocs:justify-between vocs:gap-6 vocs:px-8 vocs:max-[700px]:px-5">
+    <div className="relative left-1/2 z-50 mt-[calc(-1*var(--vocs-spacing-banner)-var(--vocs-spacing-content-py))] mb-[calc(-1*var(--vocs-spacing-content-py))] flex h-[100svh] w-screen -translate-x-1/2 flex-col overflow-hidden bg-primary text-heading max-[700px]:h-auto max-[700px]:min-h-[100svh] max-[700px]:overflow-visible">
+      <div className="pointer-events-none absolute inset-0 opacity-35 dark:opacity-20 [background-image:repeating-linear-gradient(45deg,transparent_0_27px,light-dark(var(--vocs-color-gray12),var(--vocs-border-color-primary))_27px_28px,transparent_28px_56px),repeating-linear-gradient(-45deg,transparent_0_27px,light-dark(var(--vocs-color-gray12),var(--vocs-border-color-primary))_27px_28px,transparent_28px_56px)]" />
+      <header className="relative pb-4 pt-8 max-[700px]:pt-6">
+        <div className="mx-auto flex w-full max-w-[900px] items-center justify-between gap-6 px-8 max-[700px]:px-5">
           <a
             href="/"
             aria-label="Record Verification"
-            className="vocs:inline-flex vocs:no-underline"
+            className="inline-flex no-underline"
           >
-            <span className="vocs:text-[18px] vocs:font-semibold vocs:text-heading">
+            <span className="text-[18px] font-semibold text-heading">
               Record Verification
             </span>
           </a>
           <a
             href="/docs"
-            className="vocs:inline-flex vocs:items-center vocs:gap-1.5 vocs:text-[13px] vocs:font-medium vocs:text-secondary vocs:no-underline vocs:transition-colors vocs:duration-100 vocs:hover:text-heading vocs:[&_svg]:size-3.5"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-secondary no-underline transition-colors duration-100 hover:text-heading [&_svg]:size-3.5"
           >
             Docs
             <ArrowUpRightIcon aria-hidden />
@@ -76,30 +76,30 @@ export function Landing() {
         </div>
       </header>
 
-      <main className="vocs:relative vocs:flex vocs:min-h-0 vocs:flex-1 vocs:items-center vocs:pb-10 vocs:pt-6 vocs:max-[700px]:items-start vocs:max-[700px]:pb-8 vocs:max-[700px]:pt-10">
-        <div className="vocs:mx-auto vocs:w-full vocs:max-w-[900px] vocs:px-8 vocs:max-[700px]:px-5">
-          <section className="vocs:w-[min(100%,700px)]">
-            <h1 className="vocs:m-0 vocs:mb-[18px] vocs:text-[clamp(40px,5.6vw,68px)] vocs:font-semibold vocs:leading-[0.96] vocs:tracking-[-0.025em] vocs:text-heading vocs:max-[700px]:text-[clamp(40px,12vw,54px)]">
+      <main className="relative flex min-h-0 flex-1 items-center pb-10 pt-6 max-[700px]:items-start max-[700px]:pb-8 max-[700px]:pt-10">
+        <div className="mx-auto w-full max-w-[900px] px-8 max-[700px]:px-5">
+          <section className="w-[min(100%,700px)]">
+            <h1 className="m-0 mb-[18px] text-[clamp(40px,5.6vw,68px)] font-semibold leading-[0.96] tracking-[-0.025em] text-heading max-[700px]:text-[clamp(40px,12vw,54px)]">
               ENSIP-X
               <br />
-              <span className="vocs:text-secondary">Record Verification</span>
+              <span className="text-secondary">Record Verification</span>
             </h1>
-            <p className="vocs:m-0 vocs:mb-8 vocs:text-xl vocs:leading-[1.6] vocs:text-secondary vocs:max-[700px]:text-[17px]">
+            <p className="m-0 mb-8 text-xl leading-[1.6] text-secondary max-[700px]:text-[17px]">
               ENS records identify external resources but do not prove who
               controls them. Bind proof to the live record value so clients can
               verify the connection.
             </p>
-            <div className="vocs:mb-10 vocs:flex vocs:flex-wrap vocs:gap-3">
+            <div className="mb-10 flex flex-wrap gap-3">
               <Link
                 to="/docs"
-                className="vocs:inline-flex vocs:min-h-12 vocs:items-center vocs:justify-center vocs:gap-2.5 vocs:rounded-[var(--vocs-radius-lg)] vocs:border vocs:border-solid vocs:border-accent vocs:bg-accent vocs:px-[22px] vocs:text-[15px] vocs:font-medium vocs:text-accentInvert vocs:no-underline vocs:transition-opacity vocs:duration-100 vocs:hover:opacity-90 vocs:max-[700px]:w-full vocs:[&_svg]:size-3.5"
+                className="inline-flex min-h-12 items-center justify-center gap-2.5 rounded-[var(--vocs-radius-lg)] border border-solid border-accent bg-accent px-[22px] text-[15px] font-medium text-accentInvert no-underline transition-opacity duration-100 hover:opacity-90 max-[700px]:w-full [&_svg]:size-3.5"
               >
                 Read the docs
                 <ArrowUpRightIcon aria-hidden />
               </Link>
               <a
                 href="https://github.com/envoy1084/ensip-verification"
-                className="vocs:inline-flex vocs:min-h-12 vocs:items-center vocs:justify-center vocs:gap-2.5 vocs:rounded-[var(--vocs-radius-lg)] vocs:border vocs:border-solid vocs:border-primary vocs:bg-surface vocs:px-[22px] vocs:text-[15px] vocs:font-medium vocs:text-heading vocs:no-underline vocs:transition-colors vocs:duration-100 vocs:hover:border-secondary vocs:hover:bg-surfaceTint vocs:max-[700px]:w-full vocs:[&_svg]:size-3.5"
+                className="inline-flex min-h-12 items-center justify-center gap-2.5 rounded-[var(--vocs-radius-lg)] border border-solid border-primary bg-surface px-[22px] text-[15px] font-medium text-heading no-underline transition-colors duration-100 hover:border-secondary hover:bg-surfaceTint max-[700px]:w-full [&_svg]:size-3.5"
               >
                 <GitHubIcon aria-hidden />
                 GitHub
@@ -108,8 +108,8 @@ export function Landing() {
 
             {/* Temporarily hide package installation until the package is ready. */}
             {showPackageInstall && (
-              <div className="vocs:mb-4 vocs:w-[min(100%,620px)] vocs:overflow-hidden vocs:rounded-[var(--vocs-radius-lg)] vocs:border vocs:border-solid vocs:border-primary vocs:bg-surface vocs:max-[700px]:w-full">
-                <div className="vocs:flex vocs:items-stretch vocs:gap-1 vocs:border-b vocs:border-solid vocs:border-primary vocs:px-1">
+              <div className="mb-4 w-[min(100%,620px)] overflow-hidden rounded-[var(--vocs-radius-lg)] border border-solid border-primary bg-surface max-[700px]:w-full">
+                <div className="flex items-stretch gap-1 border-b border-solid border-primary px-1">
                   {packageManagers.map((item) => (
                     <button
                       key={item}
@@ -117,10 +117,10 @@ export function Landing() {
                       data-package-manager={item}
                       data-active={packageManager === item || undefined}
                       onClick={selectPackageManager}
-                      className={`vocs:-mb-px vocs:inline-flex vocs:cursor-pointer vocs:items-center vocs:gap-2 vocs:border-0 vocs:border-b-2 vocs:border-solid vocs:bg-transparent vocs:px-3.5 vocs:pb-[9px] vocs:pt-[11px] vocs:text-[13px] vocs:font-medium vocs:transition-colors vocs:duration-100 vocs:[&_svg]:size-[15px] ${
+                      className={`-mb-px inline-flex cursor-pointer items-center gap-2 border-0 border-b-2 border-solid bg-transparent px-3.5 pb-[9px] pt-[11px] text-[13px] font-medium transition-colors duration-100 [&_svg]:size-[15px] ${
                         packageManager === item
-                          ? "vocs:border-white vocs:text-heading"
-                          : "vocs:border-transparent vocs:text-muted vocs:hover:text-heading"
+                          ? "border-white text-heading"
+                          : "border-transparent text-muted hover:text-heading"
                       }`}
                     >
                       {packageIcons[item]}
@@ -132,17 +132,17 @@ export function Landing() {
                   type="button"
                   aria-label="Copy install command"
                   onClick={copyCommand}
-                  className="vocs:flex vocs:min-h-[68px] vocs:w-full vocs:cursor-pointer vocs:items-center vocs:gap-[18px] vocs:border-0 vocs:bg-transparent vocs:py-[18px] vocs:pl-0 vocs:pr-3 vocs:text-left vocs:transition-colors vocs:duration-100 vocs:hover:bg-surfaceTint"
+                  className="flex min-h-[68px] w-full cursor-pointer items-center gap-[18px] border-0 bg-transparent py-[18px] pl-0 pr-3 text-left transition-colors duration-100 hover:bg-surfaceTint"
                 >
-                  <code className="vocs:font-mono vocs:text-lg vocs:text-accent">
-                    <span className="vocs:text-muted">
+                  <code className="font-mono text-lg text-accent">
+                    <span className="text-muted">
                       {commands[packageManager].split(" ")[0]}
                     </span>{" "}
                     {commands[packageManager].split(" ").slice(1).join(" ")}
                   </code>
                   <span
                     data-copied={copiedCommand || undefined}
-                    className="vocs:ml-auto vocs:inline-flex vocs:size-8 vocs:items-center vocs:justify-center vocs:text-muted vocs:transition-colors vocs:duration-100 vocs:data-copied:text-success vocs:[&_svg]:size-4"
+                    className="ml-auto inline-flex size-8 items-center justify-center text-muted transition-colors duration-100 data-copied:text-success [&_svg]:size-4"
                   >
                     {copiedCommand ? (
                       <CheckIcon aria-hidden />
@@ -156,12 +156,12 @@ export function Landing() {
 
             <button
               type="button"
-              className="vocs:flex vocs:min-h-[52px] vocs:w-[min(100%,620px)] vocs:cursor-pointer vocs:items-center vocs:gap-3 vocs:rounded-[var(--vocs-radius-lg)] vocs:border vocs:border-solid vocs:border-primary vocs:bg-surface vocs:px-5 vocs:text-left vocs:text-[15px] vocs:font-normal vocs:text-secondary vocs:transition-colors vocs:duration-100 vocs:hover:bg-surfaceTint vocs:hover:text-heading vocs:max-[700px]:w-full"
+              className="flex min-h-[52px] w-[min(100%,620px)] cursor-pointer items-center gap-3 rounded-[var(--vocs-radius-lg)] border border-solid border-primary bg-surface px-5 text-left text-[15px] font-normal text-secondary transition-colors duration-100 hover:bg-surfaceTint hover:text-heading max-[700px]:w-full"
               onClick={copyPrompt}
             >
               <span
                 data-copied={copiedPrompt || undefined}
-                className="vocs:inline-block vocs:size-[7px] vocs:bg-accent vocs:shadow-[0_0_10px_oklch(from_var(--vocs-color-accent)_l_c_h_/_28%)] vocs:data-copied:bg-success"
+                className="inline-block size-[7px] bg-accent shadow-[0_0_10px_oklch(from_var(--vocs-color-accent)_l_c_h_/_28%)] data-copied:bg-success"
               />
               {copiedPrompt
                 ? "Copied to clipboard"
