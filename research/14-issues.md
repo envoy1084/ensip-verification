@@ -1,7 +1,7 @@
 # Record Verification Issue Register
 
-This document is the issue and resolution ledger for ENS Resolver Record
-Verification. It is the release gate for the base ENSIP, method profiles,
+This document is the issue and resolution ledger for Record Verification. It is
+the release gate for the protocol components, method profiles, eventual ENSIP,
 schemas, test vectors, and reference implementation.
 
 The detailed issue bodies below preserve the original adversarial findings and
@@ -70,15 +70,15 @@ unsettled architecture.
 | P2-002 | Resolved | Assurance fields report only checks actually performed and never upgrade public status.                                                                    |
 | P2-003 | Resolved | `cacheUntil` is the portable reuse bound and cannot exceed semantic validity or source freshness.                                                          |
 | P2-004 | Resolved | UI guidance names `authorization`, `control`, or `attestation` and forbids “safe,” “official,” or equivalent overclaims.                                   |
-| P2-005 | Resolved | This ledger, protocol decisions, and normative pages now share the adopted architecture.                                                                   |
-| P2-006 | Resolved | `spec/ensip.mdx` is a standalone normative submission artifact; guides and research are separate.                                                          |
+| P2-005 | Resolved | This ledger, protocol decisions, and component pages now share the adopted architecture.                                                                   |
+| P2-006 | Deferred | ENSIP packaging is intentionally deferred until the independently documented protocol components are hardened.                                             |
 
 ## Reading The Historical Findings
 
 The sections below explain why every issue was raised, often using the old
 generic method names, nonce proposal, or `ens-mainnet-v1` terminology. Those
 terms are historical examples. The current rules are the resolution table above
-and the normative specification. Retaining the original attack reasoning makes
+and the component definitions. Retaining the original attack reasoning makes
 future reviewers able to detect regressions instead of merely seeing a list of
 closed tickets.
 

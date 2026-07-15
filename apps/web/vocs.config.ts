@@ -12,10 +12,9 @@ export default defineConfig({
       items: [{ text: "Introduction", link: "/" }],
     },
     {
-      text: "Specification",
+      text: "Components",
       items: [
         { text: "Overview", link: "/docs/spec/overview" },
-        { text: "ENSIP", link: "/docs/spec/ensip" },
         { text: "Discovery Records", link: "/docs/spec/discovery-records" },
         {
           text: "Verification Descriptor",

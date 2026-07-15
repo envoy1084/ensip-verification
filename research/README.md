@@ -29,6 +29,14 @@ decisions; `16-protocol-decisions.md` wins if an older file conflicts.
 15. [Proof lifecycle model](./15-proof-lifecycle.md)
 16. [Protocol decisions](./16-protocol-decisions.md)
 
+## Drafts
+
+- [Record Verification ENSIP working draft](./drafts/record-verification-ensip.md)
+
+The ENSIP draft is preserved as research only. The public documentation now
+defines individual protocol components, which will be reviewed and hardened
+before a replacement ENSIP is assembled.
+
 ## Working Conclusions
 
 - A verified ENS record should not mean "safe", "official", "legal owner", or
@@ -36,10 +44,11 @@ decisions; `16-protocol-decisions.md` wins if an older file conflicts.
 - The protocol distinguishes current ENS-authority `authorization`,
   bidirectional target `control`, and third-party `attestation` rather than
   forcing every record into a generic control claim.
-- The current architecture is a small base ENSIP plus method profiles. The base
-  owns discovery, descriptor parsing, raw live-value hashing, current-authority
-  binding, common claim fields, and result semantics. Method profiles own
-  external proof mechanics.
+- The provisional architecture separates shared components from method
+  profiles. Shared components own discovery, descriptor parsing, raw live-value
+  hashing, current-authority binding, common claim fields, and result semantics.
+  Method profiles own external proof mechanics. ENSIP packaging is deferred
+  until these parts are hardened.
 - Target and descriptor records are resolved through the Universal Resolver at
   one block. Exact-name authority is a separately versioned algorithm: current
   rules use the Name Wrapper, Base Registrar, and Registry as appropriate.

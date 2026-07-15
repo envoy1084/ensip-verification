@@ -15,7 +15,6 @@ type Page =
   | { path: '/docs/spec/authority-and-lifecycle'; render: 'static' }
   | { path: '/docs/spec/claims-and-signatures'; render: 'static' }
   | { path: '/docs/spec/discovery-records'; render: 'static' }
-  | { path: '/docs/spec/ensip'; render: 'static' }
   | { path: '/docs/spec/overview'; render: 'static' }
   | { path: '/docs/spec/results'; render: 'static' }
   | { path: '/docs/spec/verification-descriptor'; render: 'static' }

@@ -1,13 +1,8 @@
----
-description: Record-scoped control proofs and attestations for ENS resolver records.
-contributors:
-  - TBD
-ensip:
-  created: "2026-07-05"
-  status: draft
----
-
 # ENSIP-X: Record Verification
+
+> **Working draft:** This document is preserved for research and is not the
+> current source of truth. The protocol components are being hardened
+> independently in `apps/web/src/pages/docs` before a new ENSIP is assembled.
 
 ## Abstract
 
