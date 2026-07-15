@@ -16,14 +16,28 @@ commits to the proof bytes through `h` or a content-addressed `u`.
 
 ## Common Claim
 
-The exact EIP-712 type string is:
+The common claim has this Solidity-style declaration:
 
-```text
-ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,address authority,string method,string target,uint64 issuedAt,uint64 validUntil)
+```solidity
+struct ENSRecordVerification {
+  string name;
+  bytes32 node;
+  string recordType;
+  string recordKey;
+  bytes32 valueHash;
+  uint32 authorityVersion;
+  address authority;
+  string method;
+  string target;
+  uint64 issuedAt;
+  uint64 validUntil;
+}
 ```
 
-The type is closed. Implementations MUST NOT add, remove, rename, or reorder
-fields.
+The declaration formatting is not part of the EIP-712 encoded type. The type is
+closed, and implementations MUST preserve the exact struct name, field types,
+field names, and field order shown above. They MUST NOT add, remove, rename, or
+reorder fields.
 
 | Field              | Source                                              |
 | ------------------ | --------------------------------------------------- |

@@ -148,11 +148,27 @@ URI identifier instead of `h`.
 
 ### Common Claim
 
-Every method MUST use this exact EIP-712 type:
+Every method MUST use this EIP-712 type:
 
-```text
-ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,address authority,string method,string target,uint64 issuedAt,uint64 validUntil)
+```solidity
+struct ENSRecordVerification {
+  string name;
+  bytes32 node;
+  string recordType;
+  string recordKey;
+  bytes32 valueHash;
+  uint32 authorityVersion;
+  address authority;
+  string method;
+  string target;
+  uint64 issuedAt;
+  uint64 validUntil;
+}
 ```
+
+The declaration formatting is not part of the EIP-712 encoded type. Clients
+MUST preserve the exact struct name, field types, field names, and field order
+shown above.
 
 Version 1 uses this EIP-712 domain on Ethereum mainnet:
 
