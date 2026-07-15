@@ -2,7 +2,7 @@ import { defineConfig } from "vocs/config";
 
 export default defineConfig({
   title: "Record Verification",
-  description: "Record-scoped verification for ENS resolver records.",
+  description: "Verify external targets published in ENS resolver records.",
   mcp: {
     enabled: true,
   },
