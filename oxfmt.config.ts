@@ -1,3 +1,1 @@
-import { baseOxFmtConfig } from "@repo/oxc/fmt";
-
-export default baseOxFmtConfig;
+export { default } from "klarity/oxfmt/compact";

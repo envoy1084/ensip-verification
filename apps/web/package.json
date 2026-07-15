@@ -6,7 +6,9 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite dev",
-    "preview": "vite preview"
+    "lint": "oxlint --deny-warnings .",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
@@ -22,8 +24,10 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "6.0.3",
+    "klarity": "0.2.0",
+    "oxlint": "catalog:",
     "tailwindcss": "^4.3.2",
-    "typescript": "6.0.3",
+    "typescript": "catalog:",
     "vite": "8.1.4"
   }
 }
