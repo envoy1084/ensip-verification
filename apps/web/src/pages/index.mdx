@@ -1,42 +1,21 @@
 # Record Verification
 
-ENS resolver records are a general-purpose discovery mechanism for resources
-associated with an ENS name. A resolver can publish text records, multichain
-address records, contenthash records, and future record types through
-standardized resolver interfaces.
-
-These records are intentionally flexible. They define the value returned by a
-resolver; they do not prove that the current ENS authority controls the
-external resource represented by that value.
-
-Record Verification defines a record-scoped verification layer for ENS
-resolver records. A name can advertise verification metadata for one specific
-record. A client can then validate that the external target represented by the
-exact live record is controlled or covered by an attestation accepted under
-client policy.
-
-## Problem Statement
-
-An ENS resolver record proves that a resolver returns a value for a key. It
-does not, by itself, prove control of the external target represented by that
-value.
+ENS resolver records are a general-purpose discovery mechanism for resources associated with an ENS name. A resolver can publish text records, multichain address records, contenthash records, and future record types through standardized resolver interfaces.
 
 ```text
 text("url")        = "https://example.com"
 text("com.github") = "alice"
-addr(60)           = 0x1234...
-contenthash()      = ipfs://bafy...
+addr(60)           = 0x3e708BBb834B769b1ef098946ed1FFdC17450d98
+contenthash()      = ipfs://bafybeicgihbuw676u6fve77v3654mco4vco6b6gbebeun6vby76p6cj77e
 ```
 
-The party authorized to update the resolver can set these values. That update
-does not prove control of `example.com`, the GitHub account `alice`, the target
-blockchain account, or the published content root. Without a separate proof, a
-client must treat each association as self-asserted resolver data.
+These records are intentionally flexible. They define the value returned by a resolver; they do not prove that the current ENS authority controls the external resource represented by that value.
 
-Some records are descriptive metadata and need no verification. Others affect
-payments, account linking, application connections, agent endpoints, or issuer
-claims. For those records, clients need a precise way to determine what was
-proved and which live resolver value the proof covers.
+The party authorized to update the resolver can set these values. That update does not prove control of `example.com`, the GitHub account `alice`, the target blockchain account, or the published content root. Without a separate proof, a client must treat each association as self-asserted resolver data.
+
+Some records are descriptive metadata and need no verification. Others affect payments, account linking, application connections, agent endpoints, or issuer claims. For those records, clients need a precise way to determine what was proved and which live resolver value the proof covers.
+
+Record Verification defines a record-scoped verification layer for ENS resolver records. A name can advertise verification metadata for one specific record. A client can then validate that the external target represented by the exact live record is controlled or covered by an attestation accepted under client policy.
 
 ## How It Works
 
@@ -55,23 +34,23 @@ For this URL record, a verifier checks:
 4. the proof published by `https://example.com`;
 5. proof validity and expiry.
 
-If every required check passes, the result contains `verified: true` and
-`verificationType: "control"`. Otherwise it contains `verified: false`.
-Verification never changes whether the original ENS record resolves.
+If every required check passes, the result contains
+
+```json
+{ "verified": "true", "verificationType": "control" }
+```
+
+Otherwise it contains
+
+```json
+{ "verified": "false" }
+```
 
 The result is deliberately narrow. It proves a bounded relationship between
 the ENS name, one resolver record, its current value, and the method target. It
 does not prove that a URL is safe, an address is non-malicious, a social account
 is legally authentic, content is trustworthy, or an issuer is globally
 trusted.
-
-The base protocol reserves an `attestation` result for future method profiles.
-Version 1 does not define a concrete attestation method.
-
-Resolver write permission can be delegated. A positive control result requires
-the current ENS authority to approve the claim and proves target control for
-the exact live association; it does not prove that the authority personally
-operates the target.
 
 ## Start Here
 
