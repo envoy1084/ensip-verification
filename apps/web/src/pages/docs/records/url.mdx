@@ -65,8 +65,9 @@ The verifier performs these steps:
 7. Derive the proof key and fetch the deterministic same-origin resource.
 8. Require the retrieved bytes to match descriptor `h`.
 9. Require the published envelope to match every expected claim field.
-10. Require the proof to be live and within its validity interval.
-11. Return `verified: true` with `verificationType: "control"`.
+10. Validate `authoritySignature` against the live ENS authority.
+11. Require the proof to be live and within its validity interval.
+12. Return `verified: true` with `verificationType: "control"`.
 
 If any required step does not succeed, return `verified: false`. The URL record
 continues to resolve normally.

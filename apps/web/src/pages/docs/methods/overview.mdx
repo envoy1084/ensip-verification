@@ -19,7 +19,8 @@ concrete method.
 | [`account-signature.bip322.v1`](./account-signature) | Bitcoin `addr(0)`             | `control`         | BIP-322 target signature                      |
 
 Every version 1 method requires evidence from the external target. Version 1
-does not define an attestation method.
+also requires the live ENS authority to sign the common claim. It does not
+define an attestation method.
 
 ## Common Requirements
 
@@ -29,8 +30,9 @@ Before applying a method, a verifier:
 2. derives the exact `valueHash` from the live resolver bytes;
 3. determines current exact-name ENS authority at that block;
 4. parses the proof envelope and compares every common claim field;
-5. checks the proof validity interval;
-6. applies the selected method to the same common claim.
+5. validates `authoritySignature` for that live authority;
+6. checks the proof validity interval;
+7. applies the selected method to the same common claim.
 
 A method succeeds only when its evidence proves the complete record-bound
 claim. Proving a target without matching the live ENS record is insufficient.
@@ -45,6 +47,11 @@ A new method specification MUST define:
 - permitted descriptor publication modes;
 - exact proof-envelope fields;
 - exact bytes or digest proven by the target or issuer;
+- any target-chain state needed to bind the proof to the live account;
 - validity, freshness, and revocation rules;
 - deterministic acceptance and rejection conditions;
 - security boundaries and interoperability requirements.
+
+Version 1 deliberately defines address profiles only for supported EVM records
+and Bitcoin `addr(0)`. Future ENSIPs may register additional immutable methods
+for other chains without changing either existing method.

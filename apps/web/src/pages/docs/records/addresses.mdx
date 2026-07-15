@@ -6,8 +6,8 @@ description: Record binding and native target-signature flows for ENS address re
 # Address Record Verification
 
 An ENS address record contains chain-specific account bytes. Address
-verification requires a native signature from the account represented by the
-exact live record.
+verification requires approval from the current ENS authority and a native
+signature from the account represented by the exact live record.
 
 ## Records
 
@@ -41,8 +41,9 @@ authority  = current exact-name ENS authority
 method, canonical target, issuedAt, validUntil
 ```
 
-The target signs a method-specific message that commits to the complete common
-claim digest. It does not sign only the displayed address string.
+The ENS authority signs the complete common claim. The target signs a
+method-specific message that commits to the same common-claim digest. It does
+not sign only the displayed address string.
 
 ## Publication Flow
 
@@ -57,6 +58,8 @@ sequenceDiagram
   P->>ENS: Read exact addr bytes
   P->>A: Read current exact-name authority
   P->>P: Construct common claim and digest
+  P->>A: Request EIP-712 authority signature
+  A-->>P: Authority signature over common claim
   P->>T: Request native signature over method message
   T-->>P: EIP-712, ERC-1271, or BIP-322 proof
   P->>S: Publish proof envelope
@@ -80,6 +83,8 @@ sequenceDiagram
   C->>S: Fetch u and verify h or IPFS CID
   S-->>C: Proof envelope
   C->>C: Reconstruct and compare complete common claim
+  C->>A: Validate authority signature at block B
+  A-->>C: Authority approval valid
   C->>T: Validate native target signature
   T-->>C: Signature valid for live target
   C-->>C: verified true, verificationType control
@@ -92,16 +97,17 @@ The verifier performs these steps:
 3. Determine current exact-name ENS authority at the same block.
 4. Retrieve external `u` and apply its required hash or CID integrity check.
 5. Reconstruct the expected common claim and compare every field.
-6. Construct the method-specific target-signature message.
-7. Validate the EOA, ERC-1271, or BIP-322 proof against the live target account.
-8. Require the proof to be within its validity interval.
-9. Return `verified: true` with `verificationType: "control"`.
+6. Validate `authoritySignature` against the live ENS authority.
+7. Construct the method-specific target-signature message.
+8. Validate the EOA, ERC-1271, or BIP-322 proof against the live target account.
+9. Require the proof to be within its validity interval.
+10. Return `verified: true` with `verificationType: "control"`.
 
 If any required step does not succeed, return `verified: false`.
 
 ## What The Result Means
 
-A positive result demonstrates that credentials controlling the target account
-approved a claim bound to this exact live ENS address record. It does not prove
-that the ENS authority and target account are the same person, that the account
-is uncompromised, or that sending funds is safe.
+A positive result demonstrates that the current ENS authority and credentials
+controlling the target account both approved a claim bound to this exact live
+ENS address record. It does not prove that they are the same person, that either
+account is uncompromised, or that sending funds is safe.

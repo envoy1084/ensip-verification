@@ -51,7 +51,7 @@ For this URL record, a verifier checks:
 
 1. the live `url` value and its verification descriptor;
 2. a claim bound to the exact ENS name, record selector, and resolver value;
-3. the current ENS authority bound into the claim;
+3. the current ENS authority bound into and signing the claim;
 4. the proof published by `https://example.com`;
 5. proof validity and expiry.
 
@@ -68,9 +68,10 @@ trusted.
 The base protocol reserves an `attestation` result for future method profiles.
 Version 1 does not define a concrete attestation method.
 
-Resolver write permission can be delegated. A positive control result proves
-target control for the exact resolver-published association; it does not prove
-that the current ENS authority personally operates the target.
+Resolver write permission can be delegated. A positive control result requires
+the current ENS authority to approve the claim and proves target control for
+the exact live association; it does not prove that the authority personally
+operates the target.
 
 ## Start Here
 

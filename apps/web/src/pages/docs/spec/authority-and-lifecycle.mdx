@@ -7,7 +7,7 @@ description: Authority Algorithm 1, validity, invalidation, and cache bounds.
 
 Authority identifies the current exact-name ENS authority bound into the common
 claim. It is independent of the resolver or account allowed to write resolver
-records. Version 1 does not require the authority to sign the claim.
+records. Version 1 requires the authority to sign the complete common claim.
 
 ## Authority Algorithm 1
 
@@ -39,6 +39,14 @@ Do not fall back to an ancestor, resolver writer, Universal Resolver, wildcard
 resolver, or CCIP Read gateway. Verification cannot succeed when the exact
 authority cannot be determined. The selected address must equal field
 `authority` in the common claim.
+
+## Authority Signature
+
+Calculate the EIP-712 digest of the complete common claim. Accept
+`proof.authoritySignature` when strict EOA recovery produces the selected
+authority or ERC-1271 validation against the selected authority returns
+`0x1626ba7e` at the evaluation block. The proof does not choose between these
+paths. Failure of both checks is non-positive.
 
 ## Subnames
 
@@ -85,6 +93,7 @@ Re-evaluation returns `verified: false` after any of these changes:
 - target record changed;
 - verification descriptor changed or was deleted;
 - exact authority changed or expired;
+- authority signature no longer validates;
 - live method publication was removed;
 - method evidence is revoked under the selected method;
 - effective validity expired;

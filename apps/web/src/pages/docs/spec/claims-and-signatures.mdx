@@ -9,11 +9,10 @@ Every method binds its evidence to the same common claim. The claim identifies
 one ENS name, one resolver record, its exact live value, the current ENS
 authority, and the external target derived by the method.
 
-The protocol does not require a signature from the ENS authority. Publishing
-the verification descriptor supplies the ENS-side association. Claim field
-`authority` must match live authority state. The descriptor commits to the
-proof bytes through `h` or a content-addressed `u`, so replacing the authority
-inside a proof requires a new ENS descriptor.
+Every proof requires approval from the current ENS authority and evidence from
+the external target. Claim field `authority` must match live authority state,
+and `proof.authoritySignature` must validate for that address. The descriptor
+commits to the proof bytes through `h` or a content-addressed `u`.
 
 ## Common Claim
 
@@ -57,7 +56,23 @@ verifyingContract: 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
 The Universal Resolver address is a domain-separation anchor. It does not
 authorize the proof or participate in target-signature validation.
 
-## Method Evidence
+## Authority Evidence
+
+The ENS authority signs the complete common claim using the EIP-712 domain
+above. Let `commonClaimDigest` be the resulting EIP-712 digest. A verifier
+accepts `authoritySignature` when either:
+
+- strict secp256k1 recovery of a 65-byte, low-`s` signature with `v` equal to 27
+  or 28 produces `claim.authority`; or
+- ERC-1271 validation of `(commonClaimDigest, authoritySignature)` against
+  `claim.authority` at the evaluation block returns `0x1626ba7e`.
+
+The proof does not contain a signature-kind discriminator. The verifier applies
+the permitted checks to the live authority address, so proof data cannot select
+a weaker validation path. Contract signatures are opaque, nonempty byte strings
+and MUST NOT exceed 8,192 bytes.
+
+## Target Evidence
 
 A method proves the common claim in one of three ways:
 
@@ -113,13 +128,17 @@ authority so an authority transfer selects a different publication slot.
     "issuedAt": "1783728000",
     "validUntil": "1786320000"
   },
-  "proof": {}
+  "proof": {
+    "authoritySignature": "0x<signature>"
+  }
 }
 ```
 
 The envelope and claim are closed objects. Implementations MUST detect duplicate
-members before constructing a map. `proof` is a method-defined closed
-object.
+members before constructing a map. `proof` is a method-defined closed object
+that always contains exactly one common `authoritySignature` plus the fields
+required by the selected method.
 
-The JSON bytes are not signed. Parse the claim, compare every field with live
-inputs, encode the fields as EIP-712, and then apply the selected method.
+The JSON serialization is not signed. Parse the claim, compare every field with
+live inputs, encode the fields as EIP-712, validate the authority signature,
+and then apply the selected method.

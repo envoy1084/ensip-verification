@@ -16,9 +16,10 @@ A name publishes a verification descriptor for one resolver record. A verifier
 binds method evidence to the exact live record value, the current exact-name ENS
 authority, and a canonical external target.
 
-A successful verification demonstrates target control or a policy-accepted
-attestation for that record. The protocol uses existing ENS text records and
-requires no resolver interface or contract change.
+A successful verification demonstrates that the current ENS authority approved
+the claim and that method evidence established target control or a
+policy-accepted attestation for that record. The protocol uses existing ENS
+text records and requires no resolver interface or contract change.
 
 ## Motivation
 
@@ -63,6 +64,8 @@ RFC 8174.
   methods.
 - **Current ENS authority**: the exact-name account selected by the descriptor's
   authority algorithm.
+- **Authority evidence**: an EIP-712 or ERC-1271 signature by the current ENS
+  authority over the complete common claim.
 - **Canonical target**: the external resource derived from the live record by a
   method profile.
 - **Method evidence**: target proof or issuer attestation defined by a method.
@@ -151,6 +154,15 @@ Every method MUST use this exact EIP-712 type:
 ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,address authority,string method,string target,uint64 issuedAt,uint64 validUntil)
 ```
 
+Version 1 uses this EIP-712 domain on Ethereum mainnet:
+
+```text
+name:              ENS Record Verification
+version:           1
+chainId:           1
+verifyingContract: 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
+```
+
 | Field              | Requirement                                        |
 | ------------------ | -------------------------------------------------- |
 | `name`             | ENSIP-15 normalized exact name.                    |
@@ -183,18 +195,21 @@ The common envelope is:
     "issuedAt": "1783728000",
     "validUntil": "1786320000"
   },
-  "proof": {}
+  "proof": {
+    "authoritySignature": "0x<signature>"
+  }
 }
 ```
 
-The envelope and claim MUST be closed JSON objects. Clients MUST reject
-duplicate members before constructing a map. Decimal integers MUST use
-canonical strings within their EIP-712 ranges. Byte values MUST use lowercase,
-even-length, `0x`-prefixed hexadecimal.
+The envelope, claim, and proof MUST be closed JSON objects. Every method proof
+MUST contain exactly one common `authoritySignature` plus its method-defined
+fields. Clients MUST reject duplicate members before constructing a map.
+Decimal integers MUST use canonical strings within their EIP-712 ranges. Byte
+values MUST use lowercase, even-length, `0x`-prefixed hexadecimal.
 
 The JSON serialization is not signed. Clients parse and compare every claim
-field, encode the common claim as EIP-712, and apply the selected method to that
-claim or its digest.
+field, encode the common claim as EIP-712, validate the authority signature,
+and apply the selected method to that claim or its digest.
 
 ### Value Hashing
 
@@ -233,6 +248,15 @@ Descriptor `a=1` selects Authority Algorithm 1 on Ethereum mainnet.
 Clients MUST NOT substitute an ancestor owner, resolver writer, wildcard
 resolver, Universal Resolver, CCIP Read gateway, or gateway signer. The selected
 address MUST equal claim field `authority`.
+
+Calculate `commonClaimDigest` using the EIP-712 type and domain above. Clients
+MUST accept `proof.authoritySignature` only when either strict recovery of a
+65-byte, low-`s`, `r || s || v` secp256k1 signature with `v` equal to 27 or 28
+produces the selected authority, or ERC-1271 validation of
+`(commonClaimDigest, authoritySignature)` against the selected authority at the
+evaluation block returns `0x1626ba7e`. Contract signatures are opaque, nonempty
+byte strings and MUST NOT exceed 8,192 bytes. The proof MUST NOT select the
+authority-validation path.
 
 ### Proof Key
 
@@ -284,10 +308,11 @@ effectiveValidUntil = min(
 )
 ```
 
-A record-value, descriptor, authority, method-evidence, validity, or evaluation
-block change invalidates the cached evaluation and requires a new live
-evaluation. The new evaluation may still succeed if the updated state and proof
-match. Descriptor deletion cannot produce a positive result.
+A record-value, descriptor, authority, authority-signature, method-evidence,
+validity, or evaluation block change invalidates the cached evaluation and
+requires a new live evaluation. The new evaluation may still succeed if the
+updated state and proof match. Descriptor deletion cannot produce a positive
+result.
 
 Descriptor deletion is the common ENS-side revocation action. Clients MUST
 re-evaluate live state before a security-sensitive use and MUST NOT reuse cached
@@ -324,6 +349,7 @@ A concrete method MUST define:
 - canonical target derivation;
 - permitted `u` and `h` combinations;
 - exact proof location and closed proof schema;
+- common authority-signature validation and exact target-proof fields;
 - exact method evidence and its binding to the complete common claim;
 - maximum lifetime, freshness, and revocation behavior;
 - deterministic acceptance and rejection conditions;
@@ -337,6 +363,11 @@ Version 1 defines:
 | `dns-txt.url.v1`              | `control`         | `text("url")`                 |
 | `account-signature.eip155.v1` | `control`         | Supported EVM address records |
 | `account-signature.bip322.v1` | `control`         | Bitcoin `addr(0)`             |
+
+Version 1 defines address verification only for the EVM and Bitcoin profiles
+above. Future ENSIPs MAY register immutable methods for additional CAIP
+namespaces and native signature systems without changing either existing
+method.
 
 ### URL Example
 
@@ -352,9 +383,10 @@ the live authority with the claim, and retrieves the common envelope from:
 https://example.com/.well-known/ens-record-verification/<proof-key-hex>
 ```
 
-It then requires the retrieved bytes to match descriptor `h`. Same-origin
-publication of the matching, unexpired proof demonstrates control of the origin
-for this exact record.
+It then requires the retrieved bytes to match descriptor `h`, validates the
+authority signature, and applies the target method. Same-origin publication of
+the matching, unexpired proof demonstrates control of the origin for this exact
+record.
 
 ## Rationale
 
@@ -366,12 +398,12 @@ The descriptor selects a method and external proof source. Proof bytes carry
 the record-bound claim. `valueHash` covers the resolver's exact raw
 value while each method separately derives its semantic target.
 
-The current authority is carried in the claim and compared with live authority
-state. The descriptor commits to the proof bytes through `h` or a
-content-addressed URI. A name transfer therefore invalidates the old proof, and
-a proof for the new authority requires a new ENS descriptor commitment. The
-verification descriptor establishes the ENS-side association; method evidence
-establishes target control or attestation.
+The current authority is carried in the claim, compared with live authority
+state, and required to sign the claim. The descriptor commits to the proof
+bytes through `h` or a content-addressed URI. A name transfer therefore
+invalidates the old proof, and a proof for the new authority requires both new
+authority approval and a new ENS descriptor commitment. Method evidence
+separately establishes target control or attestation.
 
 ## Backwards Compatibility
 
@@ -388,16 +420,11 @@ A valid proof can bind an attacker-controlled ENS name to an attacker-controlled
 target. Verification is not evidence of safety, reputation, legal ownership,
 brand identity, or ENS endorsement.
 
-Resolver write permission may be delegated. Binding the exact current ENS
-authority prevents a proof from surviving a name transfer, but a party able to
-write both the target record and descriptor can publish an association while it
-retains that permission. Applications must decide whether that resolver
-delegation model is acceptable for their use case.
-
-Because version 1 does not require a separate approval from the exact-name
-authority, a positive result does not prove that the authority personally
-operates or approved the target. It proves target control for an association
-published through the name's resolver permissions.
+Resolver write permission may be delegated, but a delegated writer cannot
+produce a positive result without a signature from the exact current ENS
+authority. That signature proves approval of the record-bound claim; it does
+not prove that the authority personally operates the target or that either
+party is uncompromised.
 
 Proof retrieval reveals lookup interest and processes untrusted network input.
 Methods using remote resources must define secure transport, integrity,

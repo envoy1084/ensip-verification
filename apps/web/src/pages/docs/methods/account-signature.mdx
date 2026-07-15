@@ -7,7 +7,8 @@ description: Native target-account signatures for EVM and Bitcoin address record
 
 Account-signature methods demonstrate control of the account represented by an
 ENS address record. The target account signs evidence bound to the complete
-common claim.
+common claim. The ENS authority independently signs the same common claim, so a
+positive result requires approval from both sides of the association.
 
 ## Proof Locations
 
@@ -27,6 +28,26 @@ the `raw` codec, and `sha2-256`; query and fragment components are forbidden.
 The raw block bytes are the envelope bytes. For HTTPS, `u` and `h` are required.
 
 For both account methods, `validUntil - issuedAt` MUST NOT exceed 90 days.
+
+Version 1 defines only the EVM and Bitcoin profiles below. Future ENSIPs MAY add
+new immutable account-signature methods for other CAIP namespaces and native
+signature systems. A new method must define its coin-type mapping, canonical
+target, exact signed bytes, proof encoding, account-to-key binding, and
+deterministic validation rules.
+
+## Method Selection
+
+The concrete method identifier selects the complete verification procedure;
+the proof only supplies evidence for that procedure. Version 1 therefore uses
+`account-signature.eip155.v1` and `account-signature.bip322.v1`, not one generic
+`account-signature.v1` with a proof-selected scheme. A proof-supplied scheme
+would not be present in the signed common claim and would create invalid or
+ambiguous namespace-and-algorithm combinations.
+
+Method profiles MAY support multiple validation paths when the live account
+state deterministically selects or validates them. They MUST NOT let an
+untrusted proof field choose a weaker path. A future incompatible signing
+procedure requires a new immutable method identifier.
 
 ## EVM: `account-signature.eip155.v1`
 
@@ -65,15 +86,30 @@ verifyingContract: target account address
 
 ```json
 {
+  "authoritySignature": "0x<signature>",
   "targetSignature": "0x<signature>"
 }
 ```
 
-For an EOA, require a 65-byte `r || s || v` secp256k1 signature, low `s`, and
-`v` equal to 27 or 28. Recovery MUST produce the target address. For a contract
-account, select a finalized target-chain block before validation, call ERC-1271
-at that block, and require `0x1626ba7e`. The selected target-chain block is part
-of the evaluation context and applies to the entire account check.
+Let `targetProofDigest` be the EIP-712 digest of the
+`ENSRecordAccountProof` value and domain above. `targetSignature` is one opaque,
+nonempty, `0x`-prefixed byte string and MUST NOT exceed 8,192 bytes. The proof
+does not declare `eoa`, `contract`, or a signature algorithm. A verifier accepts
+the target signature when either strict recovery from `targetProofDigest` of a
+65-byte, low-`s`, `r || s || v` secp256k1 signature with `v` equal to 27 or 28
+produces the target address, or ERC-1271 validation of
+`(targetProofDigest, targetSignature)` against the target address returns
+`0x1626ba7e`.
+
+ERC-1271 is evaluated at one selected finalized target-chain block. That block
+is part of the evaluation context and applies to the entire account check. The
+verifier, rather than an untrusted proof field, selects and applies the allowed
+validation paths. This supports EOAs, contract wallets, multisigs, and delegated
+account implementations without creating an algorithm-confusion field.
+
+An EVM proof does not include a public key: a valid EOA signature recovers the
+address, while ERC-1271 binds opaque signature bytes directly to the target
+contract.
 
 ## Bitcoin: `account-signature.bip322.v1`
 
@@ -104,21 +140,23 @@ BIP-322's required script rules apply, including `SIGHASH_ALL`, or
 
 ```json
 {
-  "format": "bip322-simple-v2",
-  "signature": "smp<canonical-padded-base64-witness>"
+  "authoritySignature": "0x<signature>",
+  "targetSignature": "smp<canonical-padded-base64-witness>"
 }
 ```
 
-The verifier decodes the signature, applies BIP-322 Simple verification to the
-live scriptPubKey and exact message bytes. Other BIP-322 variants, legacy
-Bitcoin message signatures, unsupported scripts, and incompatible sighash forms
-are rejected.
+The method identifier already selects BIP-322 Simple version 2, so the proof
+does not repeat a freely selectable scheme or format. The verifier decodes
+`targetSignature` and applies BIP-322 Simple verification to the live
+scriptPubKey and exact message bytes. Other BIP-322 variants, legacy Bitcoin
+message signatures, unsupported scripts, and incompatible sighash forms are
+rejected.
 
 ## Result
 
-After comparing the complete common claim and validating the native target
-signature, return `verified: true` with `verificationType: "control"`.
-Otherwise return `verified: false`.
+After comparing the complete common claim and validating both the ENS-authority
+signature and native target signature, return `verified: true` with
+`verificationType: "control"`. Otherwise return `verified: false`.
 
 ## Security Boundary
 

@@ -32,8 +32,8 @@ validate target control or a policy-accepted attestation.
 ```mermaid
 flowchart LR
   A["Read live record and descriptor"] --> B["Bind proof to exact value"]
-  B --> C["Compare the live ENS authority"]
-  C --> D["Validate method evidence"]
+  B --> C["Validate live authority approval"]
+  C --> D["Validate target evidence"]
   D --> E["Return a structured result"]
 ```
 
@@ -42,16 +42,17 @@ A verifier reads both records at the same Ethereum block. It then checks that:
 1. the common claim identifies the same ENS name and record selector;
 2. `valueHash` matches the current resolver value;
 3. the claim names the current authority for the exact ENS name;
-4. the selected method proof is valid;
-5. the claim and proof have not expired or been revoked.
+4. that authority signed the complete common claim;
+5. the selected method proof is valid;
+6. the claim and proof have not expired or been revoked.
 
 ## Results
 
-| Result                                              | Meaning                                                                         |
-| --------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `verified: true`, `verificationType: "control"`     | Method evidence demonstrated control of the record's canonical external target. |
-| `verified: true`, `verificationType: "attestation"` | A client-accepted issuer attested to the record-bound claim.                    |
-| `verified: false`                                   | One or more required checks did not pass.                                       |
+| Result                                              | Meaning                                                                                       |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `verified: true`, `verificationType: "control"`     | The live authority approved the claim and method evidence demonstrated control of its target. |
+| `verified: true`, `verificationType: "attestation"` | A client-accepted issuer attested to the record-bound claim.                                  |
+| `verified: false`                                   | One or more required checks did not pass.                                                     |
 
 The target may be an HTTPS origin, DNS domain, blockchain account, or another
 resource defined by a method profile. The method profile defines what evidence
