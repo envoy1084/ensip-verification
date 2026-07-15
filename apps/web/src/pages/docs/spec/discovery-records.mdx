@@ -1,59 +1,118 @@
 ---
-title: Resolution and Discovery
-description: Target selectors, verification keys, and block snapshot requirements.
+title: Discovery Records
+description: How a verifier finds the verification descriptor for an ENS record.
 ---
 
-# Resolution and Discovery
+# Discovery Records
 
-This component maps resolver calls to deterministic verification text records.
-It can be reviewed independently from the descriptor, claim, authority, and
-method components.
+Each verification descriptor is stored as an ENS text record next to the
+record it verifies. Its key is derived from the target record, so a verifier
+always knows where to look.
 
-## Resolution Input
-
-A verifier starts with an ENS name, a resolver function, and the function's
-exact key or numeric argument. Together, the function and argument form the
-record selector.
-
-The name is ENSIP-15 normalized before constructing resolver calldata.
-
-## Selector Mapping
-
-| Resolver call          | `recordType`  | `recordKey`                 | Verification text key            |
-| ---------------------- | ------------- | --------------------------- | -------------------------------- |
-| `text(node, key)`      | `text`        | Exact key                   | `verification[text][<key>]`      |
-| `addr(node, coinType)` | `addr`        | Canonical decimal coin type | `verification[addr][<coinType>]` |
-| `contenthash(node)`    | `contenthash` | Empty string                | `verification[contenthash]`      |
-| `data(node, key)`      | `data`        | Exact key                   | `verification[data][<key>]`      |
-
-Text and data keys use exact concatenation. A key such as
-`agent-endpoint[mcp]` produces:
+For example, assume `alice.eth` has this URL:
 
 ```text
-verification[text][agent-endpoint[mcp]]
+text("url") = "https://example.com/profile"
 ```
 
-Do not parse nested brackets. Match the fixed prefix and final `]`.
+Its verification descriptor is stored at:
 
-## Resolver Return Bytes
+```text
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1 h=0x..."
+```
 
-| Record type   | Bytes hashed as `valueHash`    | Missing value     |
-| ------------- | ------------------------------ | ----------------- |
-| `text`        | UTF-8 bytes of returned string | Empty string      |
-| `addr`        | Returned native address bytes  | Zero-length bytes |
-| `contenthash` | Returned contenthash bytes     | Zero-length bytes |
-| `data`        | Returned data bytes            | Zero-length bytes |
+The first record contains the value being verified. The second tells the
+verifier how to verify it. Both records belong to the same exact ENS name.
 
-Display decoding and target canonicalization occur after hashing.
+## Finding The Descriptor
 
-## Snapshot
+A descriptor key starts with `verification`, followed by the target record type
+and its key:
 
-Resolve the target record and verification record through Universal Resolver
-for the same exact DNS-encoded name and block reference. Pin subsequent
-authority reads to that block.
+```text
+verification[<record type>][<record key>]
+```
 
-If the evaluation block is reorganized before the result is consumed, discard
-the result and evaluate again.
+Here are the supported mappings:
 
-CCIP Read may obtain data offchain, but the callback is executed against the
-same pinned Ethereum state. A gateway response does not define ENS authority.
+| Target record         | Verification text record                  |
+| --------------------- | ----------------------------------------- |
+| `text("url")`         | `text("verification[text][url]")`         |
+| `text("com.github")`  | `text("verification[text][com.github]")`  |
+| `addr(60)`            | `text("verification[addr][60]")`          |
+| `addr(0)`             | `text("verification[addr][0]")`           |
+| `contenthash()`       | `text("verification[contenthash]")`       |
+| `data("com.example")` | `text("verification[data][com.example]")` |
+
+`contenthash()` has no key, so its descriptor is simply
+`verification[contenthash]`.
+
+The same type and key identify the target in the common claim:
+
+| Target record         | `recordType`  | `recordKey`   |
+| --------------------- | ------------- | ------------- |
+| `text("url")`         | `text`        | `url`         |
+| `addr(60)`            | `addr`        | `60`          |
+| `contenthash()`       | `contenthash` | Empty string  |
+| `data("com.example")` | `data`        | `com.example` |
+
+## Exact Key Rules
+
+For `text` and `data` records, copy the target key exactly. Do not lowercase,
+trim, normalize, or escape it.
+
+For example:
+
+```text
+text("agent-endpoint[mcp]")
+```
+
+maps to:
+
+```text
+text("verification[text][agent-endpoint[mcp]]")
+```
+
+Brackets inside the target key remain unchanged. They are part of the target
+key, not extra separators to parse.
+
+For address records, write the coin type as normal unsigned decimal:
+
+- use `60`, not `060` or `+60`;
+- use `0` for Bitcoin;
+- do not include spaces.
+
+These rules ensure every target record has one predictable descriptor key.
+
+## Reading The Records
+
+The verifier first normalizes the ENS name using ENSIP-15. It then reads the
+target record and its descriptor through the Universal Resolver.
+
+Both reads use the same exact ENS name and the same Ethereum block. This matters
+because either record could change between two different blocks. Mixing an old
+target value with a new descriptor could produce a result for a combination
+that never existed onchain.
+
+All later ENS authority checks also use this block. If the block is removed by
+a chain reorganization before the result is used, the verifier starts again
+from a new block.
+
+CCIP Read may fetch resolver data from an offchain gateway. The resolver
+callback still validates that data against the pinned Ethereum block. The
+gateway does not become the ENS authority.
+
+## Hashing The Target Value
+
+The proof is bound to the exact value returned by the resolver. Hash the value
+before converting it into a display format or a canonical target.
+
+| Record type   | Value used for `valueHash`       |
+| ------------- | -------------------------------- |
+| `text`        | UTF-8 bytes of the returned text |
+| `addr`        | Raw address bytes                |
+| `contenthash` | Raw contenthash bytes            |
+| `data`        | Raw data bytes                   |
+
+An empty target record or an empty descriptor cannot produce a positive
+verification result.
