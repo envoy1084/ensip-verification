@@ -1,7 +1,5 @@
 {
-  "index": "Introduction",
-  "spec": "Specification",
-  "methods": "Method Profiles",
-  "records": "Record Guides",
-  "reference": "Reference"
+  "components": "Components",
+  "methods": "Methods",
+  "reference": "References"
 }

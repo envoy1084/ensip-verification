@@ -14,25 +14,28 @@ export default defineConfig({
     {
       text: "Components",
       items: [
-        { text: "Overview", link: "/docs/spec/overview" },
-        { text: "Discovery Records", link: "/docs/spec/discovery-records" },
+        { text: "Overview", link: "/docs/components/overview" },
+        {
+          text: "Discovery Records",
+          link: "/docs/components/discovery-records",
+        },
         {
           text: "Verification Descriptor",
-          link: "/docs/spec/verification-descriptor",
+          link: "/docs/components/verification-descriptor",
         },
         {
           text: "Claims and Target Proofs",
-          link: "/docs/spec/claims-and-signatures",
+          link: "/docs/components/claims-and-signatures",
         },
         {
           text: "Authority and Lifecycle",
-          link: "/docs/spec/authority-and-lifecycle",
+          link: "/docs/components/authority-and-lifecycle",
         },
-        { text: "Verification Results", link: "/docs/spec/results" },
+        { text: "Verification Results", link: "/docs/components/results" },
       ],
     },
     {
-      text: "Method Profiles",
+      text: "Methods",
       items: [
         { text: "Overview", link: "/docs/methods/overview" },
         { text: "HTTPS Origin", link: "/docs/methods/https-origin" },
@@ -41,14 +44,7 @@ export default defineConfig({
       ],
     },
     {
-      text: "Record Guides",
-      items: [
-        { text: "URL Records", link: "/docs/records/url" },
-        { text: "Address Records", link: "/docs/records/addresses" },
-      ],
-    },
-    {
-      text: "Reference",
+      text: "References",
       items: [{ text: "References", link: "/docs/reference/references" }],
     },
   ],
