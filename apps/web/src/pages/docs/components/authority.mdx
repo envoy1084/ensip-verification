@@ -35,7 +35,6 @@ Authority resolution uses:
 | Normalized name    | Selects the exact name, not its parent or resolver.              |
 | `authorityVersion` | Selects one immutable authority algorithm.                       |
 | Evaluation block   | Pins ownership, expiry, records, and signatures to one snapshot. |
-| Trusted deployment | Supplies the chain, registry, registrar, and wrapper addresses.  |
 
 The descriptor field `a` is an authority algorithm version. It is not an ENS
 protocol version. A change to ENS ownership rules can allocate a new authority
@@ -45,8 +44,8 @@ version without changing discovery, claims, methods, or results.
 
 The descriptor does not get to force an obsolete authority algorithm. At the
 evaluation block, a verifier must first identify the name's live ownership
-system from trusted deployment state. It then requires descriptor field `a` to
-name a profile that applies to that state.
+system from live ENS state. It then requires descriptor field `a` to name a
+profile that applies to that state.
 
 If two ownership systems appear active, the migration state is unknown, or the
 selected profile does not apply, authority resolution fails. A profile must
@@ -65,18 +64,26 @@ mainnet.
 
 The selected authority depends on how the exact name is registered:
 
-| Name state                               | Authority                       | Authority expiry                    |
-| ---------------------------------------- | ------------------------------- | ----------------------------------- |
-| Unwrapped `.eth` second-level name       | Base Registrar registrant       | Base Registrar expiry               |
-| Other unwrapped name or subname          | Exact ENS Registry owner        | None exposed by the Registry        |
-| Wrapped `.eth` second-level name         | Exact Name Wrapper owner        | Base Registrar expiry               |
-| Wrapped emancipated subname              | Exact Name Wrapper owner        | Exact wrapper expiry                |
-| Wrapped parent-controlled name           | Exact Name Wrapper owner        | None; wrapper expiry resets fuses   |
-| Imported DNS name                        | Registry or wrapper owner above | Same rule as its current ENS state  |
-| Exact name whose resolver uses CCIP Read | Same exact-name owner above     | Same rule as its current ENS state  |
-| Name held by a custom registrar          | Exact Registry-owner contract   | No generic registrar expiry         |
-| Ownerless wildcard or offchain-only name | Unsupported                     | Not applicable                      |
-| Reverse namespace name                   | Unsupported by Algorithm 1      | Separate authority profile required |
+```mermaid
+flowchart TD
+  A["Exact normalized ENS name"] --> B{"Name is below .reverse?"}
+  B -- "Yes" --> U["unsupported_authority"]
+  B -- "No" --> C["Read ENS Registry owner"]
+  C --> D{"Owner is Name Wrapper?"}
+  D -- "Yes" --> E["Read wrapped owner, fuses, and expiry"]
+  E --> F{"Wrapped owner is zero?"}
+  F -- "Yes" --> U
+  F -- "No" --> G{"Wrapped .eth second-level name?"}
+  G -- "Yes" --> H["Authority: wrapped owner<br/>Expiry: Base Registrar"]
+  G -- "No" --> I{"PARENT_CANNOT_CONTROL burned?"}
+  I -- "Yes" --> J["Authority: wrapped owner<br/>Expiry: wrapper"]
+  I -- "No" --> K["Authority: wrapped owner<br/>No authority-expiry bound"]
+  D -- "No" --> L{"Unwrapped .eth second-level name?"}
+  L -- "Yes" --> M["Authority: Base Registrar registrant<br/>Expiry: Base Registrar"]
+  L -- "No" --> N{"Registry owner is zero?"}
+  N -- "Yes" --> U
+  N -- "No" --> O["Authority: exact Registry owner<br/>No authority-expiry bound"]
+```
 
 An imported DNS name uses its current ENS owner. A positive result proves that
 owner approved the ENS record; it does not prove that the owner still controls
@@ -88,8 +95,9 @@ Use the evaluation block for every contract call and its timestamp for every
 expiry check.
 
 1. Normalize the name with ENSIP-15 and calculate its namehash.
-2. Read `ENSRegistry.owner(node)`.
-3. If the Registry owner is the Name Wrapper:
+2. Reject every name at or below the `reverse` suffix.
+3. Read `ENSRegistry.owner(node)`.
+4. If the Registry owner is the Name Wrapper:
    1. read `NameWrapper.getData(uint256(node))`;
    2. require a nonzero exact wrapped owner;
    3. for a wrapped `.eth` second-level name, require the Base Registrar
@@ -99,12 +107,10 @@ expiry check.
       expiry to be active and use that expiry;
    5. otherwise select the wrapped owner without treating wrapper expiry as an
       ownership expiry.
-4. Otherwise, for an unwrapped `.eth` second-level name:
+5. Otherwise, for an unwrapped `.eth` second-level name:
    1. calculate `tokenId = uint256(keccak256(bytes(label)))`;
    2. require `BaseRegistrar.nameExpires(tokenId)` to be in the future;
    3. select `BaseRegistrar.ownerOf(tokenId)` and use the registration expiry.
-5. Reject name classes that Algorithm 1 does not define, including reverse
-   namespace names.
 6. For every other unwrapped name, require and select the nonzero exact
    `ENSRegistry.owner(node)`.
 7. Require the selected account to equal `claim.authority`.
@@ -138,18 +144,6 @@ generic ancestor registration generation that a verifier can bind.
 An emancipated wrapped child has its own explicit ownership expiry. A
 parent-controlled wrapped child does not gain independent ownership merely
 because it has an expiry value.
-
-## Custom Registrars
-
-ENS does not define one interface for discovering the end-user registrant or
-expiry inside every custom registrar. Algorithm 1 selects the exact Registry
-owner contract and requires that contract to approve through ERC-1271. It does
-not guess an internal registrant.
-
-If the registrar cannot validate the claim, verification is unsupported. A
-separate profile is required to recognize its end-user ownership and lifecycle.
-This means Algorithm 1 proves approval by the current ENS Registry controller,
-not by an unknown registrar's internal user.
 
 ## CCIP Read and Wildcard Names
 
