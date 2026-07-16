@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@thenamespace/uikit/styles";
 @import "@fontsource/inter/400.css";
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
@@ -12,6 +13,44 @@
 :root {
   --vocs-font-family: "Inter", sans-serif;
   --vocs-font-family-mono: "JetBrains Mono", monospace;
+
+  /* Keep Namespace UIKit components in sync with Vocs' active color scheme. */
+  --background: var(--vocs-background-color-primary);
+  --foreground: var(--vocs-text-color-primary);
+  --surface: var(--vocs-background-color-surface);
+  --surface-foreground: var(--vocs-text-color-primary);
+  --surface-secondary: var(--vocs-background-color-surfaceMuted);
+  --surface-secondary-foreground: var(--vocs-text-color-primary);
+  --surface-tertiary: var(--vocs-background-color-surfaceTint);
+  --surface-tertiary-foreground: var(--vocs-text-color-primary);
+  --overlay: var(--vocs-background-color-surface);
+  --overlay-foreground: var(--vocs-text-color-primary);
+  --muted: var(--vocs-text-color-muted);
+
+  --accent: var(--vocs-color-accent);
+  --accent-foreground: var(--vocs-color-accentInvert);
+  --default: var(--vocs-background-color-surfaceMuted);
+  --default-foreground: var(--vocs-text-color-primary);
+  --success: var(--vocs-color-success);
+  --success-foreground: var(--vocs-background-color-surface);
+  --warning: var(--vocs-color-warning);
+  --warning-foreground: var(--vocs-background-color-surface);
+  --danger: var(--vocs-color-destructive);
+  --danger-foreground: var(--vocs-background-color-surface);
+
+  --border: var(--vocs-border-color-primary);
+  --separator: var(--vocs-border-color-secondary);
+  --focus: var(--vocs-color-accent);
+  --link: var(--vocs-text-color-link);
+
+  --field-background: var(--vocs-background-color-surface);
+  --field-foreground: var(--vocs-text-color-primary);
+  --field-placeholder: var(--vocs-text-color-muted);
+  --field-border: var(--vocs-border-color-primary);
+
+  --radius: var(--vocs-radius-lg);
+  --field-radius: var(--vocs-radius-lg);
+  --font-sans: var(--vocs-font-family);
 }
 
 @theme {
