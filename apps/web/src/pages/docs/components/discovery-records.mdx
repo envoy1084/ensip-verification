@@ -3,7 +3,12 @@ title: Discovery Records
 description: Find the verification descriptor for an ENS record.
 ---
 
-import { Accordion, AccordionItem } from "../../../components/accordion.tsx";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTitle,
+} from "../../../components/accordion.tsx";
 
 # Discovery Records
 
@@ -49,8 +54,10 @@ If the block is removed by a chain reorganization, run verification again. CCIP 
 
 ## Issues And Decisions
 
-<Accordion allowsMultipleExpanded>
-  <AccordionItem title="Why use one descriptor record per target record?">
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Why use one descriptor record per target record?</AccordionTitle>
+    <AccordionContent>
 
 A client usually starts with a record it already wants to verify. A deterministic
 descriptor key lets it fetch that descriptor directly.
@@ -59,9 +66,13 @@ A single manifest would need to be rewritten whenever any record changes. It
 would also complicate concurrent updates and per-record resolver permissions. A
 future index may help with enumeration, but it must not be the source of truth.
 
+    </AccordionContent>
+
   </AccordionItem>
 
-  <AccordionItem title="Why use verification[type][key]?">
+  <AccordionItem>
+    <AccordionTitle>Why use `verification[type][key]`?</AccordionTitle>
+    <AccordionContent>
 
 The key mirrors the resolver selector. The record type prevents collisions
 between different resolver functions, while the record key identifies the exact
@@ -74,9 +85,13 @@ verification[text][60]
 verification[addr][60]
 ```
 
+    </AccordionContent>
+
   </AccordionItem>
 
-  <AccordionItem title="Why use brackets instead of dots, colons, or hashes?">
+  <AccordionItem>
+    <AccordionTitle>Why use brackets instead of dots, colons, or hashes?</AccordionTitle>
+    <AccordionContent>
 
 Brackets keep the record type and record key visibly separate. Dots are already
 common inside ENS text keys such as `com.github`, and hashes would make records
@@ -85,9 +100,13 @@ harder to inspect, edit, and debug.
 Bracketed parameters also have precedent in draft ENSIP-25 and ENSIP-26 record
 keys.
 
+    </AccordionContent>
+
   </AccordionItem>
 
-  <AccordionItem title="Do brackets conflict with ENSIP-5 key rules?">
+  <AccordionItem>
+    <AccordionTitle>Do brackets conflict with ENSIP-5 key rules?</AccordionTitle>
+    <AccordionContent>
 
 ENSIP-5 limits standardized global key names to lowercase letters, numbers, and
 hyphens. This proposal therefore needs to explicitly register
@@ -97,9 +116,13 @@ ordinary ENSIP-5 global key.
 This does not require a resolver change. Resolver text keys are arbitrary
 strings, and existing ENSIP drafts already use bracketed parameters.
 
+    </AccordionContent>
+
   </AccordionItem>
 
-  <AccordionItem title="What if a text key already contains brackets?">
+  <AccordionItem>
+    <AccordionTitle>What if a text key already contains brackets?</AccordionTitle>
+    <AccordionContent>
 
 Copy the target key exactly. Do not recursively parse its brackets.
 
@@ -111,9 +134,13 @@ text("agent-endpoint[mcp]")
 The verifier constructs the descriptor key from the known target selector. It
 does not need to recover the target key by parsing the descriptor key.
 
+    </AccordionContent>
+
   </AccordionItem>
 
-  <AccordionItem title="Why is the target key not normalized or escaped?">
+  <AccordionItem>
+    <AccordionTitle>Why is the target key not normalized or escaped?</AccordionTitle>
+    <AccordionContent>
 
 Resolver keys are exact strings. Lowercasing, trimming, normalizing, or escaping
 a key could point to a different record or make two distinct records share one
@@ -122,17 +149,25 @@ descriptor.
 The verification key therefore contains the target key exactly as supplied to
 the resolver.
 
+    </AccordionContent>
+
   </AccordionItem>
 
-  <AccordionItem title="Why encode address coin types as decimal?">
+  <AccordionItem>
+    <AccordionTitle>Why encode address coin types as decimal?</AccordionTitle>
+    <AccordionContent>
 
 One canonical representation prevents the same address record from having
 several descriptor keys. For example, coin type 60 is always `60`, never `060`,
 `+60`, or hexadecimal.
 
+    </AccordionContent>
+
   </AccordionItem>
 
-  <AccordionItem title="Why resolve everything at the same block?">
+  <AccordionItem>
+    <AccordionTitle>Why resolve everything at the same block?</AccordionTitle>
+    <AccordionContent>
 
 The target record, descriptor, and ENS authority can change independently.
 Reading them at different blocks could combine states that never existed
@@ -141,15 +176,21 @@ together.
 Using one block gives the verifier one consistent ENS snapshot. If that block is
 removed by a reorganization, the result is discarded and evaluated again.
 
+    </AccordionContent>
+
   </AccordionItem>
 
-  <AccordionItem title="Why use text records instead of a new resolver interface?">
+  <AccordionItem>
+    <AccordionTitle>Why use text records instead of a new resolver interface?</AccordionTitle>
+    <AccordionContent>
 
 Text records work with existing ENS resolvers and require no contract upgrade.
 They also preserve per-key reads and permissions in resolvers that support them.
 
 A new resolver interface would increase deployment and adoption requirements
 without improving verification semantics.
+
+    </AccordionContent>
 
   </AccordionItem>
 </Accordion>

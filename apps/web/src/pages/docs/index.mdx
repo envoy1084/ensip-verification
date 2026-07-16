@@ -64,15 +64,27 @@ trusted.
 - [References](/docs/reference/references): review the standards used by the
   protocol.
 
-import { Accordion, AccordionItem } from "../../components/accordion.tsx";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTitle,
+} from "../../components/accordion.tsx";
 
 <Accordion>
-  <AccordionItem title="Hello">World</AccordionItem>
-  <AccordionItem title="Hello 1">
+  <AccordionItem>
+    <AccordionTitle>**Hello**</AccordionTitle>
+    <AccordionContent>World</AccordionContent>
+  </AccordionItem>
+  <AccordionItem>
+    <AccordionTitle>Hello 1</AccordionTitle>
+    <AccordionContent>
 
 ```ts
 const a = 1;
 ```
+
+    </AccordionContent>
 
   </AccordionItem>
 </Accordion>

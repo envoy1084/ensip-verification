@@ -11,8 +11,10 @@ export type AccordionProps = {
 
 export type AccordionItemProps = {
   children: ReactNode;
-  icon?: ReactNode;
-  title: ReactNode;
+};
+
+export type AccordionSlotProps = {
+  children: ReactNode;
 };
 
 export function Accordion({
@@ -29,21 +31,29 @@ export function Accordion({
   );
 }
 
-export function AccordionItem({ children, icon, title }: AccordionItemProps) {
+export function AccordionItem({ children }: AccordionItemProps) {
+  return <AccordionCore.Item>{children}</AccordionCore.Item>;
+}
+
+export function AccordionTitle({ children }: AccordionSlotProps) {
   return (
-    <AccordionCore.Item>
-      <AccordionCore.Heading>
-        <AccordionCore.Trigger>
-          {icon ? (
-            <span className="text-muted mr-3 size-4 shrink-0">{icon}</span>
-          ) : null}
-          {title}
-          <AccordionCore.Indicator />
-        </AccordionCore.Trigger>
-      </AccordionCore.Heading>
-      <AccordionCore.Panel>
-        <AccordionCore.Body>{children}</AccordionCore.Body>
-      </AccordionCore.Panel>
-    </AccordionCore.Item>
+    <AccordionCore.Heading>
+      <AccordionCore.Trigger>
+        {children}
+        <AccordionCore.Indicator />
+      </AccordionCore.Trigger>
+    </AccordionCore.Heading>
+  );
+}
+
+export function AccordionIcon({ children }: AccordionSlotProps) {
+  return <span className="text-muted mr-3 size-4 shrink-0">{children}</span>;
+}
+
+export function AccordionContent({ children }: AccordionSlotProps) {
+  return (
+    <AccordionCore.Panel>
+      <AccordionCore.Body>{children}</AccordionCore.Body>
+    </AccordionCore.Panel>
   );
 }
