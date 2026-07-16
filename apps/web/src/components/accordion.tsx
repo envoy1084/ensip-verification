@@ -55,7 +55,7 @@ export function AccordionContent({ children }: AccordionSlotProps) {
     <AccordionCore.Panel>
       <AccordionCore.Body>
         <div
-          className="space-y-6 text-base text-(--vocs-text-color-primary)"
+          className="space-y-6 text-sm text-(--vocs-text-color-primary)"
           data-v-content
         >
           {children}
