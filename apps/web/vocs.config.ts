@@ -29,12 +29,15 @@ export default defineConfig({
   sidebar: [
     {
       text: "Start",
-      items: [{ text: "Introduction", link: "/docs" }],
+      items: [
+        { text: "Introduction", link: "/docs" },
+        { text: "Protocol Overview", link: "/docs/components" },
+        { text: "Verification Walkthrough", link: "/docs/walkthrough" },
+      ],
     },
     {
-      text: "Components",
+      text: "Core Components",
       items: [
-        { text: "Overview", link: "/docs/components" },
         {
           text: "Discovery Records",
           link: "/docs/components/discovery-records",
@@ -44,12 +47,12 @@ export default defineConfig({
           link: "/docs/components/verification-descriptor",
         },
         {
-          text: "Claims and Target Proofs",
-          link: "/docs/components/claims-and-signatures",
-        },
-        {
           text: "Authority",
           link: "/docs/components/authority",
+        },
+        {
+          text: "Claims and Target Proofs",
+          link: "/docs/components/claims-and-signatures",
         },
         { text: "Lifecycle", link: "/docs/components/lifecycle" },
         { text: "Verification Results", link: "/docs/components/results" },

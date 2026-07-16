@@ -2,8 +2,8 @@
   "index": "Overview",
   "discovery-records": "Discovery Records",
   "verification-descriptor": "Verification Descriptor",
-  "claims-and-signatures": "Claims and Target Proofs",
   "authority": "Authority",
+  "claims-and-signatures": "Claims and Target Proofs",
   "lifecycle": "Lifecycle",
   "results": "Verification Results"
 }

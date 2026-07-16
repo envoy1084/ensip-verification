@@ -57,34 +57,15 @@ does not prove that a URL is safe, an address is non-malicious, a social account
 is legally authentic, content is trustworthy, or an issuer is globally
 trusted.
 
-## Start Here
+## Recommended Reading Order
 
-- [Components](/docs/components): understand each part of the protocol.
-- [Methods](/docs/methods/overview): see how each proof method works.
-- [References](/docs/reference/references): review the standards used by the
-  protocol.
-
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTitle,
-} from "../../components/accordion.tsx";
-
-<Accordion>
-  <AccordionItem>
-    <AccordionTitle>**Hello**</AccordionTitle>
-    <AccordionContent>World</AccordionContent>
-  </AccordionItem>
-  <AccordionItem>
-    <AccordionTitle>Hello 1</AccordionTitle>
-    <AccordionContent>
-
-```ts
-const a = 1;
-```
-
-    </AccordionContent>
-
-  </AccordionItem>
-</Accordion>
+1. [Protocol Overview](/docs/components) explains the complete verification
+   flow and how the components fit together.
+2. [Verification Walkthrough](/docs/walkthrough) follows one URL record from
+   ENS resolution to a verification result.
+3. [Core Components](/docs/components/discovery-records) defines discovery,
+   descriptors, authority, claims, proof lifecycle, and result semantics.
+4. [Method Profiles](/docs/methods/overview) defines how each external target
+   demonstrates control.
+5. [References](/docs/reference/references) lists the standards used by the
+   protocol.

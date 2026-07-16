@@ -1,0 +1,103 @@
+---
+title: Verification Walkthrough
+description: Follow one URL record from ENS resolution to a verification result.
+---
+
+# Verification Walkthrough
+
+This example follows one `text("url")` record through `https-origin.v1`. It
+shows how the components fit together without defining every validation rule.
+
+Assume `alice.eth` publishes:
+
+```text
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+```
+
+## 1. Read the Live Records
+
+The verifier normalizes `alice.eth`, selects an Ethereum evaluation block, and
+reads both records at that block.
+
+The [discovery key](./components/discovery-records) identifies the descriptor
+for `text("url")`. The [descriptor](./components/verification-descriptor) then
+selects Authority Algorithm 1 and the `https-origin.v1` method.
+
+## 2. Determine the Current Authority
+
+The verifier applies [Authority Algorithm 1](./components/authority) to live ENS
+state at the same block. Assume it returns:
+
+```text
+0x1234567890abcdef1234567890abcdef12345678
+```
+
+This value comes from ENS ownership state. It is not trusted merely because it
+appears in a proof.
+
+## 3. Derive the Expected Claim
+
+From the live inputs, the verifier constructs the expected
+[common claim](./components/claims-and-signatures). It binds:
+
+```text
+name             = alice.eth
+record           = text("url")
+record value     = https://example.com/profile
+authority        = 0x1234567890abcdef1234567890abcdef12345678
+method           = https-origin.v1
+target           = https://example.com
+validity period  = issuedAt through validUntil
+```
+
+The record value is represented by `valueHash`, calculated from the exact live
+resolver return bytes. A proof for another URL value cannot be reused.
+
+## 4. Fetch the Target Proof
+
+`https-origin.v1` derives the HTTPS origin and a deterministic proof path from
+the live inputs:
+
+```text
+https://example.com/.well-known/ens-record-verification/<proof-key>
+```
+
+The server returns a proof envelope containing the common claim and the ENS
+authority signature. Serving the valid proof at this path demonstrates control
+of the HTTPS origin. The authority signature independently confirms that the
+current ENS authority approved the same record-to-origin relationship.
+
+## 5. Validate the Proof
+
+The verifier checks that:
+
+1. every claim field matches the expected live input;
+2. `valueHash` matches the current resolver value;
+3. the claimed authority is still the current authority;
+4. `authoritySignature` validates for that authority;
+5. the HTTPS response satisfies the
+   [`https-origin.v1`](./methods/https-origin) rules;
+6. the proof is within its [validity period](./components/lifecycle).
+
+A failure at any step produces a non-positive result.
+
+## 6. Return the Result
+
+When every check succeeds:
+
+```json
+{
+  "verified": true,
+  "verificationType": "control"
+}
+```
+
+This result applies only to the exact `alice.eth` URL value evaluated at the
+selected block. It proves control of the derived HTTPS origin and approval by
+the current ENS authority. It does not prove that the website is safe,
+trustworthy, or operated personally by the ENS owner.
+
+Continue with [Discovery Records](./components/discovery-records) for the first
+core component, or open [Method Profiles](./methods/overview) to compare the
+available target-verification methods.
