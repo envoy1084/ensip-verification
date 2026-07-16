@@ -53,7 +53,14 @@ export function AccordionIcon({ children }: AccordionSlotProps) {
 export function AccordionContent({ children }: AccordionSlotProps) {
   return (
     <AccordionCore.Panel>
-      <AccordionCore.Body>{children}</AccordionCore.Body>
+      <AccordionCore.Body>
+        <div
+          className="space-y-6 text-base text-(--vocs-text-color-primary)"
+          data-v-content
+        >
+          {children}
+        </div>
+      </AccordionCore.Body>
     </AccordionCore.Panel>
   );
 }
