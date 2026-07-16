@@ -2,6 +2,9 @@ import { defineConfig } from "vocs/config";
 
 export default defineConfig({
   title: "Record Verification",
+  head: {
+    title: "ENSIP-X - Record Verfication",
+  },
   description:
     "ENS records identify external resources but do not prove who controls them. Bind proof to the live record value so clients can verify the connection.",
   baseUrl:
@@ -13,7 +16,10 @@ export default defineConfig({
   checkDeadlinks: true,
   editLink: {
     link: "https://github.com/envoy1084/ensip-verification/edit/main/apps/web/src/pages/:path",
+    text: "Suggest changes to this page",
   },
+  iconUrl: "/icon.svg",
+  logoUrl: { light: "/logo-light.svg", dark: "/logo-dark.svg" },
   socials: [
     { icon: "github", link: "https://github.com/envoy1084/ensip-verification" },
   ],

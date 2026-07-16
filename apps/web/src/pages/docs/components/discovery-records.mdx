@@ -13,8 +13,6 @@ text("url") = "https://example.com/profile"
 text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1 h=0x..."
 ```
 
-The first record is the value being verified. The second is its descriptor.
-
 ## Key Mapping
 
 | Target record    | Descriptor text key              | `recordType`  | `recordKey`       |
@@ -26,16 +24,14 @@ The first record is the value being verified. The second is its descriptor.
 
 The resolver `node` argument is the same for both records and is omitted above.
 
-For `text` and `data`, copy the key exactly. Do not trim, lowercase, normalize,
-or escape it. Brackets inside the key remain part of the key:
+For `text` and `data`, copy the key exactly. Do not trim, lowercase, normalize, or escape it. Brackets inside the key remain part of the key. example-
 
 ```text
 text("agent-endpoint[mcp]")
 → text("verification[text][agent-endpoint[mcp]]")
 ```
 
-For `addr`, encode the coin type as unsigned decimal. Use `60`, not `060` or
-`+60`. Bitcoin uses `0`.
+For `addr`, encode the coin type as unsigned decimal. Use `60`, not `060` or `+60`. Bitcoin uses `0`.
 
 ## Resolution
 
@@ -47,17 +43,4 @@ For each verification attempt:
 4. Read ENS authority state at that same block.
 5. Reject an empty target record or empty descriptor.
 
-If the block is removed by a chain reorganization, run verification again.
-CCIP Read is allowed, but its callback must use the same pinned block.
-
-## Value Hash
-
-`valueHash` is `keccak256` of the exact bytes returned by the resolver:
-
-- `text`: UTF-8 bytes of the returned string;
-- `addr`: raw address bytes;
-- `contenthash`: raw contenthash bytes;
-- `data`: raw data bytes.
-
-Hash the value before display decoding, checksum formatting, or target
-canonicalization.
+If the block is removed by a chain reorganization, run verification again. CCIP Read is allowed, but its callback must use the same pinned block.
