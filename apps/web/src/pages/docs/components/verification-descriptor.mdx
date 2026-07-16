@@ -42,35 +42,30 @@ the proof.
 signatures, base64, or `data:` URIs. A method that does not need an external
 location must forbid `u`.
 
-## Grammar
+## Format
+
+There are only two valid shapes:
 
 ```text
-descriptor        = %s"ensrv1" 1*(SP field)
-field             = authority-field / method-field / uri-field
-authority-field   = %s"a=" authority-version
-method-field      = %s"m=" method-id
-uri-field         = %s"u=" URI
-
-authority-version = NZDIGIT *DIGIT
-method-id         = method-name %s".v" method-version
-method-name       = method-label *(%s"." method-label)
-method-label      = LCALPHA [*method-char (LCALPHA / DIGIT)]
-method-char       = LCALPHA / DIGIT / %s"-"
-method-version    = NZDIGIT *DIGIT
-
-NZDIGIT           = %x31-39
-LCALPHA           = %x61-7A
+ensrv1 a=<number> m=<method-id>
+ensrv1 a=<number> m=<method-id> u=<absolute-uri>
 ```
 
-`URI` is the absolute URI production from
-[RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). `%s` uses the
-case-sensitive ABNF extension from
-[RFC 7405](https://www.rfc-editor.org/rfc/rfc7405).
+Read every part after `ensrv1` as `name=value`:
+
+- `ensrv1` is the exact, case-sensitive protocol identifier.
+- `a` is a whole number from `1` to `4294967295`. Do not use `+`, `-`, or
+  leading zeroes. For example, use `a=1`, not `a=01`.
+- `m` is a lowercase method identifier ending in `.v<number>`, such as
+  `https-origin.v1` or `account-signature.bip322.v1`. Each dot-separated name
+  starts with a letter, may contain letters, digits, and hyphens, and ends with
+  a letter or digit.
+- `u`, when the method requires it, is an absolute URI as defined by
+  [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). It must include a scheme,
+  such as `https://` or `ipfs://`.
 
 The complete descriptor is at most 2,048 ASCII bytes. `m` is at most 64 bytes
-and `u` is at most 1,024 bytes. Method labels start with a lowercase letter and
-end with a lowercase letter or digit. `a` must fit a nonzero `uint32` and both
-numeric versions use canonical decimal: no sign or leading zero.
+and `u` is at most 1,024 bytes.
 
 ## Encoding Rules
 
@@ -258,20 +253,41 @@ belongs in the method's proof envelope rather than in `u`.
     <AccordionTitle>Why is there no descriptor hash field?</AccordionTitle>
     <AccordionContent>
 
-The earlier `h` field pinned the exact JSON bytes at `u`. That made every proof
-renewal require both an external update and an ENS transaction even when the
-record, authority rules, and method were unchanged.
+An earlier descriptor design included this field:
 
-The proof envelope already authenticates its semantic claim: the current ENS
-authority signs the complete claim, account methods add the target signature,
-and live HTTPS publication proves control of the derived origin. An IPFS CID
-already commits to exact bytes. For the DNS method, the DNSSEC-authenticated TXT
-record carries its own URI and hash because the domain, not merely ENS, must
-approve that proof resource.
+```text
+ensrv1 a=1 m=<method> u=<proof-uri> h=0x<64-hex-digits>
+```
 
-Removing `h` from the ENS descriptor therefore improves rotation without
-weakening the relationship being verified. A method that needs byte commitment
-must provide it inside its own target-controlled evidence.
+`h` was the Keccak-256 hash of the exact proof file bytes fetched from `u`. Its
+purpose was to pin a mutable URI to one specific file. If the server returned
+different bytes, their hash would not equal `h`, so the verifier would reject
+them before parsing the proof.
+
+That byte pin is not needed for the current verification model. A verifier does
+not trust a proof merely because its bytes match `h`. It parses the proof,
+compares the complete claim with live ENS state, and validates the authority
+signature and all method-specific target evidence. Replacing the file with
+unsigned or altered data therefore cannot create a valid result.
+
+The target side is also covered by each method:
+
+- HTTPS verification fetches the proof from the exact origin derived from the
+  live record.
+- Account verification requires the target account's signature.
+- An IPFS CID already commits to the exact resource bytes.
+- DNS verification keeps `u` and `h` in the DNSSEC-authenticated TXT record,
+  because that hash is evidence selected by the DNS domain itself.
+
+Keeping `h` in ENS would also make routine renewal expensive. New timestamps
+and signatures change the proof file bytes, which changes `h`; the publisher
+would have to update both the external file and the ENS record every time.
+Without descriptor `h`, a valid proof can be renewed at the same location
+without an ENS transaction.
+
+Therefore `h` is not a general descriptor field. If a method needs an exact
+byte commitment, it must define that commitment inside its own
+target-controlled evidence.
 
     </AccordionContent>
 
