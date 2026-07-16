@@ -8,16 +8,17 @@ description: DNSSEC-authenticated domain control for URL records.
 ## Purpose
 
 `dns-txt.url.v1` demonstrates control of the DNS domain derived from
-`text("url")`. The domain publishes the hash of a record-bound proof envelope,
-and DNSSEC authenticates the TXT response.
+`text("url")`. The domain publishes the location and hash of a record-bound
+proof envelope, and DNSSEC authenticates that pointer.
 
 ## Descriptor
 
 ```text
-ensrv1 a=1 m=dns-txt.url.v1 u=https://proofs.example/alice-url.json h=0x<64-hex>
+ensrv1 a=1 m=dns-txt.url.v1
 ```
 
-`u` and `h` are required. `u` MUST be an HTTPS URI.
+`u` is forbidden in the ENS descriptor. The DNSSEC-authenticated TXT record
+selects the proof location.
 
 ## Target And TXT Record
 
@@ -34,13 +35,15 @@ Encode the proof key as lowercase unpadded RFC 4648 base32 and query:
 The protocol TXT value is:
 
 ```text
-ensrv1 h=<descriptor-h>
+ensrv1 u=https://proofs.example/alice-url.json h=0x<64-lowercase-hex>
 ```
 
 Concatenate character strings only within one TXT RDATA before parsing it.
 Ignore unrelated RDATA. Require exactly one RDATA beginning with `ensrv1 `;
 multiple protocol RDATA are rejected. Every answer, CNAME, and DNAME step MUST
-validate to an accepted DNSSEC trust anchor.
+validate to an accepted DNSSEC trust anchor. In the protocol RDATA, `u` and `h`
+occur exactly once, unknown or duplicate fields are invalid, and `u` MUST be an
+HTTPS URI.
 
 `validUntil - issuedAt` MUST NOT exceed 30 days. Positive cache lifetime is the
 minimum validated TTL across the answer and alias chain, capped at five minutes
@@ -52,10 +55,10 @@ The verifier MUST:
 
 1. derive the domain, proof key, and TXT owner from live ENS inputs;
 2. authenticate the complete DNS answer and alias chain with DNSSEC;
-3. require exactly one protocol TXT value matching descriptor `h`;
-4. fetch `u` over WebPKI-authenticated HTTPS without ambient credentials or
+3. parse exactly one protocol TXT value and read its `u` and `h` fields;
+4. fetch the TXT `u` over WebPKI-authenticated HTTPS without ambient credentials or
    redirects, using the HTTPS-origin encoding and 256 KiB decoded-size limits;
-5. require `keccak256(proofResourceBytes) == h`;
+5. require `keccak256(proofResourceBytes)` to equal the TXT `h`;
 6. parse the envelope and compare the complete common claim;
 7. validate the common `authoritySignature`, reject other `proof` fields, and
    require a valid proof interval.

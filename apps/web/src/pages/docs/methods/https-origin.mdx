@@ -14,12 +14,11 @@ and current ENS authority.
 ## Descriptor
 
 ```text
-ensrv1 a=1 m=https-origin.v1 h=0x<64-lowercase-hex>
+ensrv1 a=1 m=https-origin.v1
 ```
 
-`h` is required and commits to the exact proof-resource bytes. `u` is forbidden:
-the record value determines the proof origin and the protocol determines the
-path.
+`u` is forbidden. The record value determines the proof origin and the protocol
+determines the path.
 
 ## Target Derivation
 
@@ -78,11 +77,10 @@ The verifier MUST:
 2. fetch the deterministic same-origin resource without ambient credentials;
 3. reject redirects, invalid WebPKI TLS, disallowed network destinations, and
    responses outside the defined status, media-type, encoding, or size rules;
-4. require `keccak256(proofResourceBytes) == h` before parsing the resource;
-5. parse the closed envelope and compare the complete common claim;
-6. validate `proof.authoritySignature` for the live ENS authority;
-7. reject any other fields in `proof`;
-8. require the proof to be within its validity interval.
+4. parse the closed envelope and compare the complete common claim;
+5. validate `proof.authoritySignature` for the live ENS authority;
+6. reject any other fields in `proof`;
+7. require the proof to be within its validity interval.
 
 When every check succeeds, return `verified: true` with
 `verificationType: "control"`. Otherwise return `verified: false`.

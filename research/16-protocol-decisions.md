@@ -150,16 +150,17 @@ record selector.
 The descriptor is:
 
 ```text
-ensrv1 a=<authority-version> m=<method> [u=<uri>] [h=<hash>]
+ensrv1 a=<authority-version> m=<method> [u=<external-uri>]
 ```
 
 Rules:
 
 - `a` and `m` occur exactly once.
-- `h` is lowercase `0x`-prefixed `keccak256` of retrieved proof body bytes.
+- `u` is method-specific and only locates an external proof resource.
+- Inline proof data and `data:` URIs are not supported.
 - Unknown and duplicate fields are invalid.
-- Method profiles declare whether `u` and `h` are required, permitted, or
-  forbidden.
+- Method profiles declare whether `u` is required, permitted, or forbidden and
+  define every allowed URI scheme.
 - Incompatible additions require a new descriptor version.
 
 Rejecting unknown fields prevents older clients from ignoring future
@@ -214,11 +215,15 @@ Common objects reject unknown and duplicate members. `proof` is validated by
 the selected method rules. JSON bytes are not signed; the EIP-712 claim is
 signed.
 
-## 11. Proof-byte Integrity
+## 11. Proof Resource Integrity
 
-When `h` is present, it hashes the response body after transfer and content
-decoding, before UTF-8 decoding or JSON parsing. Fetchers enforce scheme,
-redirect, private-network, timeout, response-size, and decompression limits.
+The common claim and method evidence authenticate proof semantics rather than
+the JSON serialization. Content-addressed URIs commit to exact bytes. A method
+that needs a separate byte commitment carries it in target-controlled evidence;
+for example, the DNSSEC TXT profile publishes both the external URI and hash.
+
+Fetchers enforce method-specific scheme, redirect, private-network, timeout,
+response-size, and decompression limits.
 
 ## 12. Lifecycle
 

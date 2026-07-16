@@ -14,7 +14,7 @@ concrete method.
 | Method                                               | Records                       | Verification type | Evidence                                      |
 | ---------------------------------------------------- | ----------------------------- | ----------------- | --------------------------------------------- |
 | [`https-origin.v1`](./https-origin)                  | HTTPS URL text records        | `control`         | Live proof served by the derived HTTPS origin |
-| [`dns-txt.url.v1`](./dns-txt)                        | `text("url")`                 | `control`         | DNSSEC-authenticated proof hash               |
+| [`dns-txt.url.v1`](./dns-txt)                        | `text("url")`                 | `control`         | DNSSEC-authenticated proof URI and hash       |
 | [`account-signature.eip155.v1`](./account-signature) | Supported EVM address records | `control`         | EOA or ERC-1271 target signature              |
 | [`account-signature.bip322.v1`](./account-signature) | Bitcoin `addr(0)`             | `control`         | BIP-322 target signature                      |
 

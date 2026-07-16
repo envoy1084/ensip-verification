@@ -1,76 +1,307 @@
 ---
 title: Verification Descriptor
-description: Descriptor grammar, parsing, and proof-resource fields.
+description: Select the authority rules, verification method, and proof location.
 ---
+
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTitle,
+} from "../../../components/accordion.tsx";
 
 # Verification Descriptor
 
-A verification text record contains one descriptor:
+A verification descriptor tells a client how to verify one ENS record. It is a
+short ASCII value stored in the discovery record for that record.
 
 ```text
-ensrv1 a=<authority-version> m=<method> [u=<uri>] [h=<hash>]
+ensrv1 a=<authority-version> m=<method> [u=<uri>]
 ```
 
-Example:
+For example:
 
 ```text
-ensrv1 a=1 m=https-origin.v1 h=0x<64-lowercase-hex>
+ensrv1 a=1 m=https-origin.v1
+ensrv1 a=1 m=account-signature.bip322.v1 u=ipfs://bafk...
 ```
+
+The descriptor does not contain a claim, signature, or proof. It only selects
+the rules and, when required by the method, tells the verifier where to fetch
+the proof.
+
+## Fields
+
+| Field | Required        | Meaning                                                                                |
+| ----- | --------------- | -------------------------------------------------------------------------------------- |
+| `a`   | Yes             | Authority algorithm version used to find the current authority for the exact ENS name. |
+| `m`   | Yes             | Immutable method identifier that defines the complete target-verification procedure.   |
+| `u`   | Method-specific | Absolute URI of an external proof resource.                                            |
+
+`u` is a location, not proof data. Version 1 does not allow inline JSON,
+signatures, base64, or `data:` URIs. A method that does not need an external
+location must forbid `u`.
 
 ## Grammar
 
 ```text
-descriptor  = "ensrv1" 1*(SP field)
-field       = field-name "=" field-value
-field-name  = 1*(%x61-7A / %x30-39 / "-")
-field-value = 1*(%x21-7E)
+descriptor        = %s"ensrv1" 1*(SP field)
+field             = authority-field / method-field / uri-field
+authority-field   = %s"a=" authority-version
+method-field      = %s"m=" method-id
+uri-field         = %s"u=" URI
+
+authority-version = NZDIGIT *DIGIT
+method-id         = method-name %s".v" method-version
+method-name       = method-label *(%s"." method-label)
+method-label      = LCALPHA [*method-char (LCALPHA / DIGIT)]
+method-char       = LCALPHA / DIGIT / %s"-"
+method-version    = NZDIGIT *DIGIT
+
+NZDIGIT           = %x31-39
+LCALPHA           = %x61-7A
 ```
 
-Split each field on its first `=`. Descriptors are ASCII and are not signed.
-Whitespace has no semantic meaning beyond separating fields. Generators emit
-one `SP` and field order `a`, `m`, `u`, `h`.
+`URI` is the absolute URI production from
+[RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). `%s` uses the
+case-sensitive ABNF extension from
+[RFC 7405](https://www.rfc-editor.org/rfc/rfc7405).
 
-## Fields
+The complete descriptor is at most 2,048 ASCII bytes. `m` is at most 64 bytes
+and `u` is at most 1,024 bytes. Method labels start with a lowercase letter and
+end with a lowercase letter or digit. `a` must fit a nonzero `uint32` and both
+numeric versions use canonical decimal: no sign or leading zero.
 
-| Field | Format                            | Meaning                        |
-| ----- | --------------------------------- | ------------------------------ |
-| `a`   | `uint32` in canonical decimal     | Authority algorithm version.   |
-| `m`   | `[a-z0-9][a-z0-9.-]{0,63}`        | Concrete method identifier.    |
-| `u`   | Absolute URI, maximum 1,024 bytes | External proof resource.       |
-| `h`   | `0x` plus 64 lowercase hex digits | Keccak-256 of retrieved bytes. |
+## Encoding Rules
 
-`a` and `m` occur exactly once. Method profiles specify whether `u` and `h`
-are required, permitted, or forbidden.
+- Use exactly one ASCII space between tokens.
+- Do not use leading or trailing whitespace, repeated spaces, tabs, or line
+  breaks.
+- Emit fields in `a`, `m`, `u` order.
+- Treat field order as semantically irrelevant when parsing.
+- Include `a` and `m` exactly once. Include `u` only when the selected method
+  requires or permits it.
+- Reject duplicate fields, unknown fields, empty values, non-ASCII bytes, and
+  unsupported versions or methods.
+
+For `u`, split the token on its first `=` so `=` can still appear inside the
+URI. The URI must be absolute and must not contain user information or a
+fragment. Each method explicitly lists its allowed URI schemes and retrieval
+rules. A verifier must reject every scheme the method does not list.
 
 ## Parser Procedure
 
-1. Reject input longer than 2,048 bytes.
-2. Reject non-ASCII input or control characters.
-3. Require the first token to equal `ensrv1`.
-4. Parse every remaining token as one `name=value` field.
-5. Reject empty names or values.
-6. Reject duplicate or unknown fields.
-7. Parse `a` as canonical decimal `uint32`.
-8. Validate `m`, `u`, and `h` lexical form.
-9. Apply the selected method's field policy.
+1. Apply the byte and ASCII limits before tokenizing.
+2. Require the exact case-sensitive prefix `ensrv1`.
+3. Split on single ASCII spaces, then split each field on its first `=`.
+4. Reject missing, empty, duplicate, or unknown fields.
+5. Validate `a`, `m`, and the optional `u` using the rules above.
+6. Load the exact authority and method versions. Do not fall back to an older
+   interpretation.
+7. Apply the method's `u` policy and URI retrieval rules.
+8. Require the fetched proof envelope to contain exactly `"v": "ensrv1"`.
 
-Unknown descriptor versions, authority versions, and concrete methods fail
-closed. Do not ignore an unknown field or retry under an older interpretation.
+## Open Issues
 
-## Proof Hash
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>How are authority versions registered?</AccordionTitle>
+    <AccordionContent>
 
-When `h` is present:
+`a` isolates ENS authority changes from the rest of the protocol, but the
+registry and migration process are not yet defined. Before publication, the
+specification needs one canonical registry describing each version, its ENS
+deployments, evaluation rules, and activation policy.
 
-```text
-keccak256(proofResourceBytes) == h
-```
+Version 1 can describe current ENS contracts. A future ENS architecture should
+allocate a new value only when the rule for finding the exact-name authority
+changes; it should not require a new descriptor grammar or method version.
 
-`proofResourceBytes` is the retrieved resource after transport content decoding
-and before UTF-8 decoding or JSON parsing. Re-serializing JSON changes these
-bytes and therefore changes `h`.
+    </AccordionContent>
 
-For a content-addressed `u`, such as `ipfs://`, the method profile MAY use the
-content identifier as the integrity commitment and forbid `h`.
+  </AccordionItem>
 
-See [Method Profiles](../methods/overview) for method-specific descriptor field
-requirements.
+  <AccordionItem>
+    <AccordionTitle>How are method identifiers allocated?</AccordionTitle>
+    <AccordionContent>
+
+Method identifiers must be globally unambiguous because `m` selects security
+rules and is signed in the common claim. The remaining question is who assigns
+names and how experiments avoid colliding with permanent methods.
+
+The registry should record the immutable identifier, supported record types,
+descriptor field policy, proof schema, result relationship, and normative
+specification. Changing verification semantics must allocate a new version.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Should one record advertise multiple methods?</AccordionTitle>
+    <AccordionContent>
+
+Version 1 selects exactly one method. Multiple methods need explicit semantics:
+all required, any accepted, ordered fallback, or client choice. Encoding a list
+before those semantics are defined would make clients disagree about what a
+positive result means.
+
+If a real use case needs composition, it should be added in a new descriptor
+version with a defined result and downgrade policy.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Which external URI profiles belong in version 1?</AccordionTitle>
+    <AccordionContent>
+
+The base grammar can validate an absolute URI, but interoperable fetching needs
+scheme-specific rules. HTTPS needs redirect, TLS, network-address, media-type,
+size, and decoding limits. IPFS needs a canonical CID form and exact byte
+retrieval rules.
+
+Each initial method must finish those rules before the protocol is frozen.
+Schemes such as `http`, `data`, `file`, `javascript`, `blob`, `ftp`, and
+unregistered content-addressing schemes remain unsupported unless a future
+method defines their security model.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>
+
+## Decisions
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Why use compact key-value text instead of JSON or binary?</AccordionTitle>
+    <AccordionContent>
+
+The descriptor is stored in an ENS text record and contains only two required
+values plus one optional URI. A small key-value grammar is readable in wallets,
+cheap to publish, and simple to parse.
+
+JSON adds quoting, escaping, Unicode, and duplicate-member behavior for no
+needed structure; [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259) notes that
+duplicate names produce unpredictable behavior across implementations. Binary
+formats such as CBOR would need another text encoding and would make records
+harder to inspect.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why use spaces instead of semicolons or query syntax?</AccordionTitle>
+    <AccordionContent>
+
+A raw space cannot occur inside an RFC 3986 URI, so it is an unambiguous field
+separator. Semicolons are valid reserved URI characters and would need escaping
+or context-sensitive parsing. Query syntax introduces `&`, `=`, percent
+encoding, and nested-URI encoding rules without reducing the record size.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why are descriptor, authority, and method versions separate?</AccordionTitle>
+    <AccordionContent>
+
+They change for different reasons:
+
+- `ensrv1` versions the descriptor grammar and common protocol.
+- `a=1` versions the algorithm for finding current ENS authority.
+- the final part of `m`, such as `.v1`, versions one verification method.
+
+An ENS authority migration should not rename every proof method. A change to
+Bitcoin signature validation should not change HTTPS verification. Separate
+versions keep those upgrades isolated and make unsupported behavior fail
+closed.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why are the field names only one letter?</AccordionTitle>
+    <AccordionContent>
+
+Every byte is stored in an onchain text-record value, and the fields have fixed
+meanings in the versioned grammar. `a`, `m`, and `u` keep repeated descriptors
+small without making the value opaque. SDKs should expose descriptive property
+names such as `authorityVersion`, `method`, and `proofUri`.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why can `u` contain only an external location?</AccordionTitle>
+    <AccordionContent>
+
+Keeping proof bytes outside ENS avoids large record values and supports normal
+proof renewal without rewriting the descriptor. It also gives every method one
+clear transport boundary with explicit size and security limits.
+
+Inline `data:` or base64 values mix location and payload, expand the ENS value,
+and add another decoding path. A signature itself is still proof data, so it
+belongs in the method's proof envelope rather than in `u`.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why is there no descriptor hash field?</AccordionTitle>
+    <AccordionContent>
+
+The earlier `h` field pinned the exact JSON bytes at `u`. That made every proof
+renewal require both an external update and an ENS transaction even when the
+record, authority rules, and method were unchanged.
+
+The proof envelope already authenticates its semantic claim: the current ENS
+authority signs the complete claim, account methods add the target signature,
+and live HTTPS publication proves control of the derived origin. An IPFS CID
+already commits to exact bytes. For the DNS method, the DNSSEC-authenticated TXT
+record carries its own URI and hash because the domain, not merely ENS, must
+approve that proof resource.
+
+Removing `h` from the ENS descriptor therefore improves rotation without
+weakening the relationship being verified. A method that needs byte commitment
+must provide it inside its own target-controlled evidence.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why reject unknown fields instead of ignoring them?</AccordionTitle>
+    <AccordionContent>
+
+A future field may add a security requirement. If an older verifier ignores it,
+the same descriptor can mean something different to two clients. Closed parsing
+forces incompatible changes to use a new `ensrv` version, where unsupported
+clients return a non-positive result.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why accept reordered fields but emit one order?</AccordionTitle>
+    <AccordionContent>
+
+Field order does not change descriptor meaning and the descriptor is not signed
+or hashed as one byte string. Accepting reordered fields avoids rejecting an
+otherwise identical value, while canonical `a`, `m`, `u` output keeps records
+consistent and easy to compare. Duplicate fields remain invalid in every order.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>
+
+See [Method Profiles](../methods/overview) for method-specific `u` rules.

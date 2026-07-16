@@ -126,7 +126,7 @@ or parent owner as equivalent authority.
 The immediate common revocation mechanism is ENS publication state:
 
 - deleting the verification descriptor disables verification;
-- changing `a`, `m`, `u`, or `h` invalidates the previous publication;
+- changing `a`, `m`, or `u` invalidates the previous publication;
 - changing the target record invalidates `valueHash`;
 - transferring the exact name changes the accepted signer;
 - expiry invalidates the applicable authority.
@@ -202,18 +202,17 @@ High-risk actions should revalidate even before `cacheUntil`. A cache is an
 optimization and a portable cache contract, not a guarantee that the world has
 not changed.
 
-## Descriptor Hash Lifecycle
+## Proof Resource Rotation
 
-When descriptor `h` is present, it pins the exact retrieved body bytes after
-transfer and content decoding and before UTF-8 or JSON processing. This prevents
-a mutable URI from silently substituting a different envelope.
+The ENS descriptor does not hash the proof resource. Renewing a signed envelope
+at a deterministic HTTPS location therefore does not require an ENS update.
+The verifier still accepts only an envelope whose complete claim and method
+evidence validate against live ENS state.
 
-Changing the proof requires an ENS update to `h`, so hash-pinned publication
-trades easier integrity for less atomic rotation. A publisher can avoid the
-transition window by using deterministic live publication without `h`, or by
-updating proof and descriptor in the order specified by the method while
-accepting a temporary non-positive state. The protocol never permits a client
-to try several bodies until one verifies.
+Content-addressed locations behave differently: new proof bytes produce a new
+CID and therefore require updating descriptor `u`. For the DNS method, the
+DNSSEC-authenticated TXT record carries the proof URI and hash, so the domain
+can rotate both without an ENS transaction.
 
 ## Rotation Examples
 
@@ -222,8 +221,7 @@ to try several bodies until one verifies.
 1. Create a new claim with a later `issuedAt` and `validUntil`.
 2. Sign it with the current exact-name authority.
 3. Publish it at the deterministic HTTPS `proofKey` path.
-4. If `h` is used, update the descriptor hash after publication.
-5. Verify from an independent client before the old cache bound ends.
+4. Verify from an independent client before the old cache bound ends.
 
 ### Changing the record target
 

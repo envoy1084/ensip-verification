@@ -58,8 +58,8 @@ before a replacement ENSIP is assembled.
   `verification[text][<key>]`, `verification[addr][<coinType>]`,
   `verification[contenthash]`, and reserved `verification[data][<key>]`.
 - The ENS-side descriptor is closed and compact:
-  `ensrv1 a=<authority-version> m=<concrete-versioned-method> [u=<uri>] [h=<hash>]`.
-  Unknown or duplicate fields are invalid.
+  `ensrv1 a=<authority-version> m=<concrete-versioned-method> [u=<external-uri>]`.
+  Unknown or duplicate fields and inline proof data are invalid.
 - Verifier output exposes only `verified` or `none` as public statuses. Positive
   results carry relationship `authorization`, `control`, or `attestation`;
   failures are stable error codes on `none`.

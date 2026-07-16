@@ -18,14 +18,17 @@ Address methods use one external proof source:
 # Content-addressed raw envelope
 ensrv1 a=1 m=account-signature.bip322.v1 u=ipfs://bafk...
 
-# Hash-pinned HTTPS envelope
-ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/address.json h=0x<64-hex>
+# HTTPS envelope
+ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/address.json
 ```
 
-For IPFS, `u` is required, the CID MUST match the retrieved bytes, and `h` is
-forbidden. Version 1 accepts only a pathless CIDv1 URI using lowercase base32,
-the `raw` codec, and `sha2-256`; query and fragment components are forbidden.
-The raw block bytes are the envelope bytes. For HTTPS, `u` and `h` are required.
+For IPFS, the CID MUST match the retrieved bytes. Version 1 accepts only a
+pathless CIDv1 URI using lowercase base32, the `raw` codec, and `sha2-256`;
+query and fragment components are forbidden. The raw block bytes are the
+envelope bytes. For HTTPS, the signatures in the envelope authenticate the
+claim; the URI only locates it.
+
+`u` is required for both transports. Other URI schemes are forbidden.
 
 For both account methods, `validUntil - issuedAt` MUST NOT exceed 90 days.
 

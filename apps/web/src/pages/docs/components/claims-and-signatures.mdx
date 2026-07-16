@@ -11,8 +11,9 @@ authority, and the external target derived by the method.
 
 Every proof requires approval from the current ENS authority and evidence from
 the external target. Claim field `authority` must match live authority state,
-and `proof.authoritySignature` must validate for that address. The descriptor
-commits to the proof bytes through `h` or a content-addressed `u`.
+and `proof.authoritySignature` must validate for that address. Each method
+defines how its target authenticates the proof, such as live publication, a
+target signature, DNSSEC evidence, or a content-addressed URI.
 
 ## Common Claim
 
