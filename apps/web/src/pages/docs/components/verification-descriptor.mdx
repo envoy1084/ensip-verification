@@ -96,6 +96,262 @@ rules. A verifier must reject every scheme the method does not list.
 7. Apply the method's `u` policy and URI retrieval rules.
 8. Require the fetched proof envelope to contain exactly `"v": "ensrv1"`.
 
+## Normative Technical Rules
+
+The rules above are the short version. The following sections define the same
+format precisely for parser, SDK, and interoperability implementations.
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Wire grammar and byte limits</AccordionTitle>
+    <AccordionContent>
+
+The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHOULD**, **SHOULD NOT**,
+and **MAY** are interpreted as described by RFC 2119 and RFC 8174 when they
+appear in uppercase.
+
+A parser MUST operate on the exact bytes carried by the resolver's returned
+text value. It MUST NOT trim, case-fold, Unicode-normalize, percent-decode, or
+otherwise transform the value before applying the descriptor grammar.
+
+The complete value MUST contain between 1 and 2,048 bytes. Every byte MUST be
+ASCII `%x20-7E`. The only permitted whitespace byte is the separator `SP`
+`%x20`; tabs, carriage returns, line feeds, other control bytes, and non-ASCII
+bytes are invalid.
+
+The version 1 grammar is defined using ABNF from RFC 5234 and the
+case-sensitive string notation from RFC 7405:
+
+```text
+descriptor        = protocol-id 2*3(SP field)
+protocol-id       = %s"ensrv1"
+
+field             = authority-field / method-field / uri-field
+authority-field   = %s"a=" authority-version
+method-field      = %s"m=" method-id
+uri-field         = %s"u=" uri-value
+
+authority-version = nonzero-digit *DIGIT
+
+method-id         = method-name %s".v" method-version
+method-name       = method-segment *(%s"." method-segment)
+method-version    = nonzero-digit *DIGIT
+method-segment    = lower-alpha [*(lower-alpha / DIGIT / %s"-")
+                    (lower-alpha / DIGIT)]
+
+uri-value         = 1*VCHAR
+lower-alpha       = %x61-7A
+nonzero-digit     = %x31-39
+```
+
+`DIGIT`, `SP`, and `VCHAR` are the RFC 5234 core rules. ABNF alone does not
+express field uniqueness, required field names, numeric bounds, URI semantics,
+or method-specific `u` policy. Those requirements are defined below.
+
+The value MUST contain exactly three tokens when `u` is absent and exactly four
+tokens when `u` is present, including `ensrv1`. Tokens MUST be separated by one
+ASCII space. Leading, trailing, or repeated spaces are invalid.
+
+The complete `m` value MUST NOT exceed 64 bytes. The complete `u` value MUST
+NOT exceed 1,024 bytes. Implementations MUST apply all byte limits before
+numeric conversion, URI parsing, registry lookup, or network access.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Field syntax and semantics</AccordionTitle>
+    <AccordionContent>
+
+Field names are exact, case-sensitive ASCII bytes. `a`, `m`, and `u` are the
+only defined version 1 fields. `a` and `m` MUST each occur exactly once. `u`
+MUST occur at most once. Unknown, duplicate, or empty fields are invalid.
+
+For `a`:
+
+- the value MUST match `[1-9][0-9]*` before numeric conversion;
+- the base-10 numeric value MUST be between `1` and `4294967295`, inclusive;
+- signs, leading zeroes, decimal points, exponent notation, hexadecimal, and
+  surrounding whitespace are invalid;
+- the value selects one exact authority algorithm and MUST be copied into the
+  expected common claim as `authorityVersion`;
+- an unsupported or inapplicable authority version MUST NOT fall back to
+  another authority algorithm.
+
+For `m`:
+
+- the value MUST satisfy the `method-id` grammar and the 64-byte limit;
+- every name segment MUST start with `a` through `z`, contain only lowercase
+  letters, digits, or internal hyphens, and end with a lowercase letter or
+  digit;
+- the final version suffix MUST be `.v` followed by a positive decimal integer
+  without leading zeroes;
+- comparison and registry lookup MUST use the exact ASCII value without case
+  folding or alias resolution;
+- the value MUST be copied unchanged into the expected common claim as
+  `method`;
+- an unsupported method MUST NOT be interpreted as another method or an older
+  version.
+
+For `u`:
+
+- the value MUST satisfy the 1,024-byte limit and RFC 3986 `absolute-URI`
+  syntax;
+- the parsed URI MUST contain a scheme and MUST NOT contain user information or
+  a fragment;
+- malformed percent encoding is invalid;
+- `data:` URIs and inline proof data are forbidden in version 1;
+- the selected method MUST explicitly allow the parsed URI scheme and define
+  any additional canonicalization and retrieval rules;
+- a verifier MUST NOT percent-decode and then reinterpret a URI as descriptor
+  syntax.
+
+The parser splits each field token on its first `=` byte. Additional `=` bytes
+are therefore part of `u`; they are not field separators. The `a` and `m`
+grammars do not permit additional `=` bytes.
+
+Every method profile MUST declare one `u` policy:
+
+| Policy      | Requirement                                                  |
+| ----------- | ------------------------------------------------------------ |
+| `required`  | `u` MUST occur exactly once.                                 |
+| `permitted` | `u` MAY occur once.                                          |
+| `forbidden` | `u` MUST be absent and the method derives proof publication. |
+
+The base descriptor parser validates URI syntax. The method profile validates
+scheme-specific meaning, canonical form, fetching, integrity, redirects,
+network destinations, media type, size, decoding, and freshness.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Deterministic parsing algorithm</AccordionTitle>
+    <AccordionContent>
+
+An implementation supporting descriptor version 1 MUST perform these steps in
+order:
+
+1. Read the descriptor selected by the discovery key at the same evaluation
+   block as the target record.
+2. Reject an empty value, a value longer than 2,048 bytes, or any byte outside
+   ASCII `%x20-7E`.
+3. Apply the ABNF grammar without trimming or preprocessing the input.
+4. Require the exact case-sensitive protocol token `ensrv1`.
+5. Split the remaining tokens on ASCII `SP`, then split each token on its first
+   `=` byte.
+6. Reject a token without `=`, an empty field name, an empty value, an unknown
+   field name, or a duplicate field name.
+7. Require exactly one `a`, exactly one `m`, and zero or one `u`.
+8. Validate the lexical and byte rules for every field before converting or
+   parsing its value.
+9. Convert `a` as unsigned base-10 and enforce the `uint32` range.
+10. Parse `u`, when present, as an RFC 3986 absolute URI and enforce the common
+    URI exclusions.
+11. Resolve the exact authority version and method identifier. Unsupported
+    versions and identifiers MUST produce a non-positive result and MUST NOT be
+    interpreted using fallback rules.
+12. Apply the selected method's `u` policy and URI-scheme rules.
+13. Return one semantic descriptor object only after every preceding check
+    succeeds.
+
+The semantic result is equivalent to:
+
+```ts
+type VerificationDescriptor = {
+  descriptorVersion: 1;
+  authorityVersion: number;
+  method: string;
+  proofUri: string | null;
+};
+```
+
+`authorityVersion` MUST be representable as an unsigned 32-bit integer.
+`proofUri` contains the accepted absolute URI serialization or `null` when `u`
+is absent. An implementation MAY use another internal representation, but it
+MUST preserve the same values and validation behavior.
+
+If any step fails, the parser MUST return no partial descriptor. It MUST NOT
+repair the input, discard an unknown field, choose the first duplicate, retry
+after normalization, or perform proof-resource network access.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Canonical serialization rules</AccordionTitle>
+    <AccordionContent>
+
+A producer MUST emit the descriptor in this order:
+
+```text
+ensrv1 a=<authority-version> m=<method-id>
+ensrv1 a=<authority-version> m=<method-id> u=<absolute-uri>
+```
+
+It MUST:
+
+- emit `ensrv1`, field names, and the method identifier using their exact
+  registered lowercase spelling;
+- emit `a` as canonical unsigned decimal without a sign or leading zeroes;
+- emit exactly one ASCII space between tokens;
+- omit `u` when the method forbids it and include `u` when the method requires
+  it;
+- serialize `u` in the canonical form required by the selected method;
+- emit no leading or trailing whitespace, line break, null terminator, comment,
+  quoting, or escaping around the complete descriptor.
+
+A parser MUST accept a semantically valid reordering of `a`, `m`, and `u`, but
+producers MUST use canonical order. Reordering does not change meaning because
+the descriptor byte string is not itself signed or hashed.
+
+An implementation MUST NOT make an invalid descriptor valid by reserializing
+it. Parsing and validation occur before canonical serialization. Duplicate and
+unknown fields remain invalid in every order.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Versioning and processing requirements</AccordionTitle>
+    <AccordionContent>
+
+The three version layers are independent:
+
+| Layer      | Selected by | Changes when                                                   |
+| ---------- | ----------- | -------------------------------------------------------------- |
+| Descriptor | `ensrv1`    | The descriptor grammar or common interpretation changes.       |
+| Authority  | `a`         | The algorithm for finding current ENS authority changes.       |
+| Method     | `m`         | Target derivation, evidence, or verification semantics change. |
+
+A verifier MUST require exact support for all three layers. It MUST NOT parse a
+future `ensrv` version using this grammar, apply a known authority algorithm to
+an inapplicable ownership system, or substitute a related method identifier.
+
+The live descriptor's `a` and `m` values MUST exactly equal the corresponding
+fields in the proof's common claim. The descriptor's `u` value is a proof
+location, not a claim field. Changing `u` can change where proof bytes are
+retrieved, but it cannot replace common-claim comparison, authority-signature
+validation, or method evidence.
+
+Proof retrieval MUST begin only after descriptor parsing, authority-version
+support, method support, and the method's `u` policy have succeeded. Retrieval
+MUST use the selected method's complete transport rules. A URI being
+syntactically valid under RFC 3986 is not sufficient permission to fetch it.
+
+After retrieval, the proof envelope MUST contain exactly `"v": "ensrv1"` and
+the verifier MUST compare every common claim field with values derived from the
+same live record, descriptor, authority state, and evaluation block.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>
+
 ## Open Issues
 
 <Accordion>
