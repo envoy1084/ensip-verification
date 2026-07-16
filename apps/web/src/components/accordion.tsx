@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-import { Accordion as AccordionCore } from "@thenamespace/uikit";
+import { Accordion as AccordionCore } from "@thenamespace/uikit/accordion";
 
 export type AccordionProps = {
   allowsMultipleExpanded?: boolean;

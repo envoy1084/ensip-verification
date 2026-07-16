@@ -3,6 +3,8 @@ title: Discovery Records
 description: Find the verification descriptor for an ENS record.
 ---
 
+import { Accordion, AccordionItem } from "../../../components/accordion.tsx";
+
 # Discovery Records
 
 A verification descriptor is an ENS text record for one target record. Its key
@@ -44,3 +46,110 @@ For each verification attempt:
 5. Reject an empty target record or empty descriptor.
 
 If the block is removed by a chain reorganization, run verification again. CCIP Read is allowed, but its callback must use the same pinned block.
+
+## Issues And Decisions
+
+<Accordion allowsMultipleExpanded>
+  <AccordionItem title="Why use one descriptor record per target record?">
+
+A client usually starts with a record it already wants to verify. A deterministic
+descriptor key lets it fetch that descriptor directly.
+
+A single manifest would need to be rewritten whenever any record changes. It
+would also complicate concurrent updates and per-record resolver permissions. A
+future index may help with enumeration, but it must not be the source of truth.
+
+  </AccordionItem>
+
+  <AccordionItem title="Why use verification[type][key]?">
+
+The key mirrors the resolver selector. The record type prevents collisions
+between different resolver functions, while the record key identifies the exact
+record within that type.
+
+For example, `text("60")` and `addr(60)` map to different descriptors:
+
+```text
+verification[text][60]
+verification[addr][60]
+```
+
+  </AccordionItem>
+
+  <AccordionItem title="Why use brackets instead of dots, colons, or hashes?">
+
+Brackets keep the record type and record key visibly separate. Dots are already
+common inside ENS text keys such as `com.github`, and hashes would make records
+harder to inspect, edit, and debug.
+
+Bracketed parameters also have precedent in draft ENSIP-25 and ENSIP-26 record
+keys.
+
+  </AccordionItem>
+
+  <AccordionItem title="Do brackets conflict with ENSIP-5 key rules?">
+
+ENSIP-5 limits standardized global key names to lowercase letters, numbers, and
+hyphens. This proposal therefore needs to explicitly register
+`verification[...]` as a parameterized key family rather than treating it as an
+ordinary ENSIP-5 global key.
+
+This does not require a resolver change. Resolver text keys are arbitrary
+strings, and existing ENSIP drafts already use bracketed parameters.
+
+  </AccordionItem>
+
+  <AccordionItem title="What if a text key already contains brackets?">
+
+Copy the target key exactly. Do not recursively parse its brackets.
+
+```text
+text("agent-endpoint[mcp]")
+→ text("verification[text][agent-endpoint[mcp]]")
+```
+
+The verifier constructs the descriptor key from the known target selector. It
+does not need to recover the target key by parsing the descriptor key.
+
+  </AccordionItem>
+
+  <AccordionItem title="Why is the target key not normalized or escaped?">
+
+Resolver keys are exact strings. Lowercasing, trimming, normalizing, or escaping
+a key could point to a different record or make two distinct records share one
+descriptor.
+
+The verification key therefore contains the target key exactly as supplied to
+the resolver.
+
+  </AccordionItem>
+
+  <AccordionItem title="Why encode address coin types as decimal?">
+
+One canonical representation prevents the same address record from having
+several descriptor keys. For example, coin type 60 is always `60`, never `060`,
+`+60`, or hexadecimal.
+
+  </AccordionItem>
+
+  <AccordionItem title="Why resolve everything at the same block?">
+
+The target record, descriptor, and ENS authority can change independently.
+Reading them at different blocks could combine states that never existed
+together.
+
+Using one block gives the verifier one consistent ENS snapshot. If that block is
+removed by a reorganization, the result is discarded and evaluated again.
+
+  </AccordionItem>
+
+  <AccordionItem title="Why use text records instead of a new resolver interface?">
+
+Text records work with existing ENS resolvers and require no contract upgrade.
+They also preserve per-key reads and permissions in resolvers that support them.
+
+A new resolver interface would increase deployment and adoption requirements
+without improving verification semantics.
+
+  </AccordionItem>
+</Accordion>
