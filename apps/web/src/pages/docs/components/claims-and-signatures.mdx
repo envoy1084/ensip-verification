@@ -74,18 +74,20 @@ authorize the proof or participate in target-signature validation.
 ## Authority Evidence
 
 The ENS authority signs the complete common claim using the EIP-712 domain
-above. Let `commonClaimDigest` be the resulting EIP-712 digest. A verifier
-accepts `authoritySignature` when either:
+above. Let `commonClaimDigest` be the resulting EIP-712 digest. Read the
+authority's code at the evaluation block, then:
 
-- strict secp256k1 recovery of a 65-byte, low-`s` signature with `v` equal to 27
-  or 28 produces `claim.authority`; or
-- ERC-1271 validation of `(commonClaimDigest, authoritySignature)` against
-  `claim.authority` at the evaluation block returns `0x1626ba7e`.
+- with no code, require strict secp256k1 recovery of a 65-byte, low-`s`
+  signature with `v` equal to 27 or 28 to produce `claim.authority`;
+- with code, require an ERC-1271 `staticcall` for
+  `(commonClaimDigest, authoritySignature)` to return the exact `0x1626ba7e`
+  magic value.
 
-The proof does not contain a signature-kind discriminator. The verifier applies
-the permitted checks to the live authority address, so proof data cannot select
-a weaker validation path. Contract signatures are opaque, nonempty byte strings
-and MUST NOT exceed 8,192 bytes.
+Do not fall back to EOA recovery for a contract authority. The proof does not
+contain a signature-kind discriminator, so proof data cannot select a weaker
+validation path. Reject ERC-1271 reverts, failed calls, and malformed return
+data. Contract signatures are opaque, nonempty byte strings and MUST NOT exceed
+8,192 bytes.
 
 ## Target Evidence
 

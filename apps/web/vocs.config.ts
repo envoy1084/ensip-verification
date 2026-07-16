@@ -48,9 +48,10 @@ export default defineConfig({
           link: "/docs/components/claims-and-signatures",
         },
         {
-          text: "Authority and Lifecycle",
-          link: "/docs/components/authority-and-lifecycle",
+          text: "Authority",
+          link: "/docs/components/authority",
         },
+        { text: "Lifecycle", link: "/docs/components/lifecycle" },
         { text: "Verification Results", link: "/docs/components/results" },
       ],
     },

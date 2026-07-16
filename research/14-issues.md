@@ -25,15 +25,15 @@ Priority values:
 
 ## Current Release Gate
 
-Two P0 items remain open: a comprehensive executable vector corpus and a
-reference verifier. Name-normalization version pinning and schema/parser
-conformance remain partial. Those are implementation-conformance gaps, not
-unsettled architecture.
+Four P0 items remain open: ancestor re-registration for unwrapped subnames, a
+comprehensive executable vector corpus, a reference verifier, and authority
+resurrection after an owner leaves and later returns. Name-normalization version
+pinning, schema/parser conformance, and the final ENSv2 profile remain partial.
 
 | ID     | Status   | Adopted resolution or remaining work                                                                                                                       |
 | ------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0-001 | Resolved | Exact Registry child ownership intentionally survives parent expiry/re-registration; no parent fallback.                                                   |
-| P0-002 | Resolved | The protocol is ENS-wide; `a=1` isolates current mainnet authority and future semantics allocate a new version.                                            |
+| P0-001 | Open     | Algorithm 1 selects the exact stored child owner, but ancestor re-registration generation is not bound and stricter behavior remains unresolved.           |
+| P0-002 | Partial  | The protocol is ENS-wide and `a=1` isolates current mainnet authority; the final ENSv2 profile and migration applicability rules remain open.              |
 | P0-003 | Resolved | The strict claim signs `issuedAt` and `validUntil`; every method sets maximum lifetime and skew.                                                           |
 | P0-004 | Resolved | The common EIP-712 claim is closed and has no extensions; method data binds to its digest.                                                                 |
 | P0-005 | Resolved | EVM target signs `ENSRecordAccountProof(commonClaimDigest, account)` in the target-chain domain.                                                           |
@@ -52,6 +52,7 @@ unsettled architecture.
 | P0-018 | Resolved | Methods cannot override authority; unsupported versions and unauthenticated exact names fail closed.                                                       |
 | P0-019 | Partial  | ENSIP-15 normalization is required, but final submission should pin the exact normalization table/version and vectors.                                     |
 | P0-020 | Open     | A reference verifier is still required before claiming proven interoperability.                                                                            |
+| P0-021 | Open     | A previous owner's proof can become valid if that same address later reacquires the name; no universal ownership generation is currently bound.            |
 | P1-001 | Partial  | Privacy modes and safe retrieval are normative; product-specific default UX still needs ecosystem agreement.                                               |
 | P1-002 | Partial  | Identifiers are immutable and versioned; allocation and registry governance still need an ENSIP process.                                                   |
 | P1-003 | Open     | `service-account.<provider>` remains an invalid abstract family until a complete provider profile exists.                                                  |
@@ -128,31 +129,35 @@ Status: `Open`
 
 Problem:
 
-The draft defines only `ens-mainnet-v1`. ENSv2 uses recursive registries,
-canonical registry paths, per-label ownership, native expiry, and role-based
+The draft defines only Authority Algorithm 1. ENSv2 uses recursive registries,
+rooted registry paths, per-label ownership, native expiry, and role-based
 permissions. The ENSv1 Registry, Base Registrar, and Name Wrapper rules do not
-apply to ENSv2.
+apply to native ENSv2 ownership.
 
 Impact:
 
 The proposal can become obsolete during ENSv2 migration. Clients may use the
-wrong owner, ignore native expiry, or accept a non-canonical registry.
+wrong owner, ignore native expiry, or confuse a resolvable ENSv1 fallback entry
+with native ENSv2 ownership.
 
 Required resolution:
 
 1. Define an ENSv2 authority profile with explicit deployment identifiers.
-2. Resolve the exact owner through the canonical live registry chain.
-3. Reject non-canonical or unreachable registries.
+2. Resolve the exact owner through the requested live path from the trusted
+   root.
+3. Reject unreachable registries, but accept valid shared-registry aliases
+   instead of requiring one canonical name.
 4. Bound validity by the minimum applicable expiry in the registry ancestry.
 5. Define which ENSv2 roles, if any, can authorize verification. Do not infer
    authority from generic resolver-writing roles.
-6. Define a distinct EIP-712 domain for ENSv2.
+6. Define EIP-712 domain compatibility and transition behavior; do not assume
+   an upgradeable Universal Resolver address alone freezes semantics.
 7. State that ENSv1 proofs do not automatically remain valid after migration.
 
 Acceptance criteria:
 
 - Executable tests cover ENSv2 exact owner, expired labels, expired ancestors,
-  registry replacement, role holders, and canonical-path failure.
+  registry replacement, role holders, unreachable paths, and valid aliases.
 - Migration tests prove that a v1 proof cannot be replayed as a v2 proof.
 
 ### P0-003: Claims Have No Issuance Time Or Enforceable Maximum Lifetime
@@ -754,6 +759,46 @@ Acceptance criteria:
 - The verifier passes all P0 vectors.
 - A second implementation passes the same vectors.
 - The SDK API does not expose method-specific inconsistencies to callers.
+
+### P0-021: A Previous Owner's Proof Can Become Valid Again
+
+Status: `Open`
+
+Problem:
+
+Alice signs a proof and transfers the name to Bob. Alice's proof fails while
+Bob is the current authority. If Alice later reacquires the name before the old
+claim expires, the live authority address matches Alice again and the old proof
+can pass without a new approval.
+
+Impact:
+
+Transfer invalidation is not permanent. A user who reacquires a name may
+unknowingly reactivate proofs published during an earlier ownership period.
+Short proof lifetimes reduce the window but do not define an ownership epoch.
+
+Required resolution:
+
+Choose and specify one of these behaviors:
+
+1. explicitly accept address-based reactivation and enforce short method
+   lifetimes;
+2. bind the claim to a universally retrievable authority generation;
+3. bind to an indexed ownership-change event with finality rules; or
+4. add an explicit verification authorization record with generation and
+   revocation semantics.
+
+ENSv1 does not expose one generation counter for every name type. Current
+ENSv2 token and resource generations also do not provide one uniform counter
+for ordinary owner transfers.
+
+Acceptance criteria:
+
+- Tests cover owner A to B to A within one claim lifetime.
+- The specification states whether the old A proof remains invalid or is
+  intentionally allowed to reactivate.
+- The rule works for EOAs, ERC-1271 accounts, wrapped names, and future ENSv2
+  profiles.
 
 ## P1: Method And Production Integration Issues
 

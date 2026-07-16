@@ -77,17 +77,17 @@ therefore remains a separate read-only algorithm.
 The exact ENS name—not its parent and not merely the resolver writer—is the
 correct authority unit. This preserves real subname delegation.
 
-An initially surprising consequence is intentional: an unwrapped Registry
-subname survives its parent's `.eth` expiry or re-registration because the ENS
-Registry stores child ownership independently. The new parent owner can replace
-the child, but the protocol should not silently treat the parent change as a
-transfer of the child.
+An unwrapped Registry subname survives its parent's `.eth` expiry or
+re-registration because the ENS Registry stores child ownership independently.
+The new parent owner can replace the child, but the protocol should not silently
+treat the parent as the exact child owner. Whether the old child should remain
+accepted after a new parent registration is still an open generation problem.
 
-Wrapped names are different because the Name Wrapper exposes exact expiry.
-Wrapped child validity is bounded by that exact wrapper expiry. A wrapped child
-should not additionally be capped by its parent's registrar expiry unless ENS
-contracts define that relationship. A wrapped `.eth` second-level name is also
-bounded by its Base Registrar expiry.
+Wrapped names require fuse-aware expiry handling. An emancipated child's exact
+wrapper expiry ends its independent ownership. For a parent-controlled wrapped
+name, expiry only resets fuses and does not clear the owner, so it is not an
+authority bound. A wrapped `.eth` second-level name is bounded by its Base
+Registrar expiry rather than the wrapper's grace-inclusive expiry.
 
 ### Explicit authority versioning
 

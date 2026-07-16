@@ -45,24 +45,30 @@ or parent owner.
 
 Current Ethereum mainnet rules are:
 
-| Name state                         | Authority                            | Expiry bound                                                                   |
-| ---------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------ |
-| Registry owner is Name Wrapper     | Wrapper owner for the exact node     | Wrapper expiry; `.eth` second-level names are also bounded by registrar expiry |
-| Unwrapped `.eth` second-level name | Base Registrar registrant            | Registrar expiry                                                               |
-| Other exact name                   | ENS Registry owner of the exact node | No extra bound unless ENS exposes one                                          |
+| Name state                         | Authority                            | Expiry bound                           |
+| ---------------------------------- | ------------------------------------ | -------------------------------------- |
+| Wrapped `.eth` second-level name   | Wrapper owner for the exact node     | Registrar expiry                       |
+| Emancipated wrapped name           | Wrapper owner for the exact node     | Exact wrapper expiry                   |
+| Parent-controlled wrapped name     | Wrapper owner for the exact node     | None; wrapper expiry only resets fuses |
+| Unwrapped `.eth` second-level name | Base Registrar registrant            | Registrar expiry                       |
+| Other exact name                   | ENS Registry owner of the exact node | No extra bound unless ENS exposes one  |
 
 Unwrapped subnames do not automatically expire with a parent registration. The
 ENS Registry stores child ownership independently. Re-registering a parent does
 not delete existing child records; the new parent owner can replace them.
-Therefore parent transfer or re-registration is not treated as transfer of the
-exact child.
+Algorithm 1 therefore continues to select the exact child.
 
-Wrapped subnames have explicit expiry. A verifier rejects a wrapped authority
-at or after that expiry even if raw wrapper storage still contains an address.
+This does not prove that a new parent registration authorized the old child.
+Whether to accept that state, reject it, or require ancestor-generation evidence
+remains open in P0-001; it is not a settled lifecycle guarantee.
 
-This decision preserves delegated subname ownership. Requiring every parent to
-co-sign would make an independently owned child dependent on its parent and is
-not adopted.
+An emancipated wrapped subname has explicit ownership expiry. A
+parent-controlled wrapped name can keep its owner when its expiry resets its
+fuses, so a verifier does not apply that value as an authority bound.
+
+Exact-child selection preserves delegated subname ownership and avoids silently
+substituting the parent. A future stricter ancestry rule must preserve genuinely
+independent children rather than making every parent co-sign every proof.
 
 ## 4. One Strict EIP-712 Claim
 
@@ -76,6 +82,7 @@ ENSRecordVerification(
   string recordKey,
   bytes32 valueHash,
   uint32 authorityVersion,
+  address authority,
   string method,
   string target,
   uint64 issuedAt,
@@ -93,8 +100,9 @@ Every method defines a maximum lifetime.
 ## 5. Authority Evolution Is Explicit
 
 The descriptor contains `a=<authorityVersion>` and the claim signs the same
-numeric value. Authority Algorithm 1 defines current Ethereum mainnet rules.
-Unsupported authority versions fail closed and methods cannot override them.
+numeric value together with the computed authority address. Authority Algorithm
+1 defines current Ethereum mainnet rules. Unsupported authority versions fail
+closed and methods cannot override them.
 
 The EIP-712 domain uses the long-lived canonical Universal Resolver proxy:
 
@@ -110,6 +118,10 @@ For current Ethereum mainnet, `verifyingContract` is
 anchor; it does not execute signature verification. Future authority semantics
 allocate a new authority version without changing record discovery or method
 profiles. Old clients reject the new value instead of applying Algorithm 1.
+
+P0-021 may require a new common claim version with signed authority context.
+Changing `a` alone cannot distinguish two ownership generations that use the
+same profile and authority address.
 
 ## 6. CAIP-10 Account Targets
 

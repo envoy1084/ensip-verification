@@ -3,6 +3,7 @@
   "discovery-records": "Discovery Records",
   "verification-descriptor": "Verification Descriptor",
   "claims-and-signatures": "Claims and Target Proofs",
-  "authority-and-lifecycle": "Authority and Lifecycle",
+  "authority": "Authority",
+  "lifecycle": "Lifecycle",
   "results": "Verification Results"
 }

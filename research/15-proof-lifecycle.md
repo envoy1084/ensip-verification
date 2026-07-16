@@ -78,8 +78,8 @@ result is not positive.
 
 Examples:
 
-- A wrapped child has `claim.validUntil` in 30 days but wrapper expiry in 4
-  days. The result expires in 4 days.
+- An emancipated wrapped child has `claim.validUntil` in 30 days but wrapper
+  expiry in 4 days. The result expires in 4 days.
 - An unwrapped `.eth` second-level name has registrar expiry tomorrow. A
   month-long signature does not survive tomorrow.
 - An HTTPS proof has no independent signed expiry. Its result is still limited
@@ -96,7 +96,9 @@ when the proof was created.
 
 If an exact name transfers from Alice to Bob, Alice's old signature fails the
 current-authority check immediately after the transfer becomes canonical. Bob
-must publish a new proof.
+must publish a new proof. If Alice later reacquires the name before her old
+claim expires, that old proof can become valid again because the common claim
+does not bind an ownership generation. P0-021 remains open.
 
 ### Unwrapped subname and parent expiry
 
@@ -105,14 +107,17 @@ parent `alice.eth` expires and is later registered by Dave. ENS Registry storage
 still identifies Carol as the exact child owner until Dave replaces that child.
 Algorithm 1 therefore continues to select Carol. Treating Dave as the automatic
 child owner would contradict the current ENS Registry state and break delegated
-subnames.
+subnames. Whether Carol should remain accepted after the ancestor registration
+changes is unresolved in P0-001.
 
 ### Wrapped subname
 
-A wrapped child exposes exact wrapper expiry. At or after that expiry, the
-stored owner is not accepted. Parent registrar expiry is not automatically an
-extra child bound. For a wrapped `.eth` second-level name itself, Base Registrar
-expiry is also enforced.
+An emancipated wrapped child exposes an ownership expiry. At or after that
+expiry, the stored owner is not accepted. A parent-controlled wrapped child is
+different: its expiry resets fuses but does not clear its owner, so that value
+is not an authority-expiry bound. For a wrapped `.eth` second-level name itself,
+Base Registrar expiry is enforced instead of the wrapper's grace-inclusive
+expiry.
 
 ### Offchain or wildcard record without exact authority
 

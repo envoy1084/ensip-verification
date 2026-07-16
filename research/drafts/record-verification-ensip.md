@@ -245,29 +245,34 @@ Descriptor `a=1` selects Authority Algorithm 1 on Ethereum mainnet.
 1. Read `ENSRegistry.owner(node)` at the evaluation block.
 2. If the Registry owner is the Name Wrapper:
    1. read the exact node with `NameWrapper.getData`;
-   2. require a nonzero wrapped owner and unexpired wrapper expiry;
-   3. select the wrapped owner;
-   4. for wrapped `.eth` second-level names, also require an unexpired Base
-      Registrar registration and use the earlier expiry.
+   2. require a nonzero wrapped owner;
+   3. for a wrapped `.eth` second-level name, require an active Base Registrar
+      registration owned by the Name Wrapper and use the registrar expiry;
+   4. for another name with `PARENT_CANNOT_CONTROL` burned, require active
+      wrapper expiry and use it as the authority bound;
+   5. otherwise select the wrapped owner without treating wrapper expiry as an
+      ownership expiry.
 3. Otherwise, for an unwrapped `.eth` second-level name:
    1. calculate `tokenId = uint256(keccak256(bytes(label)))`;
    2. read `BaseRegistrar.ownerOf(tokenId)` and `nameExpires(tokenId)`;
    3. require a nonzero registrant and unexpired registration;
    4. select the registrant and registrar expiry.
-4. Otherwise, require and select the nonzero exact Registry owner.
+4. Reject name classes not defined by Algorithm 1, including reverse namespace
+   names.
+5. Otherwise, require and select the nonzero exact Registry owner.
 
 Clients MUST NOT substitute an ancestor owner, resolver writer, wildcard
 resolver, Universal Resolver, CCIP Read gateway, or gateway signer. The selected
 address MUST equal claim field `authority`.
 
 Calculate `commonClaimDigest` using the EIP-712 type and domain above. Clients
-MUST accept `proof.authoritySignature` only when either strict recovery of a
-65-byte, low-`s`, `r || s || v` secp256k1 signature with `v` equal to 27 or 28
-produces the selected authority, or ERC-1271 validation of
-`(commonClaimDigest, authoritySignature)` against the selected authority at the
-evaluation block returns `0x1626ba7e`. Contract signatures are opaque, nonempty
-byte strings and MUST NOT exceed 8,192 bytes. The proof MUST NOT select the
-authority-validation path.
+MUST inspect authority code at the evaluation block. With no code, strict
+recovery of a 65-byte, low-`s`, `r || s || v` secp256k1 signature with `v`
+equal to 27 or 28 MUST produce the selected authority. With code, an ERC-1271
+`staticcall` for `(commonClaimDigest, authoritySignature)` MUST return the exact
+`0x1626ba7e` magic value. Clients MUST NOT fall back to EOA recovery for a
+contract. Contract signatures are opaque, nonempty byte strings and MUST NOT
+exceed 8,192 bytes. The proof MUST NOT select the authority-validation path.
 
 ### Proof Key
 

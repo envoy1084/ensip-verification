@@ -1,0 +1,76 @@
+---
+title: Lifecycle
+description: Validity, invalidation, and cache bounds.
+---
+
+# Lifecycle
+
+A proof is valid only while its live ENS state, current authority, target
+evidence, and time bounds continue to agree.
+
+## Validity
+
+Using local evaluation time `now`, require:
+
+```text
+issuedAt <= now + 300
+issuedAt < validUntil
+now < validUntil
+validUntil - issuedAt <= methodMaxLifetime
+```
+
+`issuedAt` is not a trusted timestamp. It bounds the proof interval and rejects
+future-dated claims beyond the allowed clock skew.
+
+The semantic expiry is the earliest applicable bound:
+
+```text
+effectiveValidUntil = min(
+  claim.validUntil,
+  authorityValidUntil?,
+  methodEvidenceValidUntil?,
+  issuerValidUntil?
+)
+```
+
+Omit a bound only when the selected authority or method does not define it.
+
+## Invalidation
+
+Re-evaluation returns `verified: false` after any of these changes:
+
+- target record changed;
+- verification descriptor changed or was deleted;
+- exact authority changed or expired;
+- authority signature no longer validates;
+- live method publication was removed;
+- method evidence is revoked under the selected method;
+- effective validity expired;
+- evaluation block was reorganized.
+
+Descriptor deletion is the common ENS-side revocation action. It takes effect
+when a verifier performs a fresh ENS read.
+
+The current claim does not bind an ownership generation. A previous owner's
+proof can become valid again if the same address later reacquires the name while
+the claim is still live. This is an open authority issue, not a permanent
+revocation guarantee.
+
+## Caching
+
+`effectiveValidUntil` is the semantic bound. `cacheUntil` is the earlier time at
+which a client must re-evaluate:
+
+```text
+cacheUntil = min(
+  effectiveValidUntil,
+  ENS freshness bound,
+  method freshness bound,
+  HTTP or DNS freshness bound?,
+  revocation next-update bound?,
+  client policy bound
+)
+```
+
+Live-publication methods cap positive caching at five minutes. HTTP freshness
+and DNS TTLs may shorten that period but cannot extend it.

@@ -52,8 +52,9 @@ before a replacement ENSIP is assembled.
 - Target and descriptor records are resolved through the Universal Resolver at
   one block. Exact-name authority is a separately versioned algorithm: current
   rules use the Name Wrapper, Base Registrar, and Registry as appropriate.
-  Future ENS authority changes allocate a new algorithm version without
-  rewriting the verification kernel.
+  Record writers, wildcard resolvers, and gateways are not authority. Future
+  ENS architectures use separate authority profiles without rewriting the
+  verification kernel.
 - Verification discovery now follows resolver record classes:
   `verification[text][<key>]`, `verification[addr][<coinType>]`,
   `verification[contenthash]`, and reserved `verification[data][<key>]`.
@@ -65,8 +66,9 @@ before a replacement ENSIP is assembled.
   failures are stable error codes on `none`.
 - The one strict EIP-712 claim binds exact live resolver bytes, authority
   version, immutable method, canonical target, issuance, and expiry. It has no
-  nonce or extensions. Replay safety comes from live state and time checks, not
-  an unconsumed nonce with no shared state.
+  generic nonce or extensions. Live state and time checks reject most stale
+  proofs, but same-address ownership reactivation remains open because no
+  universal authority generation is currently signed.
 - Account targets use CAIP-10. The first account-signature profile supports only
   unambiguous ENSIP-9/11 EVM mappings; other chain families need concrete
   profiles.
