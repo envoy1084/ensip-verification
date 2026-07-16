@@ -18,6 +18,7 @@ type Page =
   | { path: '/docs/methods/https-origin'; render: 'static' }
   | { path: '/docs/methods/overview'; render: 'static' }
   | { path: '/docs/reference/references'; render: 'static' }
+  | { path: '/docs/walkthrough'; render: 'static' }
   | { path: '/'; render: 'static' }
 
 // prettier-ignore
