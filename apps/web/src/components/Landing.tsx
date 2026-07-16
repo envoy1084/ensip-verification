@@ -46,7 +46,7 @@ export function Landing() {
 
   const copyPrompt = useCallback(async () => {
     const docsUrl = new URL("/docs", window.location.origin).href;
-    const agentPrompt = `Read the Record Verification specification at ${docsUrl}. Use it to verify an ENS resolver record. Check the live record and descriptor, bind the claim to the exact resolver value, validate current ENS authority approval, validate the selected method proof, and enforce expiry.`;
+    const agentPrompt = `Read the Record Verification specification at ${docsUrl} and explain it.`;
     await navigator.clipboard.writeText(agentPrompt);
     setCopiedPrompt(true);
     setTimeout(() => setCopiedPrompt(false), 2_000);
