@@ -37,7 +37,6 @@ export default defineConfig({
       items: [
         { text: "Introduction", link: "/docs" },
         { text: "Protocol Overview", link: "/docs/components" },
-        { text: "Verification Walkthrough", link: "/docs/walkthrough" },
       ],
     },
     {
