@@ -21,15 +21,11 @@ Authority is the account allowed to approve verification for an exact ENS
 name. The verifier computes it from live ENS state. The proof does not provide
 or choose it.
 
-```text
-ResolveAuthority(name, authorityVersion, evaluationBlock)
+```ts
+resolve_authority(name, authority_version, evaluation_block)
   -> authority
   -> authorityValidUntil, when ENS exposes an ownership expiry
 ```
-
-The authority is not necessarily the account that can edit the record. A
-resolver operator, delegated record writer, CCIP Read gateway, or ENSv2 role
-holder may be able to change data without owning the name.
 
 ## Inputs
 
@@ -41,20 +37,7 @@ Authority resolution uses:
 | `authorityVersion` | Selects one immutable authority algorithm.                       |
 | Evaluation block   | Pins ownership, expiry, records, and signatures to one snapshot. |
 
-The descriptor field `a` is an authority algorithm version. It is not an ENS
-protocol version. A change to ENS ownership rules can allocate a new authority
-version without changing discovery, claims, methods, or results.
-
-## Profile Applicability
-
-The descriptor does not get to force an obsolete authority algorithm. At the
-evaluation block, a verifier must first identify the name's live ownership
-system from live ENS state. It then requires descriptor field `a` to name a
-profile that applies to that state.
-
-If two ownership systems appear active, the migration state is unknown, or the
-selected profile does not apply, authority resolution fails. A profile must
-define this applicability and precedence rule as strictly as its owner lookup.
+The descriptor field `a` is an authority algorithm version. It is not an ENS protocol version. A change to ENS ownership rules can allocate a new authority version without changing discovery, claims, methods, or results.
 
 ## Current ENS Profile
 
@@ -90,182 +73,83 @@ flowchart TD
   N -- "No" --> O["Authority: exact Registry owner<br/>No authority-expiry bound"]
 ```
 
-An imported DNS name uses its current ENS owner. A positive result proves that
-owner approved the ENS record; it does not prove that the owner still controls
-the DNS domain.
+An imported DNS name uses its current effective ENS owner: the exact Registry
+owner when unwrapped or the wrapped owner when wrapped. A positive result does
+not prove that account still controls the DNS domain.
 
 ### Algorithm
 
-Use the evaluation block for every contract call and its timestamp for every
-expiry check.
+Use the same evaluation block for every contract read. Let `evaluationTime` be
+that block's timestamp. Any failed requirement returns `unsupported_authority`;
+the verifier must not try another branch or fall back to a parent or resolver.
 
-1. Normalize the name with ENSIP-15 and calculate its namehash.
-2. Reject every name at or below the `reverse` suffix.
-3. Read `ENSRegistry.owner(node)`.
-4. If the Registry owner is the Name Wrapper:
-   1. read `NameWrapper.getData(uint256(node))`;
-   2. require a nonzero exact wrapped owner;
-   3. for a wrapped `.eth` second-level name, require the Base Registrar
-      registration to be active and owned by the Name Wrapper, then use its
-      expiry;
-   4. for another name with `PARENT_CANNOT_CONTROL` burned, require its wrapper
-      expiry to be active and use that expiry;
-   5. otherwise select the wrapped owner without treating wrapper expiry as an
-      ownership expiry.
-5. Otherwise, for an unwrapped `.eth` second-level name:
-   1. calculate `tokenId = uint256(keccak256(bytes(label)))`;
-   2. require `BaseRegistrar.nameExpires(tokenId)` to be in the future;
-   3. select `BaseRegistrar.ownerOf(tokenId)` and use the registration expiry.
-6. For every other unwrapped name, require and select the nonzero exact
-   `ENSRegistry.owner(node)`.
-7. Require the selected account to equal `claim.authority`.
-8. Validate `proof.authoritySignature` for that account at the same evaluation
-   block.
+1. Normalize the name with ENSIP-15, calculate its namehash as `node`, and
+   reject names at or below `.reverse`.
+2. Read `registryOwner = ENSRegistry.owner(node)`.
+3. If `registryOwner` is the Name Wrapper:
+   - Read `(wrappedOwner, fuses, wrapperExpiry)` from
+     `NameWrapper.getData(uint256(node))` and require `wrappedOwner` to be
+     nonzero.
+   - If the name is exactly one label below `.eth`, require `IS_DOT_ETH`,
+     calculate `tokenId = uint256(keccak256(bytes(label)))`, and read
+     `registrarExpiry = BaseRegistrar.nameExpires(tokenId)`. Require
+     `registrarExpiry > evaluationTime` and
+     `BaseRegistrar.ownerOf(tokenId) == NameWrapper`, then return
+     `(wrappedOwner, registrarExpiry)`.
+   - For any other wrapped name with `PARENT_CANNOT_CONTROL` burned, require
+     `wrapperExpiry >= evaluationTime`, then return
+     `(wrappedOwner, wrapperExpiry)`.
+   - For every remaining wrapped name, return `(wrappedOwner, null)` because
+     ENS provides no authority-expiry bound for that ownership state.
+4. Otherwise, if the name is exactly one label below `.eth`:
+   1. calculate its `tokenId` and read `registrarExpiry`;
+   2. require `registrarExpiry > evaluationTime` and read
+      `registrant = BaseRegistrar.ownerOf(tokenId)`;
+   3. reject the inconsistent state where `registrant` is the Name Wrapper but
+      `registryOwner` is not;
+   4. return the registrant and `registrarExpiry`.
+5. For every other unwrapped name, require `registryOwner` to be nonzero and
+   return it with no ENS-provided authority expiry.
 
-A wrapped `.eth` token stores registrar expiry plus the renewal grace period.
-That stored wrapper value is not the verification-authority bound. Verification
-authority ends when the active Base Registrar registration ends, at the start
-of grace. This is a verification-policy cutoff; some stored resolver-management
-permissions may continue to work during grace.
+After authority resolution succeeds, require the returned address to equal
+`claim.authority` and validate `proof.authoritySignature` for that address at
+the same evaluation block. If an authority expiry is returned, the effective
+verification result must not remain valid after it.
 
-For other wrapped names, wrapper expiry has two meanings. If
-`PARENT_CANNOT_CONTROL` is burned, expiry ends the child's independent
-ownership. Without that fuse, expiry only resets fuses and the parent can
-already replace the child; the wrapped owner does not disappear at that time.
+The Name Wrapper really does store a wrapped `.eth` second-level expiry as the
+Base Registrar expiry plus the 90-day grace period. It does this when wrapping,
+registering and wrapping, receiving the registrar NFT, and renewing. The
+wrapper can therefore continue returning a wrapped owner during grace. That
+stored value preserves wrapper state through renewal; it is not the active
+registration expiry. The algorithm reads `BaseRegistrar.nameExpires()`
+directly and stops accepting the authority when grace begins.
 
-## Subnames
-
-The exact child owner is the authority. Do not use the parent owner.
-
-For an unwrapped child, the ENS Registry stores no expiry. If `alice.eth`
-transfers, expires, or is re-registered, the stored owner of
-`team.alice.eth` does not automatically change. Authority Algorithm 1 continues
-to select that child owner until the parent replaces it.
-
-Whether an old child should remain accepted after a parent expires and is
-re-registered is still an open security decision. Current contracts provide no
-generic ancestor registration generation that a verifier can bind.
-
-An emancipated wrapped child has its own explicit ownership expiry. A
-parent-controlled wrapped child does not gain independent ownership merely
-because it has an expiry value.
-
-## CCIP Read and Wildcard Names
-
-CCIP Read changes how resolver data is fetched, not who owns the name.
-
-If `alice.eth` exists onchain and its resolver uses CCIP Read, use the normal
-exact authority for `alice.eth`. The gateway only transports data that the
-resolver callback authenticates.
-
-If `team.alice.eth` exists only as a wildcard answer and has no exact ownership
-state, Algorithm 1 returns `unsupported_authority`. Do not substitute the
-ancestor owner, wildcard resolver, gateway, resolved address, or a value inside
-the gateway response.
-
-An offchain namespace can be supported later by a separate authority profile
-that defines exact-name ownership and authenticates that state.
-
-Resolver aliases follow the same boundary. A record may be read from an alias
-target, but authority remains attached to the exact requested source name.
+For other wrapped names, the fuse determines whether wrapper expiry is an
+authority bound. With `PARENT_CANNOT_CONTROL`, expiry ends the child's
+independent ownership. Without it, the parent can already replace the child,
+and the Name Wrapper keeps the child owner while resetting its fuses after
+expiry. In that case the stored expiry is not treated as an authority expiry.
 
 ## Reverse Names
 
-Algorithm 1 rejects every name at or below the `reverse` suffix. The Registry owner
-of a reverse node can be a delegated manager, while the account encoded by the
-reverse label retains the ability to reclaim it. This is similar to the
-registrant-manager split for `.eth`, but reverse namespaces also vary by chain.
+Reverse names work differently from normal names. A name such as
+`<address>.addr.reverse` belongs logically to the address written in its label,
+but that address can assign another account as the node's Registry owner.
 
-A reverse authority profile must define the chain-specific label, derive the
-underlying account, and validate that account's EOA or smart-account approval.
-Until then, returning `unsupported_authority` is safer than accepting a
-temporary Registry manager as the durable authority.
+For example, Alice can assign a manager as the Registry owner of her reverse
+node. Reading only `ENSRegistry.owner(node)` would select the manager, even
+though Alice can call the Reverse Registrar and replace that manager at any
+time. The Registry owner is therefore not a reliable canonical authority for a
+reverse name.
 
-The current claim can represent only a mainnet EVM reverse authority. Other
-ENSIP-19 coin types need a chain-qualified principal and chain-specific
-signature or contract-account validation in a future claim version.
+The alternative is to derive authority from the account encoded in the reverse
+name. That needs separate rules because reverse namespaces can represent
+different chains and account formats, not only Ethereum addresses. The current
+claim and signature rules do not define those cases.
 
-## Contract Authorities
-
-Calculate the EIP-712 digest of the complete common claim. Select one signature
-path using the authority's code at the evaluation block:
-
-- if the authority has no code, require strict EOA recovery to produce it;
-- if the authority has code, use an ERC-1271 `staticcall` and require the exact
-  `0x1626ba7e` magic value.
-
-Do not apply EOA recovery as a fallback for a contract. Reject an ERC-1271
-revert, malformed return value, or failed call.
-
-One authority address is enough for a multisig, smart account, or other custom
-policy because the contract implements that policy behind ERC-1271. The proof
-cannot select the signature path.
-
-## ENSv2
-
-The current ENSv2 design stays on Ethereum L1 and can reuse the common record
-verification components when authority remains an Ethereum account. It still
-needs a new authority algorithm and may need a new claim version to bind
-ownership generation. A future L2 or non-EVM authority may also require a new
-principal type, signature rules, and domain.
-
-ENSv2 uses a root registry followed by a hierarchy of registries instead of one
-global Registry, Base Registrar, and Name Wrapper ownership model.
-
-For a name such as `team.alice.eth`, a future ENSv2 profile would:
-
-```text
-Root Registry
-  -> subregistry("eth")
-  -> subregistry("alice")
-  -> owner("team")
-```
-
-The owner of a label is read from its parent registry. The profile must:
-
-1. start from the trusted ENSv2 root and traverse the requested name from the
-   root down;
-2. read the final label's exact owner from its live parent registry;
-3. require the registry to expose the registered ownership interface;
-4. bind the supported registry implementations and every available
-   registration generation into an authority context;
-5. cap validity at the earliest applicable name or ancestor expiry;
-6. reject an expired, unreachable, reserved, or ownerless path;
-7. keep resolver and registry role holders separate from the exact owner.
-
-Each label's owner and expiry come from its parent registry. For the example
-above, the expiry reads are conceptually:
-
-```text
-root.findExpiry("eth")
-ethRegistry.findExpiry("alice")
-aliceRegistry.findExpiry("team")
-```
-
-A profile must state which registry implementations are supported and whether
-they are persistent or must expose the temporal interface. It must not silently
-treat a missing expiry interface on an unknown registry as infinite validity.
-
-`UniversalResolverV2.findOwner()` returns only an address, so it is not enough
-to distinguish unsupported, reserved, expired, and absent state or to compute
-path expiry and generation. A complete authority profile must perform or
-validate the rooted traversal.
-
-ENSv2 allows one registry to be reachable under multiple names. All live paths
-are valid; a verifier must not require the requested path to equal the
-registry's single canonical name. `getParent()` may describe another alias and
-must not be used to construct the requested path. Only root-down traversal of
-the exact requested labels authenticates it.
-
-Migration is also profile-specific. A name may resolve through the ENSv2
-Universal Resolver while still using ENSv1 ownership fallback. Such a name
-continues to use Algorithm 1. It moves to the future ENSv2 authority profile
-only after native ENSv2 ownership exists. The final migration profile must
-define how that state is recognized, which system wins if both contain data,
-and when Algorithm 1 becomes inapplicable.
-
-ENSv2 is still under development, so its authority profile number, trusted
-deployments, supported interfaces, and migration rules are not frozen here.
+Algorithm 1 therefore returns `unsupported_authority` for `.reverse` names.
+This does not mean reverse resolution is invalid; it means reverse ownership
+needs its own authority profile before it can be used for record verification.
 
 ## Open Issues
 
@@ -278,12 +162,15 @@ Suppose Bob owns unwrapped `team.alice.eth`. `alice.eth` expires and Carol
 registers it. The ENS Registry still stores Bob as the child owner until Carol
 replaces that child, so Algorithm 1 continues to accept Bob.
 
-This matches exact live Registry state and preserves delegated subnames, but it
-does not prove that Carol authorized the child in her new registration
-generation. Possible stricter rules are to reject such children, require
-current ancestor co-approval, require an emancipated wrapped name, or use
-authenticated ownership-event history. ENSv1 has no generic onchain generation
-value for this check.
+This follows the exact live child owner, but it does not prove that Carol
+accepted Bob's subname in the new parent registration. ENS does not expose one
+generic ownership-generation value that links every child to the current
+generation of its parent.
+
+The profile must either accept this behavior or add a stricter rule. Possible
+rules include requiring parent co-approval, requiring an independently wrapped
+child, or binding verified ownership history. Each option changes normal
+subname delegation, so this remains open.
 
     </AccordionContent>
 
@@ -295,86 +182,32 @@ value for this check.
 
 Yes. Suppose Alice signs a proof, transfers the name to Bob, and later receives
 the name back while the old claim is still within its signed lifetime. A
-verifier sees Alice as the current authority again, so the old proof can pass.
+verifier sees Alice as the current authority again, so the old proof can pass
+if the signed record value is also current again.
 
 Current ENS does not expose one ownership-generation number for every kind of
-name. Possible fixes are short maximum proof lifetimes, a signed authority
-epoch, an indexed ownership-change event, or an explicit verification
-delegation record with revocation. The protocol must choose one before claiming
-that every transfer permanently invalidates old proofs. This blocks finalizing
-the authority profile unless reactivation is explicitly accepted as protocol
-behavior.
+name. The simplest rule is to accept reactivation and keep proof lifetimes
+short. Preventing it requires an authority epoch, authenticated ownership-event
+history, or another revocation value that changes on every ownership cycle.
+The protocol must explicitly choose between those behaviors.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>How should ownerless L2 and offchain names define authority?</AccordionTitle>
+    <AccordionTitle>How should names without an exact onchain owner be supported?</AccordionTitle>
     <AccordionContent>
 
-A future profile needs more than a gateway address. It must bind the exact
-name, chain, registry or namespace, owner, generation, expiry, authenticated
-state root, and finality rule. The record, descriptor, and authority must come
-from the same authenticated revision.
+A wildcard, CCIP Read namespace, DNSSEC-only name, or another offchain system
+may return records without storing an exact owner in the ENS Registry. A
+gateway, ancestor owner, or resolved address is not automatically the name's
+authority, so Algorithm 1 rejects these names.
 
-It must also state its trust source. A finalized L2 storage proof, DNSSEC chain,
-and provider-signed database revision provide different guarantees even when
-all three are transported through CCIP Read.
-
-The current common claim represents authority as an Ethereum `address` and
-uses EIP-712. A non-EVM authority may therefore require a new common claim
-version, not only a new value of `a`.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>How is the ENSv2 profile frozen safely?</AccordionTitle>
-    <AccordionContent>
-
-ENSv2 contracts and migration behavior are still changing. The final profile
-must pin the chain, trusted root, supported ownership and expiry interfaces,
-root-to-name traversal, fallback states, and deployment activation policy.
-
-Custom registries that do not expose the required ownership interface must
-fail with `unsupported_authority`. They can be supported only by a separately
-specified profile whose authority semantics are known.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>Should ENS support delegated verification authority?</AccordionTitle>
-    <AccordionContent>
-
-The baseline requires the exact owner. Automatically accepting resolver
-writers would be unsafe because permissions differ by resolver and may cover
-one key, one record type, every record, or arbitrary custom logic.
-
-If delegation is added, it should be explicit and bind the exact name, record
-type, record key, method, authority profile, validity period, and a revocation
-or generation value.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>How are DNS-controlled names handled without an ENS owner?</AccordionTitle>
-    <AccordionContent>
-
-A DNS name imported into ENS has an ENS owner and follows Algorithm 1. A
-gasless DNS or DNSSEC-only name may resolve without one, so an Ethereum address
-signature cannot represent its authority automatically.
-
-Supporting that case needs a separate DNS authority profile. It could publish
-the common claim digest in a DNSSEC-authenticated record, or use DNSSEC to
-delegate to a canonical account or key that signs the claim. Either model must
-define DNS signature validity, key rotation, delegation revocation, and proof
-freshness.
+A future authority version must authenticate the exact name and owner from the
+same revision as the record, and define expiry, replay protection, and the
+trust source for that state. If the owner is not an Ethereum account, the
+common claim and signature format may also need a new version.
 
     </AccordionContent>
 
@@ -385,18 +218,39 @@ freshness.
 
 <Accordion>
   <AccordionItem>
-    <AccordionTitle>Why use the owner instead of a record writer?</AccordionTitle>
+    <AccordionTitle>Why use one owner instead of every record writer?</AccordionTitle>
     <AccordionContent>
 
-The authority signature is an independent approval from the ENS name. If any
-account that can write the record and descriptor can also act as authority, it
-can create every input required for a positive result by itself.
+One name can have a registrant, Registry manager, operators, resolver
+delegates, and parent control at the same time. Those accounts have different
+permissions and are not equivalent owners.
 
-Owner lookup is defined for the supported name types. Resolver permissions are
-implementation-specific and cannot be discovered through one common
-interface. ENS Registry operators, Base Registrar approvals, Name Wrapper token
-approvals, and global wrapper operators are also not authority; the selected
-owner must approve the claim.
+The profile chooses one canonical account: the Base Registrar registrant for
+an unwrapped `.eth` second-level name, the wrapped owner for a wrapped name, or
+the exact Registry owner for another unwrapped name. Operators and resolver
+delegates are not additional authorities.
+
+This keeps the authority signature independent from record writing. Otherwise
+one delegated writer could set the record, descriptor, and authority approval
+without the name owner participating. Resolver permissions are also
+implementation-specific and cannot be discovered through one common rule.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why not use the stored wrapped .eth expiry?</AccordionTitle>
+    <AccordionContent>
+
+The Name Wrapper stores `.eth` second-level expiry as Base Registrar expiry
+plus the 90-day grace period. `getData()` can therefore continue returning the
+wrapped owner after the active registration has expired.
+
+Using that timestamp would allow verification throughout grace. Algorithm 1
+instead reads `BaseRegistrar.nameExpires()` and uses the actual registration
+expiry. It does not derive the value by subtracting a hardcoded grace period,
+so the source and meaning of the expiry remain explicit.
 
     </AccordionContent>
 
@@ -433,6 +287,24 @@ account logic and become stale when the account changes its rules.
   </AccordionItem>
 
   <AccordionItem>
+    <AccordionTitle>Why does an imported DNS name use its ENS owner?</AccordionTitle>
+    <AccordionContent>
+
+The DNS Registrar verifies a DNSSEC proof and writes the selected address into
+the ENS Registry. After import, Algorithm 1 treats the name like another
+non-`.eth` ENS name. If it is later wrapped, the wrapped owner is selected.
+
+This proves approval by the current ENS owner, not continuing control of the
+DNS domain. The DNS owner can publish a new authenticated claim and take the
+ENS name back, but ENS does not automatically expire the previously imported
+owner. Proving current DNS control would require a separate DNSSEC authority
+profile with freshness and expiry rules.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
     <AccordionTitle>Why is authority versioned separately?</AccordionTitle>
     <AccordionContent>
 
@@ -457,24 +329,8 @@ that never existed together. A transfer or record update between those reads
 could incorrectly validate an old signer against a new value.
 
 The target record, descriptor, authority, expiry, and ERC-1271 call therefore
-use one Ethereum block reference. An offchain or L2 profile additionally needs
-one compatible authenticated source revision, such as a finalized state root
-or provider-signed database revision, for all of its reads.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>Why not use an ENSv2 canonical-name check?</AccordionTitle>
-    <AccordionContent>
-
-ENSv2 deliberately allows one registry to appear under more than one name. Its
-parent pointer can describe only one canonical path, so requiring that path
-would reject other valid aliases.
-
-Authority instead follows the exact requested path from the trusted root and
-accepts it when every link is live and supported.
+use one Ethereum block reference. A future offchain profile must provide the
+equivalent single authenticated revision for all of its reads.
 
     </AccordionContent>
 
