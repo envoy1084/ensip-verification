@@ -1,5 +1,7 @@
 import { defineConfig } from "vocs/config";
 
+import { abnfGrammar } from "./grammars/abnf";
+
 export default defineConfig({
   title: "Record Verification",
   head: {
@@ -14,6 +16,9 @@ export default defineConfig({
         ? `https://${process.env.VERCEL_URL}`
         : "https://ensip-verification.vercel.app",
   checkDeadlinks: true,
+  codeHighlight: {
+    langs: [abnfGrammar],
+  },
   editLink: {
     link: "https://github.com/envoy1084/ensip-verification/edit/main/apps/web/src/pages/:path",
     text: "Suggest changes to this page",
