@@ -12,11 +12,6 @@ import {
 
 # Claims and Target Proofs
 
-:::warning[Work in progress]
-This page has not been finalized. Requirements, formats, and examples may
-change while the protocol is under discussion.
-:::
-
 A proof envelope contains one common claim, approval from the current ENS
 authority, and the evidence required by one verification method.
 
@@ -48,25 +43,6 @@ struct ENSRecordVerification {
   uint64 issuedAt;
   uint64 validUntil;
 }
-```
-
-The exact EIP-712 `encodeType` value is the concatenation below. The displayed
-line breaks and `+` characters are not part of the value.
-
-```text
-"ENSRecordVerification(" +
-"string name," +
-"bytes32 node," +
-"string recordType," +
-"string recordKey," +
-"bytes32 valueHash," +
-"uint32 authorityVersion," +
-"address authority," +
-"string method," +
-"string target," +
-"uint64 issuedAt," +
-"uint64 validUntil" +
-")"
 ```
 
 The struct name, field types, field names, and field order are part of the
@@ -156,23 +132,6 @@ An EOA authority signature is exactly 65 bytes. A contract signature is an
 opaque, nonempty byte string of at most 8,192 bytes. Counterfactual signatures
 for an undeployed contract are not supported by version 1.
 
-## Target Proof
-
-The selected method defines how the external target participates. It may use:
-
-- live publication at a location controlled by the target;
-- a target-native signature over a message containing `commonClaimDigest`; or
-- an issuer statement that commits to `commonClaimDigest`.
-
-A method defines the exact proof members, target derivation, signed bytes,
-signature encoding, account or key binding, validity, revocation, and size
-limits. The proof cannot choose its own method, signature scheme, or weaker
-validation path.
-
-Live evidence does not need a placeholder JSON field. For example,
-`https-origin.v1` proves target participation by serving the envelope at the
-required same-origin location, so its method proof is an empty object.
-
 ## Proof Envelope
 
 The common envelope is:
@@ -194,18 +153,7 @@ The common envelope is:
     "validUntil": "1786320000"
   },
   "authoritySignature": "0x<signature>",
-  "proof": {}
-}
-```
-
-An account-signature method adds only its method evidence:
-
-```json
-{
-  "authoritySignature": "0x<signature>",
-  "proof": {
-    "targetSignature": "<method-defined-signature>"
-  }
+  "proof": {} // Method defined
 }
 ```
 
@@ -242,7 +190,29 @@ digest. JSON canonicalization is not required.
 
 ## Proof Key
 
-Methods with a deterministic publication location use one proof key:
+A proof key identifies one publication slot for one ENS record and method. It
+lets a verifier calculate the exact proof location before fetching the proof.
+
+For example, `https-origin.v1` publishes at:
+
+```text
+https://example.com/.well-known/ens-record-verification/<proof-key>
+```
+
+The same origin may be used by many ENS names and records:
+
+```text
+alice.eth + text("url")        + https-origin.v1 -> proof key A
+alice.eth + text("com.github") + another method  -> proof key B
+bob.eth   + text("url")        + https-origin.v1 -> proof key C
+```
+
+Without a proof key, those proofs would share one URL and overwrite each other,
+or the server would need to return a collection that every verifier must scan.
+The key gives each combination one deterministic location.
+
+It is calculated only from values the verifier knows from the live ENS record,
+descriptor, and authority state:
 
 ```solidity
 PROOF_KEY_TYPEHASH = keccak256(
@@ -263,16 +233,33 @@ proofKey = keccak256(
 );
 ```
 
-The proof key is a publication-slot identifier. It is not proof data, an
-integrity hash, a secret, or an access-control token.
+Each input separates a different case:
+
+- `domainSeparator` separates chains and common-claim versions.
+- `authorityVersion` separates authority algorithms.
+- `authority` gives a new authority a different publication slot.
+- `node` separates ENS names.
+- `recordType` and `recordKey` select one resolver record.
+- `method` separates verification methods for that record.
+
+The proof key is only a location identifier. It is not proof data, an integrity
+hash, a secret, or an access-control token. Publishing arbitrary content at the
+location cannot produce a positive result because the verifier still checks the
+complete claim, authority signature, and method proof.
 
 It includes the authority so a transfer selects a new publication slot. It
-excludes `valueHash`, `target`, timestamps, URI, and signatures so the same slot
-can be reused when a record changes or a proof is renewed. Every claim field is
-still compared during verification.
+does not prevent an old proof from returning if the same authority later
+reacquires the name.
 
-Methods that fetch one envelope directly from descriptor `u` do not need a
-proof key.
+The key excludes `valueHash`, `target`, timestamps, URI, and signatures. This
+keeps the location stable when a record changes or a proof is renewed.
+`issuedAt` and `validUntil` also cannot be inputs because the verifier does not
+know them until after it fetches the envelope.
+
+Not every method needs a proof key. A method that fetches one envelope directly
+from descriptor `u` already has an exact location. Proof keys are used only by
+methods that derive a deterministic publication location, such as
+`https-origin.v1` and the DNS TXT method.
 
 ## Verification
 
