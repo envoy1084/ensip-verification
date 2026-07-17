@@ -5,13 +5,7 @@ description: Normative verification result semantics.
 
 # Verification Results
 
-:::warning[Work in progress]
-This page has not been finalized. Requirements, formats, and examples may
-change while the protocol is under discussion.
-:::
-
-A verification result has a boolean outcome and, for positive results, a
-verification type. The result is not a serialized wire format.
+A verification result has a boolean outcome and, for positive results, a verification type. The result is not a serialized wire format.
 
 ## Positive Result
 
@@ -32,15 +26,7 @@ returns:
 | `control`     | Method evidence demonstrates control of the canonical target for the exact live record. |
 | `attestation` | A client-accepted issuer attests to the claim bound to the exact live record.           |
 
-Version 1 defines control methods. It reserves `attestation` for future method
-profiles but does not define an attestation method.
-
-The method profile determines the verification type. A client MUST NOT promote
-one type to the other.
-
-`control` means the current exact-name ENS authority approved the complete claim
-and method evidence demonstrated target control for the exact live record. It
-does not assert that the authority personally operates the target.
+The method profile determines the verification type. A client MUST NOT promote one type to the other.
 
 ## Non-Positive Result
 
@@ -53,7 +39,4 @@ verifier returns:
 }
 ```
 
-The result applies only to the record value and evaluation block used by the
-verifier. The evaluation block is verification context, not a field in this
-minimal result. A non-positive result does not hide, modify, or invalidate the
-resolver record.
+The result applies only to the record value and evaluation block used by the verifier. The evaluation block is verification context, not a field in this minimal result. A non-positive result does not hide, modify, or invalidate the resolver record.
