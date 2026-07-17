@@ -1,7 +1,14 @@
 ---
 title: Lifecycle
-description: Validity, invalidation, and cache bounds.
+description: Evaluation, expiry, disabling, renewal, and caching.
 ---
+
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTitle,
+} from "../../../components/accordion.tsx";
 
 # Lifecycle
 
@@ -10,72 +17,444 @@ This page has not been finalized. Requirements, formats, and examples may
 change while the protocol is under discussion.
 :::
 
-A proof is valid only while its live ENS state, current authority, target
-evidence, and time bounds continue to agree.
-
-## Validity
-
-Using local evaluation time `now`, require:
+A proof does not become permanently verified after it is published.
+Verification is a fresh comparison between the proof and the state observed by
+one verifier.
 
 ```text
-issuedAt <= now + 300
+live ENS snapshot
+  + selected proof resource
+  + current method evidence
+  + current time
+  = one verification result
+```
+
+```mermaid
+flowchart LR
+  A["Read one ENS snapshot"] --> B["Fetch the selected proof and method evidence"]
+  B --> C{"Do all current checks pass?"}
+  C -- "Yes" --> D["Positive result for this evaluation"]
+  C -- "No" --> E["Non-positive result"]
+  D --> F["Re-evaluate when freshness ends or a dependency changes"]
+  F --> A
+```
+
+A result only describes its evaluation. It does not guarantee that the record,
+authority, proof, or external target will remain unchanged.
+
+## Evaluation Context
+
+Every evaluation records:
+
+```ts
+{
+  checkedAt: number;
+  ensObservedAt: number;
+  ensBlockNumber: bigint;
+  ensBlockHash: `0x${string}`;
+  ensBlockTimestamp: number;
+}
+```
+
+Use the same ENS block for the target record, descriptor, authority, ownership
+expiry, account code, and authority ERC-1271 call. A block number alone is not
+enough because a chain reorganization can replace that block with another one.
+
+The selected block must also satisfy the caller's maximum ENS snapshot age. A
+canonical block can still be too old to describe current state. Verification
+against a deliberately old block is historical verification and is outside
+this live-result profile.
+
+Capture `checkedAt` as whole Unix seconds after all required ENS and external
+checks finish. Re-run the inexpensive time checks immediately before returning
+a positive result so a proof that expired during a slow fetch is not accepted.
+
+External HTTPS, DNS, IPFS, and target-chain checks cannot be atomically pinned
+to the Ethereum block. Record when each source was observed. Each method
+defines the freshness and chain context of its own evidence.
+
+If the ENS block is removed by a reorganization, discard the evaluation and run
+it again. Do not report the proof itself as cryptographically invalid.
+
+## Time Rules
+
+Every method defines `methodMaxLifetime`. Immediately before returning a
+positive result, require:
+
+```text
+issuedAt <= checkedAt + 300
 issuedAt < validUntil
-now < validUntil
+checkedAt < validUntil
 validUntil - issuedAt <= methodMaxLifetime
 ```
 
-`issuedAt` is not a trusted timestamp. It bounds the proof interval and rejects
-future-dated claims beyond the allowed clock skew.
+The 300-second allowance prevents normal clock differences from rejecting a
+new proof. It does not make `issuedAt` a trusted timestamp. `validUntil` is
+exclusive: the claim is expired when `checkedAt == validUntil`.
 
-The semantic expiry is the earliest applicable bound:
+Validate `issuedAt < validUntil` before subtracting the two values. All values
+are unsigned Unix seconds and arithmetic must reject overflow.
+
+## Effective Expiry
+
+The earliest hard expiry limits a positive result:
 
 ```text
 effectiveValidUntil = min(
   claim.validUntil,
   authorityValidUntil?,
-  methodEvidenceValidUntil?,
-  issuerValidUntil?
+  methodEvidenceValidUntil?
 )
+
+checkedAt < effectiveValidUntil
 ```
 
-Omit a bound only when the selected authority or method does not define it.
+Omit an optional bound only when the selected authority or method does not
+define one. A missing `authorityValidUntil` means ENS exposes no scheduled
+expiry for that authority; it does not guarantee that the authority will never
+change.
 
-## Invalidation
+The authority algorithm checks ownership expiry using the ENS block timestamp.
+Live verification also requires `checkedAt < authorityValidUntil` when that
+bound exists. This prevents an older finalized block from extending authority
+after its known real-time expiry. Method-evidence expiry uses the clock or chain
+context defined by that method and must also remain active at `checkedAt`.
 
-Re-evaluation returns `verified: false` after any of these changes:
+For example, if a claim expires in 30 days but its `.eth` authority expires in
+2 days, `effectiveValidUntil` is 2 days. A later renewal does not extend an
+existing cached evaluation. A fresh evaluation may calculate a later bound if
+the same authority and every other input still match.
 
-- target record changed;
-- verification descriptor changed or was deleted;
-- exact authority changed or expired;
-- authority signature no longer validates;
-- live method publication was removed;
-- method evidence is revoked under the selected method;
-- effective validity expired;
-- evaluation block was reorganized.
+`effectiveValidUntil` is the latest known time at which the current evidence
+could remain valid. It is not a promise that verification will stay positive
+until then. Live state can change earlier.
 
-Descriptor deletion is the common ENS-side revocation action. It takes effect
-when a verifier performs a fresh ENS read.
+## Changes And Disabling
 
-The current claim does not bind an ownership generation. A previous owner's
-proof can become valid again if the same address later reacquires the name while
-the claim is still live. This is an open authority issue, not a permanent
-revocation guarantee.
+A change invalidates the previous evaluation and requires another one. It does
+not always make the next evaluation non-positive; matching new state and proof
+may already be available.
+
+| Change                                            | Effect on the next evaluation                                                                                                      |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Target record value changes                       | The old `valueHash` and target no longer match. A new matching proof can verify.                                                   |
+| Descriptor `a` or `m` changes                     | The old claim no longer matches the selected authority or method.                                                                  |
+| Descriptor `u` changes                            | The verifier fetches the new location. The same valid envelope may be reused without new signatures.                               |
+| Exact-name descriptor resolves empty              | Verification is not configured, so a fresh positive result is impossible.                                                          |
+| Exact authority changes                           | The old authority and signature are rejected. The new claim, authority signature, and bound method evidence must be created again. |
+| Authority or claim expires                        | The result becomes non-positive at the exact expiry.                                                                               |
+| Live publication is removed                       | A live-publication method loses its target evidence. A temporary network failure is unavailability, not revocation.                |
+| ERC-1271 logic or method revocation state changes | Re-evaluate using the current contract or method rules.                                                                            |
+| Resolver changes but the logical records do not   | Re-resolve all inputs; the same claim may still match.                                                                             |
+| ENS block is reorganized out                      | Discard the evaluation and repeat it on a canonical block.                                                                         |
+
+Making the exact-name descriptor resolve to an empty value is the common
+ENS-side disable action. It stops fresh verification after clients re-read ENS,
+but it does not erase proof bytes or immediately remove already cached results.
+Deleting one stored text record is not sufficient when a wildcard, inherited,
+aliased, or offchain resolver still returns a descriptor.
+
+Version 1 does not provide permanent revocation. Before `validUntil`, an old
+proof can become positive again if every required input returns. Examples
+include Alice transferring a name away and later receiving it back, restoring
+an old record and resolved descriptor, restoring a target publication, or
+renewing an expired `.eth` name with the same authority.
+
+To disable verification in practice:
+
+1. Ensure the Universal Resolver returns an empty descriptor for the exact
+   name.
+2. Remove mutable proof publication where the method allows it.
+3. Revoke contract-wallet or method evidence when such revocation exists.
+4. Wait until the maximum positive cache period has passed.
+
+Verify the empty exact-name result independently. Removing a local resolver
+entry can expose a descriptor supplied by another resolution path.
+
+Portable EOA and Bitcoin signatures remain valid signature bytes until their
+claim expires. Removing their hosted copy makes retrieval unavailable but does
+not cryptographically revoke a copy another client already has.
+
+## Publishing And Renewal
+
+For initial publication:
+
+1. Set or read the final target record.
+2. Build the claim from that live record and current authority.
+3. Obtain the authority signature and method evidence.
+4. Publish the proof resource.
+5. Publish the descriptor last.
+6. Verify the live result independently.
+
+Publishing the descriptor last avoids advertising a proof location before the
+proof exists.
+
+For an unchanged record at a mutable location, create a later claim, obtain new
+evidence, and replace the proof before the old claim or cache bound ends. A
+verifier may observe either envelope during the change; each envelope must pass
+as a complete proof.
+
+For a content-addressed proof, publish the new bytes first and then update
+descriptor `u` to the new CID. The old descriptor continues to select the old
+proof until the ENS update becomes canonical.
+
+A target, method, or authority change creates a new common claim digest. Never
+combine fields or signatures from old and new envelopes. Update the target
+record and descriptor in one resolver transaction when possible.
+
+ENS, HTTPS, DNS, IPFS, and other chains cannot be updated in one atomic
+operation. An intermediate state may therefore be temporarily non-positive,
+but the record and claim binding prevents it from verifying the wrong value.
 
 ## Caching
 
-`effectiveValidUntil` is the semantic bound. `cacheUntil` is the earlier time at
-which a client must re-evaluate:
+`effectiveValidUntil` is a hard semantic bound. `cacheUntil` is the latest time
+at which a client may reuse one evaluation without repeating its live checks:
 
 ```text
 cacheUntil = min(
   effectiveValidUntil,
-  ENS freshness bound,
-  method freshness bound,
-  HTTP or DNS freshness bound?,
-  revocation next-update bound?,
-  client policy bound
+  ensFreshUntil,
+  methodFreshUntil?,
+  transportFreshUntil?,
+  targetChainFreshUntil?,
+  revocationNextUpdate?,
+  clientPolicyUntil?
 )
 ```
 
-Live-publication methods cap positive caching at five minutes. HTTP freshness
-and DNS TTLs may shorten that period but cannot extend it.
+`ensFreshUntil` is at most `ensObservedAt + 300`. Every mutable method,
+transport, target-chain, or revocation source calculates freshness from the
+time that source was observed, not from the later `checkedAt` time. No source
+may contribute more than five minutes of positive-result reuse. If any required
+source is already stale when verification finishes, refresh it before returning
+a positive live result.
+
+Methods, HTTP or DNS freshness, target-chain state, revocation rules, and client
+policy may shorten the common five-minute ceiling but cannot extend it.
+
+A cached result may be reused only while:
+
+- the current time is before `cacheUntil`;
+- its ENS block remains canonical under the client's finality policy;
+- the client policy and required capabilities are unchanged; and
+- no known dependency change has invalidated it.
+
+`cacheUntil` permits bounded reuse; it does not prove that ENS state remained
+unchanged during that period. High-risk actions should use a recent block and
+revalidate even before `cacheUntil`.
+
+Non-positive results need reason-specific caching. A missing mutable proof or
+temporary network failure should be retried quickly, while an unsupported
+method may remain unsupported until the client changes. The public result can
+remain `verified: false`, but SDKs need a diagnostic reason to apply the correct
+retry policy.
+
+## Open Issues
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Should restored state reactivate an old proof?</AccordionTitle>
+    <AccordionContent>
+
+The claim binds the current authority address and record state but not a unique
+generation for every change. The same unexpired proof can become positive again
+after authority `Alice -> Bob -> Alice`, record `A -> B -> A`, descriptor
+deletion and recreation, publication restoration, or expiry followed by
+renewal.
+
+Current ENS does not expose one generation value for every name and transition.
+Version 1 must either accept reactivation with short lifetimes or bind a future
+claim to universally retrievable generation state. A nonce inside the proof is
+not enough unless every verifier can read its current authoritative value.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>How can rotation avoid a temporary verification gap?</AccordionTitle>
+    <AccordionContent>
+
+External publication and ENS writes cannot be globally atomic. Most rotations
+can publish new proof material first and select it afterward. A harder case is
+changing a record while old and new envelopes must occupy the same
+deterministic proof location: replacing either side first temporarily breaks
+the other.
+
+The base protocol safely fails closed, but zero-downtime rotation may require a
+method-defined collection, two publication slots, or a bounded overlap rule.
+Those mechanisms should not be added until their selection and cleanup rules
+are deterministic.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>How are CCIP Read records pinned to one revision?</AccordionTitle>
+    <AccordionContent>
+
+Using one Ethereum block pins the resolver callback, but two gateway responses
+can still represent different offchain revisions. A target record and its
+descriptor could therefore be individually valid without having existed
+together in one offchain state.
+
+Resolvers should return both values from one authenticated revision where
+possible. A general offchain profile still needs a revision identifier,
+authentication rules, expiry, and replay behavior that verifiers can check.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Which chain finality policy should a verifier use?</AccordionTitle>
+    <AccordionContent>
+
+The verifier can record block numbers and hashes and discard reorged results,
+but canonicality and freshness are separate. A year-old canonical block cannot
+describe current ENS state. Applications also have different confirmation
+requirements and may use `latest`, `safe`, `finalized`, or an explicit
+confirmation depth depending on risk and latency.
+
+The final SDK contract must define a maximum ENS snapshot age, which metadata is
+always returned, and how a caller selects ENS and target-chain finality without
+changing proof semantics. This must account for a finalized block sometimes
+being older than the selected freshness policy.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>How are non-positive results classified and cached?</AccordionTitle>
+    <AccordionContent>
+
+`verified: false` can mean not configured, unsupported, definitively invalid,
+expired, temporarily unavailable, or blocked by client policy. Those cases need
+different retry and cache behavior even if the public boolean remains the same.
+
+The result and method components still need stable diagnostic classes,
+precedence rules, and negative cache limits for RPC, CCIP Read, HTTP, DNSSEC,
+target-chain, and revocation failures.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Which method freshness limits still need to be fixed?</AccordionTitle>
+    <AccordionContent>
+
+The common five-minute ceiling is only an upper bound. Every method still needs
+exact rules for signed lifetime, live-evidence refresh, target-chain block age,
+revocation status, and negative caching.
+
+These rules are especially important for account methods. A 90-day portable
+signature must not allow ENS authority or target ERC-1271 state to be reused for
+90 days. The final values belong in each immutable method profile and need
+executable boundary tests.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>
+
+## Decisions
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Why is verification an evaluation instead of a permanent state?</AccordionTitle>
+    <AccordionContent>
+
+ENS ownership, resolver records, contract-wallet rules, and external target
+evidence can all change independently. No shared protocol state records that a
+proof moved permanently from pending to verified or revoked.
+
+Treating verification as a predicate over current inputs makes every result
+reproducible and avoids claiming permanence the protocol cannot enforce.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why separate effective expiry from cache freshness?</AccordionTitle>
+    <AccordionContent>
+
+An expiry says the proof cannot remain valid after a known time. Freshness says
+when a mutable source must be checked again. A DNS TTL or revocation
+`nextUpdate` normally requires another check; it does not automatically mean
+the underlying claim expires at that moment.
+
+Keeping `effectiveValidUntil` and `cacheUntil` separate prevents transport or
+cache metadata from extending signed and ownership validity.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why is an empty resolved descriptor not permanent revocation?</AccordionTitle>
+    <AccordionContent>
+
+An empty exact-name descriptor is authoritative resolved ENS state, so fresh
+evaluations stop before fetching a proof. It cannot delete copies already held
+by clients, and returning the same descriptor later can select the same
+unexpired proof again.
+
+Permanent revocation would require shared state that changes irreversibly and
+is checked by every verifier. Version 1 does not add a nonce or revocation
+registry without such a concrete state model.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why can a proof move to another URI without new signatures?</AccordionTitle>
+    <AccordionContent>
+
+Descriptor `u` locates proof bytes; it is not part of the common claim. The new
+location cannot change the signed name, record, value, authority, method,
+target, or time bounds.
+
+A verifier fetches from the current `u` and still checks the complete envelope.
+This allows hosting and CID rotation without weakening verification.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why cap every positive cache at five minutes?</AccordionTitle>
+    <AccordionContent>
+
+Even a portable account signature depends on mutable ENS records, descriptor,
+and authority state. Its long signed lifetime therefore cannot be used as a
+safe ENS cache lifetime.
+
+One common ceiling gives every method a bounded stale-result window. Methods
+and clients can require faster revalidation, and high-risk applications should
+do so.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why discard a reorged evaluation instead of returning false?</AccordionTitle>
+    <AccordionContent>
+
+A reorganization removes the snapshot against which the result was calculated.
+It says nothing about whether the same proof is valid on the replacement
+chain.
+
+Discarding and repeating the evaluation avoids confusing missing context with
+invalid evidence.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>

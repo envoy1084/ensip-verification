@@ -71,6 +71,11 @@ flowchart TD
 Use the evaluation block for every contract call and its timestamp for every
 expiry check.
 
+The authority algorithm decides whether ownership is active at that snapshot.
+For a live verification result, the Lifecycle component additionally requires
+`checkedAt < authorityValidUntil` when an absolute authority expiry is returned.
+This prevents an older block from extending authority past its known expiry.
+
 1. Normalize the name with ENSIP-15 and calculate its namehash.
 2. Reject every name at or below the `reverse` suffix.
 3. Read `ENSRegistry.owner(node)`.
