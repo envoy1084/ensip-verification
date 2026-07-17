@@ -90,12 +90,14 @@ chainId:           target EIP-155 chain ID
 verifyingContract: target account address
 ```
 
-`proof` contains exactly:
+The common envelope contains:
 
 ```json
 {
   "authoritySignature": "0x<signature>",
-  "targetSignature": "0x<signature>"
+  "proof": {
+    "targetSignature": "0x<signature>"
+  }
 }
 ```
 
@@ -144,12 +146,14 @@ consensus-serialized witness stack. Missing variant prefixes are rejected.
 BIP-322's required script rules apply, including `SIGHASH_ALL`, or
 `SIGHASH_DEFAULT` where BIP-322 permits it.
 
-`proof` contains exactly:
+The common envelope contains:
 
 ```json
 {
   "authoritySignature": "0x<signature>",
-  "targetSignature": "smp<canonical-padded-base64-witness>"
+  "proof": {
+    "targetSignature": "smp<canonical-padded-base64-witness>"
+  }
 }
 ```
 

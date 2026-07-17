@@ -69,8 +69,9 @@ carrier-grade NAT, documentation, multicast, and unspecified addresses. Apply
 the same check to every returned address and the address actually used for the
 connection.
 
-The envelope contains the common claim and a `proof` object containing exactly
-the common `authoritySignature`.
+The envelope contains the common claim, the common `authoritySignature`, and
+exactly `proof: {}`. Target participation is established by the live
+same-origin publication rather than an inline target field.
 `validUntil - issuedAt` MUST NOT exceed 30 days. A live positive evaluation
 MUST NOT be cached for more than five minutes.
 
@@ -83,8 +84,8 @@ The verifier MUST:
 3. reject redirects, invalid WebPKI TLS, disallowed network destinations, and
    responses outside the defined status, media-type, encoding, or size rules;
 4. parse the closed envelope and compare the complete common claim;
-5. validate `proof.authoritySignature` for the live ENS authority;
-6. reject any other fields in `proof`;
+5. validate `authoritySignature` for the live ENS authority;
+6. require `proof` to be an empty object;
 7. require the proof to be within its validity interval.
 
 When every check succeeds, return `verified: true` with

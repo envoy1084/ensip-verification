@@ -91,8 +91,7 @@ expiry check.
 6. For every other unwrapped name, require and select the nonzero exact
    `ENSRegistry.owner(node)`.
 7. Require the selected account to equal `claim.authority`.
-8. Validate `proof.authoritySignature` for that account at the same evaluation
-   block.
+8. Validate `authoritySignature` for that account at the same evaluation block.
 
 A wrapped `.eth` token stores registrar expiry plus the renewal grace period.
 That stored wrapper value is not the verification-authority bound. Verification

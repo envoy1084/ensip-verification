@@ -1,7 +1,14 @@
 ---
 title: Claims and Target Proofs
-description: Common EIP-712 claim, proof key, and method evidence.
+description: Bind one live ENS record to authority approval and method evidence.
 ---
+
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTitle,
+} from "../../../components/accordion.tsx";
 
 # Claims and Target Proofs
 
@@ -10,19 +17,22 @@ This page has not been finalized. Requirements, formats, and examples may
 change while the protocol is under discussion.
 :::
 
-Every method binds its evidence to the same common claim. The claim identifies
-one ENS name, one resolver record, its exact live value, the current ENS
-authority, and the external target derived by the method.
+A proof envelope contains one common claim, approval from the current ENS
+authority, and the evidence required by one verification method.
 
-Every proof requires approval from the current ENS authority and evidence from
-the external target. Claim field `authority` must match live authority state,
-and `proof.authoritySignature` must validate for that address. Each method
-defines how its target authenticates the proof, such as live publication, a
-target signature, DNSSEC evidence, or a content-addressed URI.
+```text
+common claim
+  + authority signature
+  + method proof
+  = proof envelope
+```
+
+The claim is the exact statement being approved. The JSON file only transports
+that statement and its evidence.
 
 ## Common Claim
 
-The common claim has this Solidity-style declaration:
+Every method uses the same closed EIP-712 type:
 
 ```solidity
 struct ENSRecordVerification {
@@ -40,74 +50,199 @@ struct ENSRecordVerification {
 }
 ```
 
-The declaration formatting is not part of the EIP-712 encoded type. The type is
-closed, and implementations MUST preserve the exact struct name, field types,
-field names, and field order shown above. They MUST NOT add, remove, rename, or
-reorder fields.
+The exact EIP-712 `encodeType` value is the concatenation below. The displayed
+line breaks and `+` characters are not part of the value.
 
-| Field              | Source                                              |
-| ------------------ | --------------------------------------------------- |
-| `name`             | ENSIP-15 normalized input name.                     |
-| `node`             | `namehash(name)`.                                   |
-| `recordType`       | Selected resolver record type.                      |
-| `recordKey`        | Exact selector key or canonical numeric parameter.  |
-| `valueHash`        | Keccak-256 of the exact live resolver return bytes. |
-| `authorityVersion` | Descriptor field `a`.                               |
-| `authority`        | Live exact-name authority at the evaluation block.  |
-| `method`           | Descriptor field `m`.                               |
-| `target`           | Canonical external target derived by the method.    |
-| `issuedAt`         | Proof publisher's Unix time in seconds.             |
-| `validUntil`       | First Unix time at which the proof is invalid.      |
+```text
+"ENSRecordVerification(" +
+"string name," +
+"bytes32 node," +
+"string recordType," +
+"string recordKey," +
+"bytes32 valueHash," +
+"uint32 authorityVersion," +
+"address authority," +
+"string method," +
+"string target," +
+"uint64 issuedAt," +
+"uint64 validUntil" +
+")"
+```
 
-`issuedAt` and `validUntil` are JSON decimal strings and EIP-712 unsigned
-integers. Reject signs, whitespace, leading zeroes, and values outside `uint64`.
+The struct name, field types, field names, and field order are part of the
+signed type. Do not add, remove, rename, or reorder fields. Method-specific
+fields belong in the method proof and bind to the digest of this claim.
 
-## Domain
+| Field              | Required value                                 | Why it is signed                                   |
+| ------------------ | ---------------------------------------------- | -------------------------------------------------- |
+| `name`             | Exact ENSIP-15 normalized name.                | Gives the statement a readable exact-name scope.   |
+| `node`             | `namehash(name)`.                              | Binds the name to its onchain identifier.          |
+| `recordType`       | Registered target record type.                 | Prevents replay across resolver functions.         |
+| `recordKey`        | Exact key or canonical numeric parameter.      | Selects one record within that type.               |
+| `valueHash`        | Keccak-256 of the decoded live value bytes.    | Invalidates the claim when the live value changes. |
+| `authorityVersion` | Descriptor field `a`.                          | Pins the algorithm used to find authority.         |
+| `authority`        | Authority computed from live ENS state.        | Binds target evidence to one current authority.    |
+| `method`           | Descriptor field `m`.                          | Prevents reinterpretation under another method.    |
+| `target`           | Canonical target derived by that method.       | States the exact external resource being proved.   |
+| `issuedAt`         | Proof publisher's Unix time in seconds.        | Makes a maximum signed lifetime enforceable.       |
+| `validUntil`       | First Unix time at which the claim is invalid. | Gives the claim a hard signed expiry.              |
+
+Every derived field must match its live source. A verifier never trusts
+`authority`, `target`, `valueHash`, or another derived value only because it is
+present in the envelope.
+
+## Value Hash
+
+First decode the selected resolver function's single return value. Then hash
+the logical record bytes:
+
+```text
+valueHash = keccak256(valueBytes)
+```
+
+| Record type   | `valueBytes`                                      |
+| ------------- | ------------------------------------------------- |
+| `text`        | UTF-8 bytes of the decoded `string`.              |
+| `addr`        | Bytes contained in the decoded address value.     |
+| `contenthash` | Bytes contained in the decoded contenthash value. |
+| `data`        | Bytes contained in the decoded data value.        |
+
+Do not hash resolver calldata, raw EVM return data, ABI offsets or padding, the
+Universal Resolver response wrapper, or a displayed representation of the
+value. Reject malformed ABI, unexpected return types, trailing return data, and
+invalid UTF-8 for a text value.
+
+A future record type must define its resolver call, return type, strict decoding
+rule, `recordKey`, `valueBytes`, and empty-value behavior before it can be used
+in a claim.
+
+## EIP-712 Domain
 
 Version 1 on Ethereum mainnet uses:
 
 ```text
-name:              ENS Record Verification
-version:           1
-chainId:           1
-verifyingContract: 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
+name:    ENS Record Verification
+version: 1
+chainId: 1
 ```
 
-The Universal Resolver address is a domain-separation anchor. It does not
-authorize the proof or participate in target-signature validation.
+The domain does not contain `verifyingContract`. Record Verification is checked
+by clients and SDKs; no contract verifies this signature. The protocol name and
+version separate this claim type, `chainId` separates chains, and the signed
+`authorityVersion` selects the ENS authority rules on that chain.
 
-## Authority Evidence
+Let `commonClaimDigest` be the EIP-712 digest of the complete common claim.
 
-The ENS authority signs the complete common claim using the EIP-712 domain
-above. Let `commonClaimDigest` be the resulting EIP-712 digest. Read the
-authority's code at the evaluation block, then:
+## Authority Signature
 
-- with no code, require strict secp256k1 recovery of a 65-byte, low-`s`
-  signature with `v` equal to 27 or 28 to produce `claim.authority`;
-- with code, require an ERC-1271 `staticcall` for
-  `(commonClaimDigest, authoritySignature)` to return the exact `0x1626ba7e`
-  magic value.
+The current ENS authority signs `commonClaimDigest`. The envelope stores those
+bytes in the common `authoritySignature` field.
 
-Do not fall back to EOA recovery for a contract authority. The proof does not
-contain a signature-kind discriminator, so proof data cannot select a weaker
-validation path. Reject ERC-1271 reverts, failed calls, and malformed return
-data. Contract signatures are opaque, nonempty byte strings and MUST NOT exceed
-8,192 bytes.
+Read the authority's code at the same evaluation block used for ENS state:
 
-## Target Evidence
+- If the authority has no code, require an exact 65-byte `r || s || v`
+  secp256k1 signature. Require low `s`, require `v` to be 27 or 28, and require
+  recovery to produce `claim.authority`.
+- If the authority has code, call
+  `isValidSignature(commonClaimDigest, authoritySignature)` using ERC-1271
+  `staticcall` at that block. Require the call to succeed and return exactly one
+  ABI-encoded `bytes4` equal to `0x1626ba7e`.
 
-A method proves the common claim in one of three ways:
+Do not fall back to EOA recovery for a contract. Reject reverts, failed calls,
+raw four-byte return data, malformed ABI, incorrect padding, trailing return
+data, and every other return value.
 
-- live publication by the derived target, as in `https-origin.v1`;
-- a target-native signature over the common claim digest, as in the account
-  signature methods;
-- an issuer attestation defined by a future method profile.
+An EOA authority signature is exactly 65 bytes. A contract signature is an
+opaque, nonempty byte string of at most 8,192 bytes. Counterfactual signatures
+for an undeployed contract are not supported by version 1.
 
-For a signature method, the target signs a method-specific message that commits
-to the complete EIP-712 common claim digest. The method profile defines the
-native signature scheme and exact message bytes.
+## Target Proof
+
+The selected method defines how the external target participates. It may use:
+
+- live publication at a location controlled by the target;
+- a target-native signature over a message containing `commonClaimDigest`; or
+- an issuer statement that commits to `commonClaimDigest`.
+
+A method defines the exact proof members, target derivation, signed bytes,
+signature encoding, account or key binding, validity, revocation, and size
+limits. The proof cannot choose its own method, signature scheme, or weaker
+validation path.
+
+Live evidence does not need a placeholder JSON field. For example,
+`https-origin.v1` proves target participation by serving the envelope at the
+required same-origin location, so its method proof is an empty object.
+
+## Proof Envelope
+
+The common envelope is:
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+    "recordType": "text",
+    "recordKey": "url",
+    "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
+    "authorityVersion": "1",
+    "authority": "0x1234567890abcdef1234567890abcdef12345678",
+    "method": "https-origin.v1",
+    "target": "https://example.com",
+    "issuedAt": "1783728000",
+    "validUntil": "1786320000"
+  },
+  "authoritySignature": "0x<signature>",
+  "proof": {}
+}
+```
+
+An account-signature method adds only its method evidence:
+
+```json
+{
+  "authoritySignature": "0x<signature>",
+  "proof": {
+    "targetSignature": "<method-defined-signature>"
+  }
+}
+```
+
+`v`, `claim`, `authoritySignature`, and `proof` are required exactly once.
+`proof` is always an object and is closed by the selected method.
+
+### JSON Rules
+
+- Accept only UTF-8 JSON without a byte-order mark.
+- Require one top-level object and no trailing non-whitespace data.
+- Reject invalid Unicode scalar values, including lone surrogate code points.
+- Reject duplicate member names after JSON escape decoding and before building
+  a normal map.
+- Reject unknown members in the envelope and claim. Apply the selected method's
+  closed rules to `proof`.
+- Treat member order, whitespace, and equivalent JSON string escapes as
+  irrelevant.
+- Do not normalize parsed strings. `name` is already ENSIP-15 normalized;
+  `recordKey` and method-derived strings remain exact.
+- Limit the decoded envelope to 256 KiB before JSON parsing. Methods may set a
+  smaller limit.
+
+Encode every EIP-712 unsigned integer as a JSON decimal string. Use `"0"` or a
+nonzero digit followed by digits. Reject signs, whitespace, leading zeroes,
+fractions, exponents, and values outside the EIP-712 field's range.
+`authorityVersion` is restricted further to `1..4294967295`.
+
+Encode `node` and `valueHash` as lowercase `0x` plus 64 hexadecimal digits.
+Encode `authority` as lowercase `0x` plus 40 hexadecimal digits. Hexadecimal
+byte strings are lowercase, even-length, and `0x`-prefixed.
+
+The JSON serialization is not signed. Parse the claim and calculate its EIP-712
+digest. JSON canonicalization is not required.
 
 ## Proof Key
+
+Methods with a deterministic publication location use one proof key:
 
 ```solidity
 PROOF_KEY_TYPEHASH = keccak256(
@@ -128,39 +263,293 @@ proofKey = keccak256(
 );
 ```
 
-The proof key excludes the record value and timestamps so the same publication
-location can be reused after a record update or proof renewal. It includes the
-authority so an authority transfer selects a different publication slot.
+The proof key is a publication-slot identifier. It is not proof data, an
+integrity hash, a secret, or an access-control token.
 
-## Proof Envelope
+It includes the authority so a transfer selects a new publication slot. It
+excludes `valueHash`, `target`, timestamps, URI, and signatures so the same slot
+can be reused when a record changes or a proof is renewed. Every claim field is
+still compared during verification.
 
-```json
-{
-  "v": "ensrv1",
-  "claim": {
-    "name": "alice.eth",
-    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
-    "recordType": "text",
-    "recordKey": "url",
-    "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
-    "authorityVersion": "1",
-    "authority": "0x1234567890abcdef1234567890abcdef12345678",
-    "method": "https-origin.v1",
-    "target": "https://example.com",
-    "issuedAt": "1783728000",
-    "validUntil": "1786320000"
-  },
-  "proof": {
-    "authoritySignature": "0x<signature>"
-  }
-}
-```
+Methods that fetch one envelope directly from descriptor `u` do not need a
+proof key.
 
-The envelope and claim are closed objects. Implementations MUST detect duplicate
-members before constructing a map. `proof` is a method-defined closed object
-that always contains exactly one common `authoritySignature` plus the fields
-required by the selected method.
+## Verification
 
-The JSON serialization is not signed. Parse the claim, compare every field with
-live inputs, encode the fields as EIP-712, validate the authority signature,
-and then apply the selected method.
+After the descriptor selects an authority version and method:
+
+1. Fetch the proof resource using that method's rules.
+2. Apply the resource-size limit and parse the closed envelope.
+3. Require `v` to equal `ensrv1`.
+4. Recompute and compare every common claim field from live inputs.
+5. Apply the common validity and maximum-lifetime rules.
+6. Calculate `commonClaimDigest`.
+7. Validate `authoritySignature` for the current live authority.
+8. Validate the selected method's target proof against the same digest.
+
+Changing a claim field, signature, or method proof without the required signer
+or target participation cannot produce a positive result.
+
+## Open Issues
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>How should an authority ownership generation be bound?</AccordionTitle>
+    <AccordionContent>
+
+The claim binds an authority address but not the ownership period in which that
+address controlled the name. If Alice signs, transfers the name to Bob, and
+later receives it back before `validUntil`, Alice's old proof can become valid
+again when the record and descriptor also match.
+
+Current ENS does not expose one generation value for every name type. A random
+nonce does not solve this unless every verifier can read the current nonce from
+shared authoritative state. Version 1 must either accept reactivation with
+short maximum lifetimes or define a universally retrievable authority context.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Which ENSIP-15 normalization release does version 1 use?</AccordionTitle>
+    <AccordionContent>
+
+The signed `name` and derived `node` must remain identical across languages and
+over time. Referring only to the latest ENSIP-15 data can change which names are
+accepted when Unicode or normalization tables change.
+
+Before the common claim is frozen, version 1 needs an exact normalization
+release or immutable data hash plus positive and negative name vectors.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>What are the final parser and field limits?</AccordionTitle>
+    <AccordionContent>
+
+The 256 KiB envelope limit bounds total input, but a parser also needs limits
+for nesting, member count, individual strings, `recordKey`, canonical `target`,
+and method proof fields. A deeply nested document can exhaust a recursive parser
+before closed-object validation runs.
+
+These limits must be tested and frozen with the discovery-record and method
+profiles. They cannot be left to each JSON library's defaults.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Which media type identifies an HTTP proof envelope?</AccordionTitle>
+    <AccordionContent>
+
+The current HTTPS draft uses
+`application/ens-record-verification+json`, which is not yet registered.
+Version 1 must either register that media type or use `application/json`.
+
+The same choice and parsing rules must apply to every HTTP transport, including
+HTTPS-origin, DNS-selected HTTPS resources, and direct account-proof URIs.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Where are the executable interoperability vectors?</AccordionTitle>
+    <AccordionContent>
+
+The frozen component needs exact vectors for `valueHash`, the EIP-712 type hash,
+domain separator, struct hash, final digest, proof key, EOA and ERC-1271
+validation, JSON duplicates, Unicode, integer boundaries, and every rejection
+rule.
+
+Documentation examples are not sufficient. At least two implementations should
+produce the same outputs before this component is treated as interoperable.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>
+
+## Decisions
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Why keep both name and node?</AccordionTitle>
+    <AccordionContent>
+
+`name` is readable and is required for exact-name resolution. `node` is the
+fixed-width onchain identifier used by contracts and proof-key derivation.
+
+The verifier requires `node == namehash(name)`, so the duplication is an
+explicit consistency check rather than two independent sources of truth.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why hash decoded value bytes?</AccordionTitle>
+    <AccordionContent>
+
+Resolver records can contain strings or arbitrary binary values. A fixed
+`bytes32` keeps the claim shape constant and binds the complete value without
+copying it into the proof envelope.
+
+Hashing the decoded logical value makes the result independent of ABI offsets,
+padding, Universal Resolver wrapping, and resolver implementation. The
+registered `recordType` defines one strict decoding boundary, so every client
+hashes the same bytes.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why sign authority when the verifier computes it?</AccordionTitle>
+    <AccordionContent>
+
+The target proof binds to the complete common digest. Including `authority`
+means target evidence created while Alice owns a name cannot be combined with a
+new signature from Bob after a transfer. Bob needs target evidence for a claim
+that names Bob as authority.
+
+The verifier still computes authority from live ENS state and requires an exact
+match. A proof cannot choose the account by writing it into the claim.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why sign a derived target?</AccordionTitle>
+    <AccordionContent>
+
+`valueHash` binds exact record bytes. `target` binds the method's canonical
+interpretation of those bytes. For example, a URL method can sign the canonical
+origin rather than asking a signer to infer it from an opaque hash.
+
+The verifier derives the target again. Signing it makes canonicalization
+visible and prevents method evidence from naming another resource.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why is there no verifyingContract?</AccordionTitle>
+    <AccordionContent>
+
+EIP-712 defines `verifyingContract` as the contract that verifies the
+signature. Record Verification is evaluated by clients and SDKs, and the
+Universal Resolver does not verify this claim.
+
+The protocol name and common version separate this signing use, `chainId`
+separates chains, and signed `authorityVersion` selects one ENS authority
+profile. Using the Universal Resolver address would mislabel an upgradeable
+resolution contract as the signature verifier without adding another check.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why use one closed common claim?</AccordionTitle>
+    <AccordionContent>
+
+Adding a field changes the EIP-712 type hash and digest. Allowing methods to
+extend the common type would make the authority-signature schema depend on the
+method and would make independent implementations disagree.
+
+Method-specific evidence uses a separate typed object or native message that
+commits to `commonClaimDigest`. An incompatible change to the common claim,
+envelope, or domain requires a new `ensrv` version. An incompatible target-proof
+change requires a new method identifier.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why is authoritySignature outside proof?</AccordionTitle>
+    <AccordionContent>
+
+Authority approval is required by every method. `proof` contains only the
+evidence defined by the selected method. Keeping them separate makes the common
+verifier require authority approval before dispatching method-specific parsing.
+
+A live-publication method therefore uses `proof: {}`. Its target evidence is
+where the envelope was obtained, not a placeholder field inside the JSON.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why is JSON not canonicalized or signed directly?</AccordionTitle>
+    <AccordionContent>
+
+Equivalent JSON can use different member order, whitespace, and escape syntax.
+Signing raw JSON would require a canonicalization standard and would make
+formatting changes invalidate signatures.
+
+Instead, the verifier parses the closed claim and signs its deterministic
+EIP-712 encoding. A content-addressed URI or method hash may still commit to
+exact resource bytes when byte identity is required.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why reject unknown and duplicate JSON members?</AccordionTitle>
+    <AccordionContent>
+
+JSON parsers disagree on whether the first or last duplicate member wins. Two
+clients could therefore validate different claims from the same bytes.
+
+Unknown fields create a downgrade problem. An older client could ignore a new
+security requirement and return a positive result that a newer client rejects.
+A new common field requires a new protocol version.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why omit nonce, URI, resolver, and evaluation block?</AccordionTitle>
+    <AccordionContent>
+
+A nonce has no replay meaning without shared current or consumed state. The URI
+only locates proof bytes. The resolver is an implementation detail when the
+logical record is unchanged. The evaluation block is verifier context and
+would make a portable proof immediately stale.
+
+The live descriptor, record, authority, target evidence, and time bounds
+already define when the claim can pass. A method can add revocation or byte
+integrity only when it defines the authoritative state behind that check.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why does proofKey include authority but exclude value and time?</AccordionTitle>
+    <AccordionContent>
+
+Including authority gives a new owner a different publication slot and avoids
+fetching a previous owner's cached resource. It does not solve the case where a
+previous authority later returns, because the same address produces the same
+key again.
+
+Excluding value and time lets one deterministic URL or DNS name be reused for
+record updates and proof renewal. A stale body can only cause a non-positive
+result because every claim field is still checked.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>

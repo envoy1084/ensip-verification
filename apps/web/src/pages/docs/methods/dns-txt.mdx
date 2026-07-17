@@ -65,8 +65,8 @@ The verifier MUST:
    redirects, using the HTTPS-origin encoding and 256 KiB decoded-size limits;
 5. require `keccak256(proofResourceBytes)` to equal the TXT `h`;
 6. parse the envelope and compare the complete common claim;
-7. validate the common `authoritySignature`, reject other `proof` fields, and
-   require a valid proof interval.
+7. validate the common `authoritySignature`, require `proof` to be an empty
+   object, and require a valid proof interval.
 
 When every check succeeds, return `verified: true` with
 `verificationType: "control"`. Otherwise return `verified: false`.
