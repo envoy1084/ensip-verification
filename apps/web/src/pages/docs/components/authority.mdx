@@ -12,14 +12,7 @@ import {
 
 # Authority
 
-:::warning[Work in progress]
-This page has not been finalized. Requirements, formats, and examples may
-change while the protocol is under discussion.
-:::
-
-Authority is the account allowed to approve verification for an exact ENS
-name. The verifier computes it from live ENS state. The proof does not provide
-or choose it.
+Authority is the account allowed to approve verification for an exact ENS name. The verifier computes it from live ENS state. The proof does not provide or choose it.
 
 ```ts
 resolve_authority(name, authority_version, evaluation_block)
@@ -73,83 +66,52 @@ flowchart TD
   N -- "No" --> O["Authority: exact Registry owner<br/>No authority-expiry bound"]
 ```
 
-An imported DNS name uses its current effective ENS owner: the exact Registry
-owner when unwrapped or the wrapped owner when wrapped. A positive result does
-not prove that account still controls the DNS domain.
-
 ### Algorithm
 
-Use the same evaluation block for every contract read. Let `evaluationTime` be
-that block's timestamp. Any failed requirement returns `unsupported_authority`;
-the verifier must not try another branch or fall back to a parent or resolver.
+Use the evaluation block for every contract call and its timestamp for every
+expiry check.
 
-1. Normalize the name with ENSIP-15, calculate its namehash as `node`, and
-   reject names at or below `.reverse`.
-2. Read `registryOwner = ENSRegistry.owner(node)`.
-3. If `registryOwner` is the Name Wrapper:
-   - Read `(wrappedOwner, fuses, wrapperExpiry)` from
-     `NameWrapper.getData(uint256(node))` and require `wrappedOwner` to be
-     nonzero.
-   - If the name is exactly one label below `.eth`, require `IS_DOT_ETH`,
-     calculate `tokenId = uint256(keccak256(bytes(label)))`, and read
-     `registrarExpiry = BaseRegistrar.nameExpires(tokenId)`. Require
-     `registrarExpiry > evaluationTime` and
-     `BaseRegistrar.ownerOf(tokenId) == NameWrapper`, then return
-     `(wrappedOwner, registrarExpiry)`.
-   - For any other wrapped name with `PARENT_CANNOT_CONTROL` burned, require
-     `wrapperExpiry >= evaluationTime`, then return
-     `(wrappedOwner, wrapperExpiry)`.
-   - For every remaining wrapped name, return `(wrappedOwner, null)` because
-     ENS provides no authority-expiry bound for that ownership state.
-4. Otherwise, if the name is exactly one label below `.eth`:
-   1. calculate its `tokenId` and read `registrarExpiry`;
-   2. require `registrarExpiry > evaluationTime` and read
-      `registrant = BaseRegistrar.ownerOf(tokenId)`;
-   3. reject the inconsistent state where `registrant` is the Name Wrapper but
-      `registryOwner` is not;
-   4. return the registrant and `registrarExpiry`.
-5. For every other unwrapped name, require `registryOwner` to be nonzero and
-   return it with no ENS-provided authority expiry.
+1. Normalize the name with ENSIP-15 and calculate its namehash.
+2. Reject every name at or below the `reverse` suffix.
+3. Read `ENSRegistry.owner(node)`.
+4. If the Registry owner is the Name Wrapper:
+   1. read `NameWrapper.getData(uint256(node))`;
+   2. require a nonzero exact wrapped owner;
+   3. for a wrapped `.eth` second-level name, require the Base Registrar
+      registration to be active and owned by the Name Wrapper, then use its
+      expiry;
+   4. for another name with `PARENT_CANNOT_CONTROL` burned, require its wrapper
+      expiry to be active and use that expiry;
+   5. otherwise select the wrapped owner without treating wrapper expiry as an
+      ownership expiry.
+5. Otherwise, for an unwrapped `.eth` second-level name:
+   1. calculate `tokenId = uint256(keccak256(bytes(label)))`;
+   2. require `BaseRegistrar.nameExpires(tokenId)` to be in the future;
+   3. select `BaseRegistrar.ownerOf(tokenId)` and use the registration expiry.
+6. For every other unwrapped name, require and select the nonzero exact
+   `ENSRegistry.owner(node)`.
+7. Require the selected account to equal `claim.authority`.
+8. Validate `proof.authoritySignature` for that account at the same evaluation
+   block.
 
-After authority resolution succeeds, require the returned address to equal
-`claim.authority` and validate `proof.authoritySignature` for that address at
-the same evaluation block. If an authority expiry is returned, the effective
-verification result must not remain valid after it.
+A wrapped `.eth` token stores registrar expiry plus the renewal grace period.
+That stored wrapper value is not the verification-authority bound. Verification
+authority ends when the active Base Registrar registration ends, at the start
+of grace. This is a verification-policy cutoff; some stored resolver-management
+permissions may continue to work during grace.
 
-The Name Wrapper really does store a wrapped `.eth` second-level expiry as the
-Base Registrar expiry plus the 90-day grace period. It does this when wrapping,
-registering and wrapping, receiving the registrar NFT, and renewing. The
-wrapper can therefore continue returning a wrapped owner during grace. That
-stored value preserves wrapper state through renewal; it is not the active
-registration expiry. The algorithm reads `BaseRegistrar.nameExpires()`
-directly and stops accepting the authority when grace begins.
-
-For other wrapped names, the fuse determines whether wrapper expiry is an
-authority bound. With `PARENT_CANNOT_CONTROL`, expiry ends the child's
-independent ownership. Without it, the parent can already replace the child,
-and the Name Wrapper keeps the child owner while resetting its fuses after
-expiry. In that case the stored expiry is not treated as an authority expiry.
+For other wrapped names, wrapper expiry has two meanings. If
+`PARENT_CANNOT_CONTROL` is burned, expiry ends the child's independent
+ownership. Without that fuse, expiry only resets fuses and the parent can
+already replace the child; the wrapped owner does not disappear at that time.
 
 ## Reverse Names
 
-Reverse names work differently from normal names. A name such as
-`<address>.addr.reverse` belongs logically to the address written in its label,
-but that address can assign another account as the node's Registry owner.
+Reverse names work differently from normal names. A name such as `<address>.addr.reverse` belongs logically to the address written in its label, but that address can assign another account as the node's Registry owner.
 
-For example, Alice can assign a manager as the Registry owner of her reverse
-node. Reading only `ENSRegistry.owner(node)` would select the manager, even
-though Alice can call the Reverse Registrar and replace that manager at any
-time. The Registry owner is therefore not a reliable canonical authority for a
-reverse name.
+For example, Alice can assign a manager as the Registry owner of her reverse node. Reading only `ENSRegistry.owner(node)` would result the manager, even though Alice can call the Reverse Registrar and replace that manager at any time. The Registry owner is therefore not a reliable canonical authority for a reverse name.
 
-The alternative is to derive authority from the account encoded in the reverse
-name. That needs separate rules because reverse namespaces can represent
-different chains and account formats, not only Ethereum addresses. The current
-claim and signature rules do not define those cases.
-
-Algorithm 1 therefore returns `unsupported_authority` for `.reverse` names.
-This does not mean reverse resolution is invalid; it means reverse ownership
-needs its own authority profile before it can be used for record verification.
+Algorithm 1 therefore returns `unsupported_authority` for `.reverse` names. This does not mean reverse resolution is invalid; it means reverse ownership can not be used for record verification.
 
 ## Open Issues
 
