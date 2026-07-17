@@ -199,12 +199,13 @@ For example, `https-origin.v1` publishes at:
 https://example.com/.well-known/ens-record-verification/<proof-key>
 ```
 
-The same origin may be used by many ENS names and records:
+The same origin may be used by several ENS records:
 
 ```text
-alice.eth + text("url")        + https-origin.v1 -> proof key A
-alice.eth + text("com.github") + another method  -> proof key B
-bob.eth   + text("url")        + https-origin.v1 -> proof key C
+Name       Record         Value                       Method           Proof slot
+alice.eth  text("url")    https://example.com         https-origin.v1  proof key A
+alice.eth  text("blog")   https://example.com/blog    https-origin.v1  proof key B
+bob.eth    text("url")    https://example.com/about   https-origin.v1  proof key C
 ```
 
 Without a proof key, those proofs would share one URL and overwrite each other,
