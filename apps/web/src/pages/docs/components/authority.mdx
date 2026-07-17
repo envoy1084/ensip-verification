@@ -130,9 +130,10 @@ generic ownership-generation value that links every child to the current
 generation of its parent.
 
 The profile must either accept this behavior or add a stricter rule. Possible
-rules include requiring parent co-approval, requiring an independently wrapped
-child, or binding verified ownership history. Each option changes normal
-subname delegation, so this remains open.
+rules include requiring current parent co-approval, accepting only an
+unexpired emancipated wrapped child, or binding the proof to authenticated
+ownership history. Each option changes normal subname delegation, so this
+remains open.
 
     </AccordionContent>
 
@@ -158,18 +159,21 @@ The protocol must explicitly choose between those behaviors.
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>How should names without an exact onchain owner be supported?</AccordionTitle>
+    <AccordionTitle>How should virtual names without an exact owner be supported?</AccordionTitle>
     <AccordionContent>
 
-A wildcard, CCIP Read namespace, DNSSEC-only name, or another offchain system
-may return records without storing an exact owner in the ENS Registry. A
-gateway, ancestor owner, or resolved address is not automatically the name's
-authority, so Algorithm 1 rejects these names.
+CCIP Read is only a way to fetch data. An exact onchain name remains supported
+when its resolver uses CCIP Read. The unresolved case is a virtual child that
+exists only through wildcard, DNSSEC, L2, or other offchain resolution and has
+no exact owner in the ENS Registry.
+
+Algorithm 1 rejects that virtual child. The ancestor owner, resolver, gateway,
+gateway signer, and resolved address are not automatically its authority.
 
 A future authority version must authenticate the exact name and owner from the
-same revision as the record, and define expiry, replay protection, and the
-trust source for that state. If the owner is not an Ethereum account, the
-common claim and signature format may also need a new version.
+same revision as the record. It must also define the trust source, expiry,
+finality, and replay protection for that state. If the owner is not an Ethereum
+account, the common claim and signature format may also need a new version.
 
     </AccordionContent>
 
@@ -227,22 +231,9 @@ independence and would disagree with the child ownership stored in the Registry
 or Name Wrapper.
 
 The parent may still replace a parent-controlled child. Verification follows
-the live exact owner and changes as soon as that replacement occurs.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>Why return one address?</AccordionTitle>
-    <AccordionContent>
-
-Current ENS ownership resolves to one Ethereum address. An EOA signs directly,
-while a smart account or multisig defines any threshold, session key, or policy
-through ERC-1271.
-
-Putting signer lists or wallet policy into this protocol would duplicate smart
-account logic and become stale when the account changes its rules.
+the live exact owner and changes when that replacement occurs. This rule does
+not solve the stale unwrapped-child case after parent re-registration; that
+remains an open issue above.
 
     </AccordionContent>
 
@@ -257,26 +248,10 @@ the ENS Registry. After import, Algorithm 1 treats the name like another
 non-`.eth` ENS name. If it is later wrapped, the wrapped owner is selected.
 
 This proves approval by the current ENS owner, not continuing control of the
-DNS domain. The DNS owner can publish a new authenticated claim and take the
-ENS name back, but ENS does not automatically expire the previously imported
-owner. Proving current DNS control would require a separate DNSSEC authority
-profile with freshness and expiry rules.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>Why is authority versioned separately?</AccordionTitle>
-    <AccordionContent>
-
-ENS ownership architecture can change without changing the verification method
-or descriptor grammar. Separate `a` versions let a verifier select the exact
-authority algorithm and reject unsupported semantics instead of guessing.
-
-The profile also decides whether it applies to the name's live state. A proof
-cannot select an obsolete profile merely because that profile returns a signer
-it prefers.
+DNS domain. The DNS owner can publish a newer DNSSEC ownership record and
+submit it to the DNS Registrar to take the ENS name back, but the imported ENS
+owner does not expire automatically. Proving current DNS control would require
+a separate DNSSEC authority profile with freshness and expiry rules.
 
     </AccordionContent>
 
