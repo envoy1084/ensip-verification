@@ -276,9 +276,9 @@ The target side is also covered by each method:
   live record.
 - Account verification requires the target account's signature.
 - An IPFS CID already commits to the exact resource bytes.
-- DNS verification keeps `u` and the semantic common-claim digest `d` in the
-  DNSSEC-authenticated TXT record. This is target-controlled evidence, not a
-  descriptor hash or a commitment to one JSON serialization.
+- DNS verification stores the complete proof envelope in its
+  DNSSEC-authenticated TXT record. The live DNS publication is
+  target-controlled evidence, not a descriptor hash.
 
 Keeping `h` in ENS would also make routine renewal expensive. New timestamps
 and signatures change the proof file bytes, which changes `h`; the publisher

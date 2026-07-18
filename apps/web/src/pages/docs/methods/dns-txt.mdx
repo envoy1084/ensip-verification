@@ -1,5 +1,5 @@
 ---
-title: dns-txt.url.v1
+title: dns-txt.v1
 description: Prove that DNS for an HTTPS host approved an ENS URL record.
 ---
 
@@ -10,159 +10,124 @@ import {
   AccordionTitle,
 } from "../../../components/accordion.tsx";
 
-# Method: `dns-txt.url.v1`
+# Method: `dns-txt.v1`
 
-:::warning[Not finalized]
-This method is still being designed. Its identifier, DNSSEC profile, TXT
-format, URL profile, and limits may change.
-:::
+`dns-txt.v1` verifies that a DNSSEC-authenticated TXT record contains a proof
+envelope for one ENS URL record.
 
-`dns-txt.url.v1` verifies a DNSSEC-authenticated approval published at a TXT
-owner derived from an HTTPS hostname and one ENS text record.
-
-For example, both records below use the same DNS target:
-
-```text
-https://example.com/profile
-https://example.com:8443/blog
-
-target = dns:example.com
-```
-
-The evidence is publication beneath `example.com`. It does not prove control of
-the URL path, port, or web server.
-
-## When To Use It
-
-Use this method when the URL operator can publish a DNSSEC-signed TXT record
-beneath the hostname but cannot publish a file at the website's `/.well-known/`
-path.
-
-Use [`https-origin.v1`](./https-origin) when the operator controls the web
-origin instead. The two methods have different trust boundaries and neither is
-an automatic fallback for the other.
+Use it when the URL operator can publish DNS records beneath the URL's hostname.
+Use [`https-origin.v1`](./https-origin) when the operator can publish at the
+HTTPS origin instead. A verifier applies only the method selected by the ENS
+descriptor and never falls back between them.
 
 ## Supported Records
 
-The method can be used with any `text(key)` whose complete value is an eligible
-HTTPS URL. It is not limited to `text("url")`.
+The method supports any `text(key)` whose complete value is an eligible HTTPS
+URL. The exact text key remains part of the common claim and proof key.
 
 ```text
 text("url")  = "https://example.com"
 text("blog") = "https://example.com/blog"
 ```
 
-The `.url` in the method identifier means that the method uses the URL parsing
-rules defined by `https-origin.v1`. The exact text key remains part of the
-common claim and proof key.
-
 ## Descriptor
 
 ```text
-ensrv1 a=1 m=dns-txt.url.v1
+ensrv1 a=1 m=dns-txt.v1
 ```
 
-`u` is forbidden in the ENS descriptor. The DNSSEC-authenticated TXT record
-selects the external proof URI. This keeps proof-location control with the DNS
-target instead of the ENS authority alone.
+`u` is forbidden. The complete proof envelope is stored in DNS, so there is no
+external proof URI.
 
-## Derive The Target
+## Target
 
-Parse the exact text-record value using the [`https-origin.v1` URL
-rules](./https-origin#derive-the-target).
+Parse the text value using the URL rules in
+[`https-origin.v1`](./https-origin#derive-the-target). Require a domain host;
+IPv4 and IPv6 hosts are unsupported.
 
-This method requires a domain host. IPv4 and IPv6 hosts are unsupported because
-there is no derived DNS zone in which to place the TXT record.
-
-Set the target to:
+Set `target` to the exact URL hostname in lowercase ASCII A-label form:
 
 ```text
-dns:<lowercase-ascii-host>
+example.com
 ```
 
-This is a method-local identity string, not an [RFC 4501 DNS
-URI](https://www.rfc-editor.org/rfc/rfc4501). Never dereference or URI-normalize
-it.
+The target is a hostname, not a URI. Do not add `dns:`, apply RFC 4501 URI
+rules, or climb to a registrable parent domain.
 
-Use the exact URL hostname in lowercase ASCII A-label form. Do not climb to its
-registrable domain.
-
-| Record value                            | `target`                    |
-| --------------------------------------- | --------------------------- |
-| `https://example.com/profile`           | `dns:example.com`           |
-| `https://example.com:8443/profile`      | `dns:example.com`           |
-| `https://blog.example.com/post?draft=1` | `dns:blog.example.com`      |
-| `https://bücher.example/profile`        | `dns:xn--bcher-kva.example` |
+| Record value                            | `target`                |
+| --------------------------------------- | ----------------------- |
+| `https://example.com/profile`           | `example.com`           |
+| `https://example.com:8443/profile`      | `example.com`           |
+| `https://blog.example.com/post?draft=1` | `blog.example.com`      |
+| `https://bücher.example/profile`        | `xn--bcher-kva.example` |
 
 Path, query, fragment, and port remain bound by `valueHash`, but they do not
-change which DNS hostname participates.
+change the DNS hostname.
 
 ## TXT Owner
 
-Encode the 32-byte proof key with [RFC 4648
-base32](https://www.rfc-editor.org/rfc/rfc4648):
+Encode the 32-byte proof key as lowercase unpadded [RFC 4648
+base32](https://www.rfc-editor.org/rfc/rfc4648). The result must contain exactly
+52 characters from `a-z2-7`.
 
-- use lowercase `a-z2-7`;
-- remove `=` padding; and
-- require exactly 52 characters.
-
-Then query QCLASS `IN`, QTYPE `TXT` at:
+Query QCLASS `IN`, QTYPE `TXT` at:
 
 ```text
-<52-character-proof-key>._ens-record-verification.<host>.
+<52-character-proof-key>._ens-record-verification.<target>.
 ```
 
-For `example.com`, the owner looks like:
+For `example.com`, the owner has this form:
 
 ```text
 orsxg5banfxhizlto5xxe3deorsxg5banfxhizlto5xxe3deorsq._ens-record-verification.example.com.
 ```
 
-The complete wire-format owner must fit DNS limits: at most 63 octets per
-label and at most 255 octets for the full name. Reject the method as unsupported
-for a hostname that cannot fit after the protocol labels are added.
+Construct the complete DNS wire name before querying. Reject it if any label
+exceeds 63 octets or the complete name exceeds 255 octets.
 
 ## TXT Value
 
-The DNS target publishes:
+The logical TXT value is the complete proof-envelope JSON. There is no
+`ensrv1` prefix and no outer `u` or `d` field.
 
-```text
-ensrv1 u=https://proofs.example/alice-url-v1.json d=0x<common-claim-digest>
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "recordType": "text",
+    "recordKey": "url",
+    "method": "dns-txt.v1",
+    "target": "example.com"
+  },
+  "authoritySignature": "0x<signature>",
+  "proof": {}
+}
 ```
 
-`u` is the proof-envelope location. `d` is the EIP-712 digest of the complete
-common claim, encoded as `0x` followed by 64 lowercase hexadecimal characters.
-DNSSEC therefore authenticates the same semantic claim that the ENS authority
-signed.
+The example abbreviates the claim. The published value must contain the
+complete [common proof envelope](../components/claims-and-signatures#proof-envelope).
+`proof` must be exactly an empty object because DNSSEC-authenticated publication
+at the derived TXT owner is the target evidence.
 
-The canonical field order is `u`, then `d`. A parser treats their order as
-irrelevant.
+### Parsing
 
-`u` must be an absolute HTTPS URL without credentials or a fragment. It may use
-any public host; that host only transports the envelope. It does not become the
-verified target because `d` prevents it from substituting a different claim.
+A TXT RDATA may contain multiple character strings. The verifier must:
 
-The complete protocol TXT value must be ASCII and at most 2,048 bytes.
+1. require exactly one TXT RDATA at the final proof owner;
+2. concatenate its character strings in wire order without adding separators;
+3. reject the value if the concatenated bytes exceed 2,048 bytes;
+4. decode the bytes as strict UTF-8 JSON without a byte-order mark;
+5. apply the common closed-envelope JSON rules; and
+6. require `v` to equal `ensrv1`.
 
-### TXT RDATA Parsing
+Never concatenate separate TXT RDATA. Zero RDATA means the proof is missing;
+multiple RDATA are ambiguous and invalid. Quotes and chunk boundaries shown by
+a DNS provider or zone-file editor are transport syntax and are not part of the
+logical JSON value.
 
-A DNS TXT RDATA can contain multiple character strings. Parse it as follows:
-
-1. Concatenate character strings only within one RDATA, in wire order, without
-   adding a separator.
-2. Never concatenate separate RDATA records.
-3. Ignore unrelated RDATA that do not begin with exact ASCII `ensrv1 `.
-4. Require exactly one RDATA that begins with `ensrv1 `.
-5. For that RDATA, require exact prefix `ensrv1` followed by one ASCII space,
-   then two non-empty `name=value` fields separated by one ASCII space.
-6. Reject leading or trailing whitespace, repeated spaces, tabs, line breaks,
-   empty names or values, duplicate fields, and fields other than `u` and `d`.
-7. Split each field on its first `=` so `=` can remain inside `u`, then apply
-   the field rules and total ASCII size limit above.
-
-This follows the TXT wire model in [RFC
-1035](https://www.rfc-editor.org/rfc/rfc1035). Multiple protocol RDATA are
-ambiguous and therefore invalid.
+If the complete envelope exceeds 2,048 bytes, `dns-txt.v1` is unsupported for
+that proof. Do not fall back to an external URI.
 
 ## How To Set It Up
 
@@ -173,75 +138,41 @@ sequenceDiagram
   participant SDK as Verification SDK
   participant ENS as ENS
   participant Authority as Current ENS authority
-  participant ProofHost as HTTPS proof host
   participant DNS as DNS zone
 
-  User->>SDK: Enter the name, text key, and intended URL
+  User->>SDK: Enter name, text key, and intended URL
   SDK->>ENS: Read exact-name authority and expiry
   ENS-->>SDK: Authority state at one block
-  SDK->>SDK: Build claim, digest, proof key, and TXT owner
+  SDK->>SDK: Build claim, proof key, and TXT owner
   SDK->>Authority: Request authority signature
   Authority-->>SDK: Return authoritySignature
-  User->>ProofHost: Publish envelope at a versioned HTTPS URI
-  User->>DNS: Publish TXT containing u and d
+  SDK->>SDK: Build the complete JSON envelope
+  User->>DNS: Publish the envelope as one logical TXT value
   DNS->>DNS: Sign the TXT RRset with DNSSEC
-  SDK->>DNS: Confirm the protocol TXT validates as Secure
-  SDK->>ProofHost: Fetch and validate the envelope
-  User->>ENS: Set the URL record and descriptor last
-  Note over User,ENS: Activate ENS only after the DNS proof works
+  SDK->>DNS: Confirm the answer validates as Secure
+  User->>ENS: Set target record and descriptor last
+  Note over User,ENS: Use one resolver multicall when possible
 ```
 
-The recommended order is:
+Publish and validate the DNS proof before enabling the descriptor. After the
+ENS write, verify again against the live ENS state.
 
-1. Build the common claim for the intended ENS value.
-2. Obtain a signature accepted by the current exact-name authority.
-3. Publish the envelope at a new, versioned HTTPS URI.
-4. Publish the TXT `u` and `d` beneath the derived hostname.
-5. Confirm that the complete DNSSEC answer validates as `Secure`.
-6. Fetch the envelope and run the complete verification procedure.
-7. Set the ENS target record and descriptor together when possible.
-8. Verify again against the live ENS state.
+## DNSSEC Rules
 
-Set the ENS records last so clients do not discover a configured method before
-its external evidence is ready.
-
-## DNSSEC Validation
-
-A positive result requires DNSSEC state `Secure`. Treat `Insecure`, `Bogus`,
-and `Indeterminate` as non-positive results with different diagnostics. Never
-fall back to unsigned DNS or `https-origin.v1`.
+A positive result requires DNSSEC state `Secure`. `Insecure`, `Bogus`, and
+`Indeterminate` are non-positive results. Never fall back to unsigned DNS or
+another verification method.
 
 For public DNS names, validation must chain to the current [IANA root trust
-anchor set](https://www.iana.org/dnssec/files). Implementations must support
-authenticated trust-anchor updates, such as [RFC
-5011](https://www.rfc-editor.org/rfc/rfc5011), rather than hardcoding one root
-key forever.
+anchor set](https://www.iana.org/dnssec/files). An SDK may validate locally or
+use a trusted validating resolver over an authenticated channel. The `AD` bit
+from an arbitrary network resolver is not sufficient.
 
-An SDK may:
-
-- perform DNSSEC validation locally; or
-- use a trusted validating recursive resolver over an authenticated channel.
-
-The `AD` bit from an arbitrary network resolver is not enough. The resolver and
-channel are part of the verifier's trust boundary when validation is delegated.
-These rules are defined by [RFC
-4033](https://www.rfc-editor.org/rfc/rfc4033) and [RFC
-4035](https://www.rfc-editor.org/rfc/rfc4035).
-
-### CNAME And DNAME
-
-Secure alias delegation is allowed:
-
-1. Follow at most eight CNAME or DNAME steps.
-2. Reject loops, conflicting answers, and overlong synthesized names.
-3. Require every source alias RRset and the final TXT RRset to validate as
-   `Secure`.
-4. For DNAME, validate the signed DNAME and its synthesized CNAME according to
-   [RFC 6672](https://www.rfc-editor.org/rfc/rfc6672); the synthesized CNAME
-   does not normally carry its own signature.
-
-A secure alias to an external provider is valid because the original DNS zone
-authenticated that delegation.
+A secure CNAME or DNAME delegation may be followed for at most eight steps.
+Reject loops, conflicting answers, overlong synthesized names, or any alias
+chain that is not entirely `Secure`. For DNAME, validate the signed DNAME and
+its synthesized CNAME according to [RFC
+6672](https://www.rfc-editor.org/rfc/rfc6672).
 
 ## Verification
 
@@ -252,42 +183,34 @@ sequenceDiagram
   participant ENS as ENS and Universal Resolver
   participant SDK as Verification SDK
   participant DNS as DNSSEC validator
-  participant ProofHost as HTTPS proof host
 
   App->>SDK: Verify one ENS text record
   SDK->>ENS: Read record, descriptor, and authority at one block
   ENS-->>SDK: Live ENS state
-  SDK->>SDK: Derive DNS target, proof key, and TXT owner
+  SDK->>SDK: Derive hostname, proof key, and TXT owner
   SDK->>DNS: Resolve TXT with DNSSEC validation
-  DNS-->>SDK: Secure alias chain and TXT RRset
-  SDK->>SDK: Parse exactly one protocol TXT value
-  SDK->>ProofHost: GET the TXT u without ambient credentials
-  ProofHost-->>SDK: Return proof envelope
-  SDK->>SDK: Compute commonClaimDigest and compare it with d
-  SDK->>SDK: Compare the live claim and validate authoritySignature
+  DNS-->>SDK: Secure TXT answer
+  SDK->>SDK: Join TXT chunks and parse the envelope
+  SDK->>SDK: Compare every common claim field
+  SDK->>SDK: Validate authoritySignature
   SDK->>SDK: Require proof to equal an empty object
-  SDK->>SDK: Check time, authority, DNS, and HTTP bounds
-  SDK-->>App: Return control result and DNS target
+  SDK->>SDK: Check claim, authority, and DNS freshness
+  SDK-->>App: Return control result
 ```
 
-A verifier succeeds only when all of these checks succeed:
+A verifier succeeds only when it:
 
-1. Resolve the target record, descriptor, and authority at one evaluation
-   block.
-2. Parse the URL, require a domain host, and derive the target.
-3. Calculate the proof key and complete TXT owner.
-4. DNSSEC-validate the full answer and alias chain as `Secure`.
-5. Select and parse exactly one protocol TXT RDATA.
-6. Fetch `u` with the [`https-origin.v1` HTTPS retrieval
-   rules](./https-origin#https-retrieval-rules).
-7. Parse the closed envelope and recompute its `commonClaimDigest`.
-8. Require that digest to equal TXT field `d`.
-9. Compare every common claim field with the live ENS inputs.
-10. Validate `authoritySignature` against the live exact-name authority.
-11. Require `proof` to be exactly an empty object.
-12. Require the claim and all method evidence to be current.
+1. resolves the target record, descriptor, and authority at one evaluation
+   block;
+2. derives the target, proof key, and TXT owner from those live values;
+3. validates the complete DNS answer and alias chain as `Secure`;
+4. parses exactly one TXT RDATA using the rules above;
+5. compares every common claim field with the live ENS inputs;
+6. validates `authoritySignature` against the live exact-name authority;
+7. requires `proof` to be exactly an empty object; and
+8. requires the claim and DNS evidence to be current.
 
-A minimal positive result is:
+The minimal positive result is:
 
 ```json
 {
@@ -296,61 +219,39 @@ A minimal positive result is:
 }
 ```
 
-An SDK should also expose `method: "dns-txt.url.v1"` and the canonical DNS
-target as diagnostic metadata. They are not required fields in the minimal
-result.
-
-## Renewal And Rotation
-
-Use a new versioned or immutable proof URI for each renewed claim:
-
-1. Publish the new envelope without deleting the old one.
-2. Replace the complete TXT RRset with the new `u` and `d` in one DNS update.
-3. Keep the old proof resource available for at least the previous DNS TTL.
-4. Delete it only after old DNS caches can no longer return its URI.
-
-When the hostname changes, prepare the proof and TXT beneath the new hostname
-before updating ENS.
+An SDK should expose `method: "dns-txt.v1"` and the canonical hostname as
+diagnostic metadata.
 
 ## Lifetime And Caching
 
-The current draft limits `validUntil - issuedAt` to 30 days. A positive result
-must not be reused past the earliest of:
+The maximum signed lifetime is one year:
 
-- five minutes after this evaluation;
+```text
+validUntil - issuedAt <= 31,536,000 seconds
+```
+
+A positive result must not be reused past the earliest of:
+
+- five minutes after evaluation;
 - `claim.validUntil`;
-- `authorityValidUntil`, when present;
-- the DNSSEC validator's remaining secure-answer reuse bound, including every
-  RRset and RRSIG used to prove the chain and answer; and
-- a shorter authenticated HTTP freshness bound, when applicable.
+- `authorityValidUntil`, when present; and
+- the DNSSEC validator's remaining secure-answer reuse bound.
 
-The DNSSEC validator, not this method, calculates that bound from the answer,
-aliases, DS, DNSKEY, denial records when relevant, and their signatures. The
-method must not extend it.
-
-Publishers should use a TXT TTL of at most five minutes. A verifier's local
-five-minute cap cannot evict a longer-lived answer already held by an upstream
-recursive resolver.
-
-Authenticated NXDOMAIN and NODATA may use the validated negative TTL. Do not
-cache a timeout, `SERVFAIL`, `Bogus`, or `Indeterminate` result as ordinary
-proof absence.
+The DNSSEC validator calculates its bound from every RRset and RRSIG used to
+prove the chain and answer. A local five-minute cap does not evict a
+longer-lived answer already cached by an upstream resolver, so publishers
+should use a TXT TTL of at most five minutes.
 
 ## Security Boundary
 
-This method proves:
+This method proves that DNSSEC-authenticated DNS for the exact URL hostname
+published the authority-signed proof for this ENS record. That is sufficient to
+return `verificationType: "control"` for the hostname binding.
 
-> A DNSSEC-authenticated TXT owner derived from the exact URL hostname approved
-> the common claim for this ENS record.
-
-It does not prove control of the URL path, query, fragment, port, or web
-service. It also does not prove legal domain ownership, organizational identity,
-or safe content. A securely delegated DNS proof provider is inside this
-method's control boundary.
-
-The external proof host learns that its URI was fetched. DNS resolvers and
-authoritative servers can observe the proof-owner lookup. The proof key is
-opaque but not secret because all inputs used to derive it are public.
+It does not prove control of the URL path, query, fragment, port, or web server.
+It also does not establish legal ownership, organizational identity, or content
+safety. A securely delegated DNS provider is inside this method's control
+boundary.
 
 ## Open Issues
 
@@ -359,64 +260,28 @@ opaque but not secret because all inputs used to derive it are public.
     <AccordionTitle>Should valueHash be part of the proof key?</AccordionTitle>
     <AccordionContent>
 
-The shared proof key currently excludes `valueHash`. Changing the ENS URL while
-keeping the same name, text key, and method therefore reuses one DNS owner. DNS
-caches make the temporary old/new mismatch more visible than with a direct web
-proof.
+The shared proof key currently excludes `valueHash`, so a changed URL can reuse
+the same TXT owner. DNS caches may temporarily return an envelope for the old
+value, which safely produces a non-positive result.
 
-Including `valueHash` would create a new TXT owner for each record value and
-allow the next proof to be prepared before changing ENS. It would also leave
-more stale DNS records to remove. This is a shared proof-key decision and must
-be resolved consistently across all methods.
+Including `valueHash` would create a new owner for every value and allow the
+next proof to be prepared before changing ENS, but it would also leave more
+stale DNS records. This decision must be made consistently for every method.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Which DNSSEC algorithms must every SDK support?</AccordionTitle>
+    <AccordionTitle>Which DNSSEC algorithms and vectors are required?</AccordionTitle>
     <AccordionContent>
 
-DNSSEC validators do not all support the same legacy and modern algorithms.
-Version 1 needs a minimum algorithm policy and conformance zones so that one
-proof does not validate in one SDK and fail as unsupported in another.
+Version 1 still needs a minimum DNSSEC algorithm policy and executable vectors
+for IDNA, TXT chunking, owner-length limits, wildcard synthesis, aliases,
+rollovers, invalid JSON, and the 2,048-byte boundary.
 
-The policy must distinguish an unsupported algorithm from a cryptographically
-`Bogus` answer and define how algorithm rollovers are evaluated.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>How should DNS freshness and failures appear in SDKs?</AccordionTitle>
-    <AccordionContent>
-
-A five-minute application cache cap does not override a longer cache inside a
-recursive resolver. The final profile must decide whether the protocol TXT TTL
-is required to be at most five minutes and how longer CNAME or DNAME TTLs are
-reported.
-
-SDKs also need stable diagnostics for authenticated absence, `Insecure`,
-`Bogus`, `Indeterminate`, timeout, `SERVFAIL`, malformed TXT, and digest
-mismatch. They may all produce `verified: false`, but applications should not
-treat them as the same event.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>Which exact URL and DNS names are interoperable?</AccordionTitle>
-    <AccordionContent>
-
-The URL profile still needs executable cross-language vectors. This method
-additionally needs vectors for IDNA, maximum DNS owner length, TXT
-chunking, wildcard synthesis, CNAME and DNAME chains, and trust-anchor
-rollovers.
-
-The method should not be frozen until independent implementations agree on all
-of these cases.
+The method should not be frozen until independent implementations agree on
+these cases.
 
     </AccordionContent>
 
@@ -427,75 +292,58 @@ of these cases.
 
 <Accordion>
   <AccordionItem>
-    <AccordionTitle>Why keep DNS TXT and HTTPS origin as separate methods?</AccordionTitle>
+    <AccordionTitle>Why use a hostname instead of a DNS URI?</AccordionTitle>
     <AccordionContent>
 
-They prove control through different systems. HTTPS authenticates a serialized
-origin, including a non-default port. DNSSEC authenticates publication beneath
-the exact hostname and ignores the port. A user may control one system without
-controlling the other.
+The claim target identifies the hostname whose control is being verified. An
+RFC 4501 DNS URI identifies a particular RRset and can also select a resolver,
+class, and type. Those are proof-retrieval details determined by this method,
+not part of the target identity.
 
-The verifier applies only the descriptor's selected method. It never falls back
-between them because that would change the promised trust boundary.
+Using the raw canonical hostname also avoids misinterpreting `dns:example.com`
+as an RFC 4501 URI for the default `IN A` RRset.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Why commit to the claim digest instead of JSON bytes?</AccordionTitle>
+    <AccordionTitle>Why use base32 instead of hexadecimal?</AccordionTitle>
     <AccordionContent>
 
-The EIP-712 common-claim digest represents the statement being approved. JSON
-whitespace, member order, equivalent escaping, HTTP compression, or a different
-valid encoding of the same authority signature do not change that statement.
-
-Hashing the raw JSON resource would make every harmless serialization change
-require a DNS update. Field `d` instead binds DNS directly to the semantic claim
-while the envelope carries the full claim and signature.
+A 32-byte proof key needs 64 hexadecimal characters, but a DNS label can
+contain at most 63 octets. Lowercase unpadded base32 represents the same key in
+52 DNS-safe characters and fits in one label.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Why use the exact host instead of the registrable domain?</AccordionTitle>
+    <AccordionTitle>Why store JSON directly in TXT?</AccordionTitle>
     <AccordionContent>
 
-Subdomains can be delegated independently. For `blog.example.com`, a record at
-`example.com` would let the parent approve a target whose day-to-day control may
-belong to someone else. The proof is therefore placed beneath the exact ASCII
-hostname from the URL.
+DNSSEC authenticates the TXT RRset, so the published envelope is already
+target-controlled evidence. An outer prefix, proof URI, or separate claim
+digest would duplicate information already carried by the dedicated proof
+owner and the envelope's `v` and `claim` fields.
 
-This also avoids depending on the changing Public Suffix List.
+Inline JSON removes the second HTTPS request and its WebPKI, redirect, CORS,
+SSRF, hosting, and caching requirements. The 2,048-byte limit keeps the method
+bounded; proofs that do not fit require a future method with different
+transport rules.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Why use base32 for the proof key?</AccordionTitle>
+    <AccordionTitle>Why use the exact host instead of its parent domain?</AccordionTitle>
     <AccordionContent>
 
-A 32-byte key needs 64 hexadecimal characters, but one DNS label can contain at
-most 63 octets. Lowercase unpadded base32 represents the same key in 52
-DNS-safe characters and fits in one label.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>Why does DNS contain u while ENS does not?</AccordionTitle>
-    <AccordionContent>
-
-DNS TXT records are too small and operationally awkward for the complete proof
-envelope. The DNS target therefore chooses an HTTPS location and commits to the
-claim digest stored there. Keeping `u` in DNS means the DNS target controls both
-the approval and its relocation; the ENS authority cannot redirect it alone.
-
-The envelope still uses `proof: {}` because the secure TXT publication is the
-target evidence. No separate target signature is needed.
+Subdomains can be delegated independently. A proof for `blog.example.com`
+therefore belongs beneath that exact hostname, not `example.com`. This also
+avoids dependence on the changing Public Suffix List.
 
     </AccordionContent>
 
