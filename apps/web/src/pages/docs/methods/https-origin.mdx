@@ -146,8 +146,15 @@ Network, TLS, CORS, and timeout failures are unavailable results. They are not e
 
 ## Lifetime And Caching
 
-The current draft limits `validUntil - issuedAt` to 30 days. A positive result
-must not be reused past the earliest of:
+The maximum signed lifetime is one year:
+
+```text
+validUntil - issuedAt <= 31,536,000 seconds
+```
+
+One year is only the maximum lifetime of the authority's signed approval. It is
+not a one-year verification cache. Publishers may choose a shorter claim
+lifetime, and a positive result must not be reused past the earliest of:
 
 - five minutes after this evaluation;
 - `claim.validUntil`;
@@ -156,19 +163,34 @@ must not be reused past the earliest of:
 
 A fresh evaluation should revalidate or bypass a reusable HTTP cache. HTTP
 `no-store` prevents persistent body storage, but it does not invalidate the
-result that was just evaluated.
+result that was just evaluated. Changing the ENS record, descriptor, current
+authority, or live origin publication makes the next evaluation non-positive
+even when the signed claim has not reached `validUntil`.
 
 ## Security Boundary
 
-This method proves:
+This method returns `verificationType: "control"` only when both sides of the
+record binding participate:
 
-> A WebPKI-authenticated origin currently served an authority-signed envelope
-> for this exact ENS record at the derived well-known path.
+1. the current exact-name ENS authority signs the claim for this exact record,
+   value, method, and HTTPS origin; and
+2. the WebPKI-authenticated origin currently serves that signed envelope from
+   the derived well-known path.
 
-It does not prove control of the original URL path, ownership of a legal entity
-or domain registration, safety of the page, or exclusive access to the server.
-A CDN, reverse proxy, or hosting account that can publish the well-known route
-is inside the origin's control boundary.
+Together, these checks prove control of the HTTPS origin for this ENS record:
+the ENS authority approved the binding, and the origin controller accepted it
+by publishing the proof. Applications can describe the result as:
+
+> Verified control of `https://example.com` for this ENS record.
+
+Control is capability-based. A CDN, reverse proxy, hosting operator, or another
+delegate that can publish the well-known route is inside the origin's control
+boundary. The protocol does not need to identify which person or system used
+that capability.
+
+The result does not claim that the page is safe, that the authority legally owns
+the registered domain, or that it controls every URL path, subdomain, protocol,
+or port associated with that domain.
 
 Someone who can edit only `https://example.com/alice` cannot use this method
 unless they can also publish under `/.well-known/ens-record-verification/`.
