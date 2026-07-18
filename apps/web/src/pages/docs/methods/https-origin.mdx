@@ -95,6 +95,40 @@ The envelope contains the common claim, `authoritySignature`, and exactly:
 }
 ```
 
+## HTTPS Retrieval Rules
+
+The verifier fetches the proof using the [shared HTTPS retrieval
+profile](./overview#shared-https-retrieval-profile). For this method it must:
+
+1. send `GET` to the exact deterministic proof URL;
+2. require WebPKI-authenticated TLS for the derived origin;
+3. send no cookies, authorization, client certificate, referrer, or other
+   ambient credentials;
+4. reject every redirect, including a redirect to the same origin;
+5. require status `200`;
+6. require the `application/json` media-type essence, while allowing parameters
+   such as `charset=utf-8`;
+7. decode strict UTF-8 JSON without MIME sniffing;
+8. enforce a 256 KiB decoded-body limit while streaming;
+9. stop after a finite total timeout; and
+10. for a server verifier, accept only a globally reachable destination and
+    recheck the actual peer address after connecting.
+
+Redirects are forbidden because the derived origin must serve the proof
+response itself. Following a redirect would move the evidence to another
+location and change what the method proves.
+
+For browser SDKs, the proof server should return:
+
+```http
+Access-Control-Allow-Origin: *
+```
+
+The browser request uses credential mode `omit`. CORS only makes the public
+proof readable by browser JavaScript; it does not add verification strength.
+If retrieval fails because of TLS, CORS, timeout, or network policy, the result
+is unavailable rather than cryptographically invalid.
+
 ## Verification
 
 ```mermaid
@@ -191,9 +225,6 @@ that capability.
 The result does not claim that the page is safe, that the authority legally owns
 the registered domain, or that it controls every URL path, subdomain, protocol,
 or port associated with that domain.
-
-Someone who can edit only `https://example.com/alice` cannot use this method
-unless they can also publish under `/.well-known/ens-record-verification/`.
 
 ## Open Issues
 
