@@ -19,7 +19,7 @@ concrete method.
 | Method                                               | Records                       | Verification type | Evidence                                      |
 | ---------------------------------------------------- | ----------------------------- | ----------------- | --------------------------------------------- |
 | [`https-origin.v1`](./https-origin)                  | HTTPS URL text records        | `control`         | Live proof served by the derived HTTPS origin |
-| [`dns-txt.url.v1`](./dns-txt)                        | `text("url")`                 | `control`         | DNSSEC-authenticated proof URI and hash       |
+| [`dns-txt.url.v1`](./dns-txt)                        | HTTPS URL text records        | `control`         | DNSSEC proof URI and common-claim digest      |
 | [`account-signature.eip155.v1`](./account-signature) | Supported EVM address records | `control`         | EOA or ERC-1271 target signature              |
 | [`account-signature.bip322.v1`](./account-signature) | Bitcoin `addr(0)`             | `control`         | BIP-322 target signature                      |
 
@@ -27,17 +27,96 @@ Every version 1 method requires evidence from the external target. Version 1
 also requires the live ENS authority to sign the common claim. It does not
 define an attestation method.
 
+## Choosing A URL Method
+
+|                              | `https-origin.v1`                 | `dns-txt.url.v1`                |
+| ---------------------------- | --------------------------------- | ------------------------------- |
+| Target                       | HTTPS origin                      | Exact URL hostname              |
+| Target system                | WebPKI and live HTTPS publication | DNSSEC                          |
+| Non-default port matters     | Yes                               | No                              |
+| Included in canonical target | Origin only                       | Hostname only                   |
+| Public IP host               | Supported by the URL profile      | Unsupported                     |
+| Operator needs               | Access to the well-known web path | DNS access with deployed DNSSEC |
+
+Neither method falls back to the other. A descriptor selects one exact trust
+boundary. The complete text value, including its path, query, and fragment, is
+still bound by `valueHash` even when those parts are not in the canonical
+target.
+
+## Shared URL Profile
+
+Both URL methods parse the exact text-record value with the [WHATWG URL
+Standard](https://url.spec.whatwg.org/), without trimming, repairing, or using a
+base URL. The value must be an absolute HTTPS URL with a non-empty host. Reject
+credentials, ASCII whitespace or C0 controls, a trailing dot on a domain host,
+and an IPv6 zone identifier.
+
+Path, query, and fragment are allowed because `valueHash` binds the complete
+record value. Domain hosts use their lowercase ASCII A-label form. WHATWG
+serialization removes the default HTTPS port and preserves a non-default port.
+Each method then derives its own target from this parsed URL.
+
+## Shared HTTPS Retrieval Profile
+
+Both URL methods fetch a JSON proof resource over HTTPS. The verifier:
+
+1. sends `GET` to an absolute HTTPS URL without credentials or a fragment;
+2. uses WebPKI-authenticated TLS for the URL host;
+3. sends no cookies, authorization, client certificate, referrer, or other
+   ambient credentials;
+4. rejects every redirect, including a same-origin redirect;
+5. requires status `200` and the `application/json` media-type essence;
+6. allows media-type parameters such as `charset=utf-8` but does not MIME-sniff;
+7. decodes strict UTF-8 JSON and enforces a 256 KiB decoded-body limit while
+   streaming; and
+8. stops after a finite total timeout.
+
+The exact content-coding and timeout profile is still open. Before either URL
+method is frozen, this retrieval profile needs its own immutable version and
+conformance vectors.
+
+### Network Safety
+
+A server verifier must canonicalize IP literals and IPv4-mapped IPv6 addresses,
+resolve and inspect every address before connecting, and inspect the actual peer
+address after connecting. Find the most-specific matching entry in the IANA
+[IPv4](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml)
+and [IPv6](https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml)
+special-purpose registries:
+
+- an address outside every listed range is accepted; and
+- an address with a matching entry is accepted only when that entry's
+  `Globally Reachable` value is `True`.
+
+Connect only to an accepted address while preserving the original hostname for
+TLS and HTTP. A proxy must enforce the same rules. This prevents the proof fetch
+from reaching loopback, private, link-local, documentation, and other
+non-public destinations.
+
+For browser SDKs, publishers should return:
+
+```http
+Access-Control-Allow-Origin: *
+```
+
+The browser request uses credential mode `omit`. CORS is deployment guidance,
+not target evidence. Its absence causes browser-only retrieval unavailability.
+A runtime that cannot inspect DNS and the peer address must use a hardened
+retrieval service or report that safe retrieval is unavailable; direct browser
+fetch is not part of this strict network-safety profile yet.
+
 ## Common Requirements
 
 Before applying a method, a verifier:
 
-1. resolves the target record and descriptor at one evaluation block;
-2. derives the exact `valueHash` from the live resolver bytes;
-3. determines current exact-name ENS authority at that block;
-4. parses the proof envelope and compares every common claim field;
-5. validates `authoritySignature` for that live authority;
-6. checks the proof validity interval;
-7. applies the selected method to the same common claim.
+1. resolves the target record, descriptor, and exact-name ENS authority at one
+   evaluation block;
+2. derives the exact `valueHash` and method target from the live resolver bytes;
+3. uses the selected method to locate and retrieve the proof envelope;
+4. parses the envelope and compares every common claim field;
+5. validates `authoritySignature` for the live authority;
+6. validates the method's target evidence for the same common claim; and
+7. checks the common and method-specific freshness bounds.
 
 A method succeeds only when its evidence proves the complete record-bound
 claim. Proving a target without matching the live ENS record is insufficient.

@@ -325,12 +325,13 @@ profiles. They cannot be left to each JSON library's defaults.
     <AccordionTitle>Which media type identifies an HTTP proof envelope?</AccordionTitle>
     <AccordionContent>
 
-The current HTTPS draft uses
-`application/ens-record-verification+json`, which is not yet registered.
-Version 1 must either register that media type or use `application/json`.
+The current URL-method drafts use `application/json`. Before finalization,
+version 1 must decide whether to keep that general media type or register a
+dedicated `application/*+json` media type.
 
-The same choice and parsing rules must apply to every HTTP transport, including
-HTTPS-origin, DNS-selected HTTPS resources, and direct account-proof URIs.
+The final choice and parsing rules must apply to every HTTP transport,
+including HTTPS-origin, DNS-selected HTTPS resources, and direct account-proof
+URIs.
 
     </AccordionContent>
 
