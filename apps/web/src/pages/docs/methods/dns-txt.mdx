@@ -51,18 +51,12 @@ Set `target` to the exact URL hostname in lowercase ASCII A-label form:
 example.com
 ```
 
-The target is a hostname, not a URI. Do not add `dns:`, apply RFC 4501 URI
-rules, or climb to a registrable parent domain.
-
 | Record value                            | `target`                |
 | --------------------------------------- | ----------------------- |
 | `https://example.com/profile`           | `example.com`           |
 | `https://example.com:8443/profile`      | `example.com`           |
 | `https://blog.example.com/post?draft=1` | `blog.example.com`      |
 | `https://bücher.example/profile`        | `xn--bcher-kva.example` |
-
-Path, query, fragment, and port remain bound by `valueHash`, but they do not
-change the DNS hostname.
 
 ## TXT Owner
 
@@ -87,28 +81,28 @@ exceeds 63 octets or the complete name exceeds 255 octets.
 
 ## TXT Value
 
-The logical TXT value is the complete proof-envelope JSON. There is no
-`ensrv1` prefix and no outer `u` or `d` field.
+The logical TXT value is the complete proof-envelope JSON.
 
 ```json
 {
   "v": "ensrv1",
   "claim": {
     "name": "alice.eth",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
     "recordType": "text",
     "recordKey": "url",
+    "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
+    "authorityVersion": "1",
+    "authority": "0x1234567890abcdef1234567890abcdef12345678",
     "method": "dns-txt.v1",
-    "target": "example.com"
+    "target": "https://example.com",
+    "issuedAt": "1783728000",
+    "validUntil": "1786320000"
   },
   "authoritySignature": "0x<signature>",
   "proof": {}
 }
 ```
-
-The example abbreviates the claim. The published value must contain the
-complete [common proof envelope](../components/claims-and-signatures#proof-envelope).
-`proof` must be exactly an empty object because DNSSEC-authenticated publication
-at the derived TXT owner is the target evidence.
 
 ### Parsing
 
@@ -128,34 +122,6 @@ logical JSON value.
 
 If the complete envelope exceeds 2,048 bytes, `dns-txt.v1` is unsupported for
 that proof. Do not fall back to an external URI.
-
-## How To Set It Up
-
-```mermaid
-sequenceDiagram
-  autonumber
-  actor User
-  participant SDK as Verification SDK
-  participant ENS as ENS
-  participant Authority as Current ENS authority
-  participant DNS as DNS zone
-
-  User->>SDK: Enter name, text key, and intended URL
-  SDK->>ENS: Read exact-name authority and expiry
-  ENS-->>SDK: Authority state at one block
-  SDK->>SDK: Build claim, proof key, and TXT owner
-  SDK->>Authority: Request authority signature
-  Authority-->>SDK: Return authoritySignature
-  SDK->>SDK: Build the complete JSON envelope
-  User->>DNS: Publish the envelope as one logical TXT value
-  DNS->>DNS: Sign the TXT RRset with DNSSEC
-  SDK->>DNS: Confirm the answer validates as Secure
-  User->>ENS: Set target record and descriptor last
-  Note over User,ENS: Use one resolver multicall when possible
-```
-
-Publish and validate the DNS proof before enabling the descriptor. After the
-ENS write, verify again against the live ENS state.
 
 ## DNSSEC Rules
 
@@ -252,41 +218,6 @@ It does not prove control of the URL path, query, fragment, port, or web server.
 It also does not establish legal ownership, organizational identity, or content
 safety. A securely delegated DNS provider is inside this method's control
 boundary.
-
-## Open Issues
-
-<Accordion>
-  <AccordionItem>
-    <AccordionTitle>Should valueHash be part of the proof key?</AccordionTitle>
-    <AccordionContent>
-
-The shared proof key currently excludes `valueHash`, so a changed URL can reuse
-the same TXT owner. DNS caches may temporarily return an envelope for the old
-value, which safely produces a non-positive result.
-
-Including `valueHash` would create a new owner for every value and allow the
-next proof to be prepared before changing ENS, but it would also leave more
-stale DNS records. This decision must be made consistently for every method.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>Which DNSSEC algorithms and vectors are required?</AccordionTitle>
-    <AccordionContent>
-
-Version 1 still needs a minimum DNSSEC algorithm policy and executable vectors
-for IDNA, TXT chunking, owner-length limits, wildcard synthesis, aliases,
-rollovers, invalid JSON, and the 2,048-byte boundary.
-
-The method should not be frozen until independent implementations agree on
-these cases.
-
-    </AccordionContent>
-
-  </AccordionItem>
-</Accordion>
 
 ## Decisions
 
