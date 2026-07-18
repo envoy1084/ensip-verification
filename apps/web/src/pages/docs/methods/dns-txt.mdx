@@ -52,9 +52,9 @@ text("url")  = "https://example.com"
 text("blog") = "https://example.com/blog"
 ```
 
-The `.url` in the method identifier means that the method uses the shared URL
-parsing profile. The exact text key remains part of the common claim and proof
-key.
+The `.url` in the method identifier means that the method uses the URL parsing
+rules defined by `https-origin.v1`. The exact text key remains part of the
+common claim and proof key.
 
 ## Descriptor
 
@@ -68,8 +68,8 @@ target instead of the ENS authority alone.
 
 ## Derive The Target
 
-Parse the exact text-record value using the [shared URL
-profile](./overview#shared-url-profile).
+Parse the exact text-record value using the [`https-origin.v1` URL
+rules](./https-origin#derive-the-target).
 
 This method requires a domain host. IPv4 and IPv6 hosts are unsupported because
 there is no derived DNS zone in which to place the TXT record.
@@ -278,8 +278,8 @@ A verifier succeeds only when all of these checks succeed:
 3. Calculate the proof key and complete TXT owner.
 4. DNSSEC-validate the full answer and alias chain as `Secure`.
 5. Select and parse exactly one protocol TXT RDATA.
-6. Fetch `u` with the shared [HTTPS retrieval
-   profile](./overview#shared-https-retrieval-profile).
+6. Fetch `u` with the [`https-origin.v1` HTTPS retrieval
+   rules](./https-origin#https-retrieval-rules).
 7. Parse the closed envelope and recompute its `commonClaimDigest`.
 8. Require that digest to equal TXT field `d`.
 9. Compare every common claim field with the live ENS inputs.
@@ -410,8 +410,8 @@ treat them as the same event.
     <AccordionTitle>Which exact URL and DNS names are interoperable?</AccordionTitle>
     <AccordionContent>
 
-The shared URL profile still needs executable cross-language vectors. This
-method additionally needs vectors for IDNA, maximum DNS owner length, TXT
+The URL profile still needs executable cross-language vectors. This method
+additionally needs vectors for IDNA, maximum DNS owner length, TXT
 chunking, wildcard synthesis, CNAME and DNAME chains, and trust-anchor
 rollovers.
 
