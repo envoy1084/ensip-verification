@@ -61,7 +61,7 @@ example.com
 ## TXT Owner
 
 Encode the 32-byte proof key as lowercase unpadded [RFC 4648
-base32](https://www.rfc-editor.org/rfc/rfc4648). The result must contain exactly
+base32](https://www.rfc-editor.org/rfc/rfc4648.html). The result must contain exactly
 52 characters from `a-z2-7`.
 
 Query QCLASS `IN`, QTYPE `TXT` at:
@@ -138,7 +138,7 @@ A secure CNAME or DNAME delegation may be followed for at most eight steps.
 Reject loops, conflicting answers, overlong synthesized names, or any alias
 chain that is not entirely `Secure`. For DNAME, validate the signed DNAME and
 its synthesized CNAME according to [RFC
-6672](https://www.rfc-editor.org/rfc/rfc6672).
+6672](https://www.rfc-editor.org/rfc/rfc6672.html).
 
 ## Verification
 

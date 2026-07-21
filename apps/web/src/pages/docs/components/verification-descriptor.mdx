@@ -61,7 +61,7 @@ Read every part after `ensrv1` as `name=value`:
   starts with a letter, may contain letters, digits, and hyphens, and ends with
   a letter or digit.
 - `u`, when the method requires it, is an absolute URI as defined by
-  [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). It must include a scheme,
+  [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html). It must include a scheme,
   such as `https://` or `ipfs://`.
 
 The complete descriptor is at most 2,048 ASCII bytes. `m` is at most 64 bytes
@@ -179,7 +179,7 @@ values plus one optional URI. A small key-value grammar is readable in wallets,
 cheap to publish, and simple to parse.
 
 JSON adds quoting, escaping, Unicode, and duplicate-member behavior for no
-needed structure; [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259) notes that
+needed structure; [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259.html) notes that
 duplicate names produce unpredictable behavior across implementations. Binary
 formats such as CBOR would need another text encoding and would make records
 harder to inspect.
