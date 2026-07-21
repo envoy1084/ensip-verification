@@ -13,409 +13,246 @@ import {
 # Account Signature Methods
 
 :::warning[In progress]
-These methods have been reviewed, but their final lifetime, target-chain
-freshness, transport limits, and test vectors are still being discussed.
+The common structure and initial profile registry are drafts. Each profile still
+needs frozen options, test vectors, and wallet interoperability testing before
+the specification is final.
 :::
 
-Account-signature methods prove that both sides approved one ENS address
-record:
+Account-signature methods verify an ENS `addr` record from both sides:
 
-1. the current ENS authority signs the
-   [common claim](../components/claims-and-signatures#common-claim); and
-2. the account represented by the address record signs a native proof bound to
-   that same claim.
+1. the current ENS authority approves the exact address record; and
+2. the address account produces a native signature for the same claim.
 
-Version 1 defines two methods:
+The envelope, claim, publication, and lifecycle are shared. Only the native
+account profile changes.
 
-| Method                        | Supported address record                   |
-| ----------------------------- | ------------------------------------------ |
-| `account-signature.eip155.v1` | Ethereum and ENSIP-11 EVM address records. |
-| `account-signature.bip322.v1` | Selected Bitcoin native-witness addresses. |
+For example, Ethereum uses EIP-712, Bitcoin uses BIP-322, Solana uses its
+off-chain message format, and Cardano uses CIP-8. They remain separate method
+identifiers because their address and signature rules are different.
 
-Both use the same [proof envelope](../components/claims-and-signatures#proof-envelope).
-Their closed `proof` object contains only the target account's native signature.
+## Shared Structure
 
-## ENS Address Records
+Every account method uses the
+[common claim](../components/claims-and-signatures#common-claim) and
+[proof envelope](../components/claims-and-signatures#proof-envelope).
 
-ENS stores a multicoin address as:
+For an address record:
 
-```solidity
-function addr(bytes32 node, uint256 coinType) returns (bytes);
-```
+| Claim field  | Value                                                               |
+| ------------ | ------------------------------------------------------------------- |
+| `recordType` | `addr`                                                              |
+| `recordKey`  | ENS coin type as canonical unsigned decimal                         |
+| `valueHash`  | Keccak-256 of the exact bytes returned by `addr(node, coinType)`    |
+| `method`     | Exact account-profile identifier                                    |
+| `target`     | Canonical CAIP-10 account derived from the live network and address |
 
-The returned bytes are the native binary representation defined for that coin
-type. They are not always a public key:
+`valueHash` always covers the resolver bytes. It does not hash the displayed
+address, CAIP identifier, checksum form, or a re-encoded value.
 
-- an EVM value is a 20-byte account address;
-- a Bitcoin value is a `scriptPubKey`;
-- a Solana value may be a public key or an off-curve program-derived address;
-- another chain may use a key hash, script hash, named account, rotating key,
-  multisig, or contract account.
-
-[ENSIP-9](https://docs.ens.domains/ensip/9/) defines SLIP-44 multicoin records.
-[ENSIP-11](https://docs.ens.domains/ensip/11/) adds EVM coin types derived from
-chain IDs. The official
-[`address-encoder`](https://github.com/ensdomains/address-encoder) implements
-many current text-to-bytes codecs, but codec support is not signature-method
-support.
-
-Some representative address families are:
-
-| Family       | Coin type | Typical control model                                        |
-| ------------ | --------- | ------------------------------------------------------------ |
-| Ethereum     | `60`      | secp256k1 EOA or ERC-1271 contract account.                  |
-| ENSIP-11 EVM | MSB range | secp256k1 EOA or chain-specific contract account.            |
-| Bitcoin      | `0`       | Script using ECDSA, BIP-340 Schnorr, multisig, or rules.     |
-| Solana       | `501`     | Ed25519 keypair or an off-curve program-derived address.     |
-| Arweave      | `472`     | RSA-PSS key whose hash derives the address.                  |
-| Sui          | `784`     | Ed25519, secp256k1, secp256r1, multisig, or zkLogin.         |
-| NEAR         | `397`     | UTF-8 account ID with mutable access keys and permissions.   |
-| Cardano      | `1815`    | Ed25519 key hash or script-controlled credential.            |
-| Polkadot     | `354`     | sr25519, Ed25519, or ECDSA account.                          |
-| XRP Ledger   | `144`     | secp256k1, Ed25519, regular key, or signer list.             |
-| Filecoin     | `461`     | secp256k1 or BLS key; other types need actor interpretation. |
-
-The table is illustrative, not a list of supported verification methods.
-Version 1 supports only the two profiles defined below. A curve name alone is
-not enough to verify an account.
-
-For every profile, `valueHash` is calculated from the exact resolved address
-bytes. Do not hash a displayed address, checksum form, CAIP identifier, or a
-re-encoded Bitcoin address.
-
-## Method Selection
-
-The method identifier selects the complete account interpretation and
-verification procedure. Use:
+The target account approves `commonClaimDigest`. Text-based profiles use these
+exact ASCII lines:
 
 ```text
-account-signature.eip155.v1
-account-signature.bip322.v1
+ENS Record Verification
+Method: <method>
+Account: <target>
+Claim: 0x<64-lowercase-hex-commonClaimDigest>
 ```
 
-Do not use one generic `account-signature.v1` whose proof chooses a `scheme`.
-A curve does not define address derivation, message framing, contract accounts,
-multisig, key rotation, or chain-state checks.
+Use LF between lines and no final line break. A native structured-data standard
+may encode the same method, account, and digest as typed fields instead.
 
-The common claim's `target` is a canonical
-[CAIP-10](https://standards.chainagnostic.org/CAIPs/caip-10) account identifier.
-The method identifier and CAIP identifier have different jobs:
+## Proof
 
-- `method` selects how evidence is verified;
-- `target` identifies the exact chain and account being proved; and
-- `recordKey` remains the decimal ENS coin type used to resolve the record.
+Every profile requires `targetSignature`:
 
-## Proof Source
+```json
+{
+  "targetSignature": "<profile-defined native signature>"
+}
+```
 
-Both methods require descriptor `u` because an address cannot provide a
-deterministic proof location:
+A profile may also require `publicKey` when the address contains only a key hash
+and the signature cannot recover the key:
+
+```json
+{
+  "targetSignature": "<profile-defined native signature>",
+  "publicKey": "<profile-defined public key>"
+}
+```
+
+The selected method closes the `proof` object. `publicKey` is forbidden unless
+that profile requires it. Other fields are forbidden.
+
+If the native standard defines a canonical textual signature, use it unchanged.
+Otherwise, encode the native binary proof using canonical unpadded base64url.
+The native proof may already contain a public key, signer list, or signature
+scheme; do not duplicate those values as separate JSON fields.
+
+The authority signature remains the envelope's common `authoritySignature`.
+Both signatures bind the same claim, so neither the ENS authority nor the target
+account can create a positive relationship alone.
+
+## Method Registry
+
+Method identifiers select complete account profiles, not only curves. The
+initial registry is:
+
+| Method                                   | ENS coin type                    | Native signing reference                                                                                                          |
+| ---------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `account-signature.eip155.v1`            | `60` and ENSIP-11 EVM coin types | [EIP-712](https://eips.ethereum.org/EIPS/eip-712) and [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271)                         |
+| `account-signature.bip322.v1`            | `0`                              | [BIP-322 Simple](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)                                                  |
+| `account-signature.solana-offchain.v1`   | `501`                            | [Solana off-chain message signing](https://github.com/anza-xyz/agave/blob/master/docs/src/proposals/off-chain-message-signing.md) |
+| `account-signature.arweave-rsapss.v1`    | `472`                            | [Wander `signMessage`](https://docs.arconnect.io/api/sign-message)                                                                |
+| `account-signature.nep413.v1`            | `397`                            | [NEP-413](https://github.com/near/NEPs/blob/master/neps/nep-0413.md)                                                              |
+| `account-signature.cip8.v1`              | `1815`                           | [CIP-8 message signing](https://cips.cardano.org/cip/CIP-8)                                                                       |
+| `account-signature.adr36.v1`             | Registered Cosmos SDK coin types | [ADR-036](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-036-arbitrary-signature.md)                        |
+| `account-signature.substrate-signraw.v1` | `354` and `434`                  | [Polkadot `signRaw`](https://polkadot.js.org/docs/extension/cookbook/#sign-a-message)                                             |
+| `account-signature.arc60.v1`             | `283`                            | [ARC-60](https://dev.algorand.co/arc-standards/arc-0060/)                                                                         |
+| `account-signature.sui-personal.v1`      | `784`                            | [Sui personal-message signing](https://sdk.mystenlabs.com/sui/cryptography)                                                       |
+| `account-signature.sep53.v1`             | `148`                            | [SEP-53](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0053.md)                                           |
+| `account-signature.tip191.v1`            | `195`                            | [TIP-191](https://github.com/tronprotocol/tips/blob/master/tip-191.md)                                                            |
+| `account-signature.filecoin-wallet.v1`   | `461`                            | [Filecoin WalletSign and WalletVerify](https://docs.filecoin.io/reference/json-rpc/wallet)                                        |
+| `account-signature.tezos-micheline.v1`   | `1729`                           | [Tezos Micheline string signing](https://gitlab.com/tezos/tzip/-/blob/master/drafts/current/draft-string-signing.md)              |
+
+All profiles above are part of the draft specification. “Registered” does not
+mean final or universally supported by wallets.
+
+The official ENS
+[address encoder list](https://github.com/ensdomains/address-encoder/blob/master/docs/supported-cryptocurrencies.md)
+is the source for commonly supported ENS coin types. An address codec only
+converts display text to resolver bytes. It does not make the corresponding
+account-signature profile safe or interoperable.
+
+## Profile Scope
+
+Each profile applies the referenced native standard to the shared claim. The
+following restrictions prevent one method from guessing how an account works:
+
+| Profile             | Supported account forms                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| EVM                 | 20-byte EOAs and deployed ERC-1271 contract accounts on the selected EIP-155 chain.     |
+| Bitcoin             | BIP-322 Simple address forms whose accepted witness contains a signature for the claim. |
+| Solana              | On-curve Ed25519 accounts. Off-curve program-derived addresses cannot sign.             |
+| Arweave             | RSA-PSS accounts whose supplied public modulus hashes to the live Arweave address.      |
+| NEAR                | Named or implicit accounts using a live full-access key accepted by NEP-413.            |
+| Cardano             | Addresses with a key payment credential accepted by CIP-8. Script credentials differ.   |
+| Cosmos ADR-036      | Registered Cosmos SDK secp256k1 accounts with a fixed chain and Bech32 profile.         |
+| Polkadot and Kusama | Direct SS58 accounts using Ed25519, sr25519, or ECDSA through `signRaw`.                |
+| Algorand            | Direct Ed25519 accounts. Rekeyed, multisig, and logic-signature accounts are excluded.  |
+| Sui                 | Native Sui serialized signatures that verify against the live Sui address.              |
+| Stellar             | Ed25519 `G...` accounts. Muxed accounts and contract accounts are excluded.             |
+| TRON                | Direct secp256k1 externally owned accounts accepted by TIP-191.                         |
+| Filecoin            | Direct `f1` secp256k1 and `f3` BLS key addresses. Actor and delegated forms differ.     |
+| Tezos               | Implicit `tz1`, `tz2`, `tz3`, or `tz4` accounts with the required public key.           |
+
+Account forms outside the table require a new method version or profile. A
+verifier must not fall back from a contract, script, multisig, delegated, or
+rotating-key account to a simpler raw-key check.
+
+### EVM Mapping
+
+The EVM profile accepts:
+
+| ENS coin type                                              | Target chain                        |
+| ---------------------------------------------------------- | ----------------------------------- |
+| `60`                                                       | Ethereum mainnet, EIP-155 chain `1` |
+| `0x80000000 \| chainId` where `1 <= chainId <= 0x7fffffff` | That EIP-155 chain                  |
+
+The chain-agnostic default EVM coin type `0x80000000` does not identify a
+network and is unsupported. See [ENSIP-11](https://docs.ens.domains/ensip/11/).
+
+EOAs sign the EIP-712 account proof. Contract accounts are checked only through
+ERC-1271 at the selected target-chain block.
+
+### Cosmos Mapping
+
+ADR-036 is one signature format used by several Cosmos SDK wallets, but a
+shared coin type does not identify every Cosmos network. Version 1 starts with
+the address-encoder coin types below:
+
+| Coin type | Network family |
+| --------- | -------------- |
+| `118`     | Cosmos Hub     |
+| `330`     | Terra          |
+| `459`     | Kava           |
+| `566`     | IRISnet        |
+| `714`     | BNB Beacon     |
+| `931`     | THORChain      |
+
+Each entry still needs its exact CAIP-2 chain ID, Bech32 prefix, accepted key
+algorithm, and ADR-036 wallet vectors. A verifier supports only entries frozen
+in the final profile registry.
+
+## Publication
+
+Account methods require descriptor `u` because an address record does not
+provide a deterministic proof location:
 
 ```text
-ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/alice-eth.json
-ensrv1 a=1 m=account-signature.bip322.v1 u=ipfs://bafk...
+ensrv1 a=1 m=account-signature.solana-offchain.v1 u=https://proofs.example/alice-sol.json
+ensrv1 a=1 m=account-signature.cip8.v1 u=ipfs://bafk...
 ```
 
-Version 1 accepts HTTPS and IPFS proof sources.
-
-For HTTPS, the verifier must use the exact descriptor URI, send `GET` without
-cookies, authorization, client certificates, referrer, or other ambient
-credentials, reject redirects, require WebPKI-authenticated TLS and status
-`200`, require the `application/json` media-type essence, enforce a 256 KiB
-decoded-body limit while streaming, and use a finite timeout. A server verifier
-must also reject destinations that are not globally reachable and recheck the
-connected peer address.
-
-For credentialless browser verification, the publisher must also return:
-
-```http
-Access-Control-Allow-Origin: *
-```
-
-CORS does not prevent private-network requests. A browser verifier must use a
-controlled safe-fetch service that enforces the same globally reachable
-destination and connected-peer checks as a server. If it cannot do so, HTTPS
-verification is unavailable rather than negative.
-
-For IPFS, `u` must contain one pathless CIDv1 using lowercase base32, the `raw`
-codec, and `sha2-256`. Query and fragment components are forbidden. The raw
-block bytes are the envelope bytes and must not exceed 256 KiB.
-
-The proof source only transports the envelope. The authority and target
-signatures authenticate it. Account methods do not use a proof key because `u`
-already selects one exact envelope.
-
-The provisional maximum signed lifetime is 30 days:
-
-```text
-validUntil - issuedAt <= 2,592,000 seconds
-```
+`u` points directly to one proof envelope, so account methods do not use a
+proof key. Apply the common
+[verification descriptor](../components/verification-descriptor) and
+[proof-envelope](../components/claims-and-signatures#proof-envelope) retrieval
+rules. The transport does not decide whether the signature is valid.
 
 ## Setup
 
-```mermaid
-sequenceDiagram
-  autonumber
-  actor User
-  participant SDK as Verification SDK
-  participant ENS as ENS state
-  participant Resolver as ENS resolver
-  participant Authority as Current ENS authority
-  participant Account as Target account
-  participant Host as Proof source
+1. Resolve the intended `addr` value and compute the current ENS authority.
+2. Select the profile from the exact coin type and account form.
+3. Build the common claim and its canonical target.
+4. Ask the ENS authority to sign the common claim.
+5. Ask the target wallet to sign the same claim through the native profile.
+6. Publish the envelope at descriptor `u`.
+7. Set the address record and verification descriptor.
+8. Read the live records back and verify them again.
 
-  User->>SDK: Enter name, coin type, and intended address
-  SDK->>ENS: Read exact-name authority and expiry
-  ENS-->>SDK: Authority state at one block
-  SDK->>SDK: Encode address bytes, target, and common claim
-  SDK->>Authority: Request authority signature
-  Authority-->>SDK: Return authoritySignature
-  SDK->>Account: Request method-specific target signature
-  Account-->>SDK: Return targetSignature
-  SDK->>SDK: Build the complete proof envelope
-  SDK->>Host: Publish the envelope
-  User->>Resolver: Set address record and descriptor last
-  Note over User,Resolver: Use one resolver multicall when possible
-  SDK->>Resolver: Read back live record and descriptor
-  SDK->>Host: Fetch and verify the published envelope
-```
-
-The SDK must display the complete intended common claim before requesting
-either signature. The native signing prompt may show only the account and
-claim digest. After the ENS write, verify again from the live resolved state.
+The SDK must show the complete ENS name, coin type, target address, and validity
+period before either signature is requested.
 
 ## Verification
 
 ```mermaid
-sequenceDiagram
-  autonumber
-  actor App
-  participant SDK as Verification SDK
-  participant ENS as ENS and Universal Resolver
-  participant Host as Proof source
-  participant Method as Method verifier
+flowchart TD
+  A["Read the live address, descriptor, and ENS authority"]
+  B["Rebuild the common claim and canonical target"]
+  C["Verify the ENS authority signature"]
+  D["Load the exact account profile"]
+  E["Verify the native target signature"]
+  F["Bind the native signer to the live address"]
+  G["Apply claim, authority, and chain-state expiry"]
+  H["Return verified control"]
 
-  App->>SDK: Verify one ENS address record
-  SDK->>ENS: Read record, descriptor, and authority at one block
-  ENS-->>SDK: Live ENS state
-  SDK->>SDK: Derive valueHash and canonical target
-  SDK->>Host: Fetch descriptor u
-  Host-->>SDK: Return proof envelope
-  SDK->>SDK: Compare every common claim field
-  SDK->>SDK: Validate authoritySignature
-  SDK->>Method: Validate targetSignature using selected method
-  Note over Method: Local for Bitcoin; target-chain call for ERC-1271
-  Method-->>SDK: Native account-proof result
-  SDK->>SDK: Check claim, authority, and evidence freshness
-  SDK-->>App: Return control result
+  A --> B
+  B --> C
+  C --> D
+  D --> E
+  E --> F
+  F --> G
+  G --> H
 ```
 
-A verifier succeeds only when it:
+A verifier succeeds only when:
 
-1. resolves the address record, descriptor, and authority at one ENS block;
-2. derives the target from the exact live coin type and address bytes;
-3. fetches and strictly parses the envelope from descriptor `u`;
-4. compares every common claim field with the live inputs;
-5. validates `authoritySignature` against the current ENS authority;
-6. validates the closed method proof against the same common claim; and
-7. applies the common lifetime, expiry, and freshness rules.
+1. the live resolver bytes match `valueHash`;
+2. the live coin type, network, and address produce the exact `target`;
+3. the current ENS authority validates `authoritySignature`;
+4. the selected native standard validates `targetSignature`;
+5. any supplied public key or signer set maps to the live address;
+6. required target-chain account state is valid at the selected block; and
+7. the common lifecycle and cache rules succeed.
 
-## EVM: `account-signature.eip155.v1`
+Unsupported wallet features, unavailable chain state, unknown account forms,
+and unknown method versions are unavailable, not verified.
 
-### Supported Records
+## Result
 
-The method accepts exactly 20 nonzero resolved address bytes for:
-
-| ENS coin type                                             | Target EIP-155 chain ID |
-| --------------------------------------------------------- | ----------------------- |
-| `60`                                                      | `1`                     |
-| `0x80000000 \| chainId`, for `1 <= chainId <= 0x7fffffff` | `chainId`               |
-
-Coin type `0x80000000` is the chain-agnostic default EVM record and does not
-identify a concrete chain, so it is unsupported. Other legacy SLIP-44 EVM coin
-types are also unsupported.
-
-Use the resolved address bytes even when a resolver inherits them from a
-default EVM record. Set `target` to the lowercase CAIP-10 identifier:
-
-```text
-eip155:<chainId>:0x<40-lowercase-hex>
-```
-
-For Ethereum mainnet:
-
-```text
-eip155:1:0x1234567890abcdef1234567890abcdef12345678
-```
-
-### Target Payload
-
-The target signs this [EIP-712](https://eips.ethereum.org/EIPS/eip-712) value:
-
-```solidity
-struct ENSRecordAccountProof {
-  bytes32 commonClaimDigest;
-  string account;
-}
-```
-
-Use this domain on the target EIP-155 chain:
-
-```text
-name:    ENS Record Account Proof
-version: 1
-chainId: target EIP-155 chain ID
-```
-
-`account` must equal the exact canonical `claim.target`. It repeats information
-already protected by `commonClaimDigest`, but lets a wallet display the account
-being approved. The EIP-712 domain does not contain `verifyingContract`: an EOA
-is not a contract that verifies this signature.
-
-The struct name, fields, field types, and field order above are exact.
-
-Let `targetProofDigest` be the EIP-712 digest of this value. The closed proof is:
-
-```json
-{
-  "targetSignature": "0x<signature>"
-}
-```
-
-It contains no account type, signature scheme, public key, chain, or block.
-Those values are derived by the verifier.
-
-### Target Validation
-
-Select one recent finalized block on the target chain and confirm its chain ID.
-If the target chain is Ethereum mainnet, the ENS evaluation block must satisfy
-the target freshness and finality policy and must be used for both checks.
-Record the selected block number and hash in diagnostic metadata.
-
-Read the target's code at that block, then choose exactly one path:
-
-1. **No code:** require an exact 65-byte `r || s || v` secp256k1 signature.
-   Require low `s`, require `v` to equal 27 or 28, and require recovery from
-   `targetProofDigest` to produce the target address.
-2. **Code present:** evaluate
-   `isValidSignature(targetProofDigest, targetSignature)` on the target through
-   a read-only call at the same block. Require success and exactly 32 return
-   bytes: `0x1626ba7e` followed by 28 zero bytes.
-
-The contract path implements
-[ERC-1271](https://eips.ethereum.org/EIPS/eip-1271).
-
-Never try both paths. A revert, malformed return, incorrect magic value, stale
-block, reorganized block, or unavailable target-chain RPC is non-positive. Do
-not treat a contract as an EOA when ERC-1271 validation fails.
-
-`targetSignature` is an even-length lowercase `0x` byte string. The EOA form is
-exactly 65 bytes. The contract form is opaque and at most 8,192 bytes. It may be
-empty because ERC-1271 gives the target contract final authority over its
-interpretation.
-
-Version 1 does not support `personal_sign`, EIP-2098 compact signatures,
-ERC-6492 counterfactual signatures, or proof-selected signature algorithms.
-
-## Bitcoin: `account-signature.bip322.v1`
-
-### Supported Records
-
-The method supports coin type `0` on Bitcoin mainnet. The live ENSIP-9 value is
-the exact `scriptPubKey`, not a Base58 or Bech32 string.
-
-Version 1 pins
-[BIP-322](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)
-Simple version 2.0.0 and accepts only two signature-bearing native witness
-patterns:
-
-| Script        | `scriptPubKey` pattern        | Required evidence            |
-| ------------- | ----------------------------- | ---------------------------- |
-| P2WPKH        | `0x0014` followed by 20 bytes | secp256k1 ECDSA signature.   |
-| P2TR key path | `0x5120` followed by 32 bytes | BIP-340 secp256k1 signature. |
-
-P2PKH, P2SH wrappers, P2WSH, P2TR script-path proofs, unknown witness versions,
-BIP-322 Legacy, Full, and Proof-of-Funds are unsupported. This restriction is
-deliberate: an arbitrary Bitcoin script can be satisfied by a hash preimage or
-another condition without a cryptographic signature over this message.
-
-Derive the Bitcoin mainnet address directly from the live script:
-
-- for P2WPKH, encode HRP `bc`, witness version `0`, and its 20-byte witness
-  program using [BIP-173](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki)
-  Bech32;
-- for P2TR, encode HRP `bc`, witness version `1`, and its 32-byte witness
-  program using [BIP-350](https://github.com/bitcoin/bips/blob/master/bip-0350.mediawiki)
-  Bech32m; and
-- convert the witness program from 8-bit to 5-bit groups with padding enabled,
-  emit lowercase, then decode the result and require the same witness version,
-  program, and exact `scriptPubKey`.
-
-Set `target` to:
-
-```text
-bip122:000000000019d6689c085ae165831e93:<canonical-address>
-```
-
-For example:
-
-```text
-bip122:000000000019d6689c085ae165831e93:bc1q...
-```
-
-### Target Payload
-
-The target signs these exact ASCII bytes through BIP-322:
-
-```text
-ENS Record Verification
-Method: account-signature.bip322.v1
-Account: bip122:000000000019d6689c085ae165831e93:bc1q...
-Claim: 0x<64-lowercase-hex-commonClaimDigest>
-```
-
-Use one LF byte after each of the first three lines. Do not add an LF or null
-terminator after the final line. `Account` must equal the exact `claim.target`.
-BIP-322 applies its own tagged hash and virtual transaction construction to
-these message bytes.
-
-The closed proof is:
-
-```json
-{
-  "targetSignature": "smp<canonical-padded-base64-witness>"
-}
-```
-
-### Target Validation
-
-The verifier must:
-
-1. require the exact `smp` variant prefix;
-2. decode the remainder as canonical padded RFC 4648 base64 and require
-   decode/re-encode equality;
-3. reject more than 64 KiB of decoded witness data before parsing;
-4. consensus-decode exactly one witness stack without trailing bytes;
-5. for P2WPKH, require exactly two witness items: strict DER-encoded ECDSA bytes
-   followed by the sighash byte `0x01`, and one compressed public key whose
-   hash matches the live script;
-6. for P2TR, require exactly one witness item: either a 64-byte BIP-340
-   key-path signature using `SIGHASH_DEFAULT`, or that signature followed by
-   the sighash byte `0x01`; reject annexes and script-path witnesses;
-7. construct BIP-322's `to_spend` and `to_sign` transactions from the exact
-   message and live `scriptPubKey`;
-8. apply BIP-322 Simple version 2.0.0 and its required script rules; and
-9. accept only `valid at time 0 and age 0`.
-
-Reject missing prefixes, noncanonical base64, malformed witness data,
-unsupported scripts, disallowed witness shapes or sighashes, and failed script
-evaluation. Treat BIP-322 `inconclusive` as non-positive, never as valid.
-
-Simple verification does not require a Bitcoin node, UTXO lookup, balance, or
-proof that funds exist.
-
-## Result And Caching
-
-After both signatures and every live-state check succeed, return:
+After both sides and every live input validate:
 
 ```json
 {
@@ -424,111 +261,94 @@ After both signatures and every live-state check succeed, return:
 }
 ```
 
-A positive result must not be reused past the earliest of five minutes after
-evaluation, `claim.validUntil`, `authorityValidUntil` when present, or a
-shorter target-chain freshness bound. An EVM result must be discarded if its
-target-chain block is reorganized out.
+This proves control under the selected native account profile. It does not prove
+identity, legal ownership, account safety, balance, or willingness to receive
+funds.
 
-The 30-day signed lifetime is not a 30-day cache. Fresh ENS reads detect
-ENS-side record, descriptor, and authority changes, but they cannot detect an
-EOA or Bitcoin key transfer, loss, or compromise. Target-side stale evidence
-ends only when the claim expires or the ENS-side inputs change, so higher-risk
-uses should use shorter claims.
+## Other ENS Address Types
 
-## Security Boundary
+The address encoder supports many more coin types, including Litecoin,
+Dogecoin, Bitcoin Cash, XRP, Monero, Zcash, Flow, Hedera, Stacks, Nostr, and
+others. They are not automatically aliases of the profiles above:
 
-These methods prove a narrow relationship:
+- Bitcoin-derived address syntax does not guarantee BIP-322 support.
+- A shared curve does not guarantee the same message prefix or address mapping.
+- Privacy addresses may not expose one reusable public signing key.
+- An account may be controlled by chain state, scripts, multisig, or a rotated
+  key.
+- Some ecosystems still lack a final arbitrary-message signing standard. For
+  example, the XRPL
+  [XLS-63 SignIn proposal](https://xls.xrpl.org/xls/XLS-0063-signin.html) is
+  currently stagnant.
 
-> The current ENS authority approved the exact live address record, and the
-> target account supplied evidence accepted by the selected method.
-
-They do not prove legal ownership, uncompromised custody, balance, willingness
-to receive funds, or payment safety. A Bitcoin proof shows that the witness
-satisfied the recorded script for one message; it does not prove control of any
-current UTXO. ERC-1271 validity can change when contract state or logic changes.
+Add a profile when there is a stable native format, exact ENS byte mapping,
+canonical network identifier, wallet support, and cross-implementation test
+vectors. Adding a profile does not change the common claim or envelope.
 
 ## Open Issues
 
 <Accordion>
   <AccordionItem>
-    <AccordionTitle>What target-chain block and call policy is required?</AccordionTitle>
+    <AccordionTitle>Which profiles are ready for version 1?</AccordionTitle>
     <AccordionContent>
 
-The EVM method needs one interoperable freshness and finality policy for every
-target chain. It must define maximum block age, reorganization handling, RPC
-chain-ID checks, and resource bounds for ERC-1271 calls.
+The registry is intentionally broad, but not every native reference has the
+same maturity. EIP-712, BIP-322, CIP-8, NEP-413, and SEP-53 are written
+standards. Other entries rely partly on wallet APIs, ecosystem conventions, or
+draft documents.
 
-A direct JSON-RPC `eth_call` prevents persisted changes but does not necessarily
-execute the target inside a true EVM `STATICCALL`. Version 1 must decide whether
-read-only `eth_call` is sufficient or define a helper that enforces the opcode's
-static context. It must also freeze `from` and therefore `msg.sender`, zero
-`value`, gas limits, block environment, and other call inputs so two verifiers
-cannot receive different ERC-1271 results.
+Each profile needs at least two compatible implementations and positive and
+negative vectors before it can move from draft to final. Profiles that are not
+ready can remain registered as later versions without blocking the common
+account-signature structure.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Which Bitcoin limits and vectors are final?</AccordionTitle>
+    <AccordionTitle>How are target networks registered?</AccordionTitle>
     <AccordionContent>
 
-Version 1 still needs executable vectors for every accepted script, Bech32 and
-Bech32m round-tripping, canonical base64, witness parsing, sighashes, rejected
-script paths and annexes, invalid scripts, and the 64 KiB boundary.
+`target` should be a canonical CAIP-10 account, but several coin types can be
+used on more than one network and some CAIP namespace profiles are still
+evolving. The final registry must pin the CAIP-2 chain ID and account
+canonicalization for every accepted coin type.
 
-The BIP-122 CAIP-10 account profile is still a draft. Before this method is
-frozen, confirm that its target remains a valid CAIP-10 identifier. The
-script-to-address conversion fixed above does not inherit later profile
-changes.
+A bare coin type or display prefix is not enough. If the network cannot be
+derived unambiguously, that profile must reject the record.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Which EVM limits and vectors are final?</AccordionTitle>
+    <AccordionTitle>How is changing account authority evaluated?</AccordionTitle>
     <AccordionContent>
 
-Version 1 needs executable vectors for EIP-712 hashing, canonical CAIP targets,
-coin-type mapping, low-`s` and `v` rejection, code/no-code path selection,
-ERC-1271 calldata and return data, reverts, call context, size limits, and every
-unsupported signature form.
+NEAR access keys, Algorand rekeying, contract wallets, delegated accounts,
+multisig policies, and other stateful accounts can change after a signature is
+created. Profiles must state whether they use only direct key accounts or read
+target-chain state at a particular block.
 
-The profile also needs fixed RPC error categories and resource limits. Without
-them, implementations can agree on valid proofs while handling malformed or
-expensive proofs differently.
+The final rules need one freshness and finality policy so different verifiers
+do not evaluate the same proof against different account authority.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Is 30 days the right signed lifetime?</AccordionTitle>
+    <AccordionTitle>What are the final proof encodings?</AccordionTitle>
     <AccordionContent>
 
-Portable EOA and Bitcoin signatures have no native online revocation check. A
-short lifetime limits stale proof reactivation but requires the target account
-to sign more often. ERC-1271 accounts are different because their current
-policy is checked during every fresh evaluation.
+Some native standards already define a complete textual or binary envelope.
+Others return a signature and public key as separate wallet fields. Each method
+must freeze its exact `targetSignature` encoding, optional `publicKey`
+encoding, size limits, and canonical decoding rules.
 
-Thirty days is the current conservative draft value. It needs wallet and
-operational testing before the method is frozen.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>What is the final proof-transport profile?</AccordionTitle>
-    <AccordionContent>
-
-HTTPS still needs exact timeout, content-coding, cache, browser, SSRF, and error
-rules. IPFS needs gateway-independent retrieval vectors and clear behavior for
-unsupported multihashes and unavailable blocks.
-
-Neither transport changes proof validity: the signatures authenticate the
-claim. Transport failures must remain distinguishable from invalid evidence.
+The common JSON object should not reinterpret native signature bytes or allow
+the proof to select a weaker algorithm.
 
     </AccordionContent>
 
@@ -539,100 +359,76 @@ claim. Transport failures must remain distinguishable from invalid evidence.
 
 <Accordion>
   <AccordionItem>
-    <AccordionTitle>Why use one method for each account profile?</AccordionTitle>
+    <AccordionTitle>Why share one account-signature structure?</AccordionTitle>
     <AccordionContent>
 
-The descriptor and signed common claim select the method before the proof is
-read. This prevents untrusted proof data from choosing a chain, curve, account
-model, message encoding, or weaker verification path.
+Every address profile proves the same relationship: the ENS authority and the
+target account approved one exact `addr` record. The claim, envelope, proof
+location, lifecycle, and result therefore remain common.
 
-Adding a future profile creates a new immutable method identifier. Existing
-clients reject it instead of guessing how to verify it.
+Only the native message wrapper, signature encoding, address binding, and
+optional chain-state lookup change between profiles.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Why are both signatures required?</AccordionTitle>
+    <AccordionTitle>Why is the profile in the method identifier?</AccordionTitle>
     <AccordionContent>
 
-The target signature is already bound to the ENS name because it covers
-`commonClaimDigest`. It cannot be copied to another name or record.
+The descriptor and signed common claim select the method before untrusted proof
+data is read. A proof cannot claim a different curve, network, address model, or
+verification algorithm.
 
-It proves only target-side participation. The separate authority signature
-proves that the current ENS authority approved the same association. Requiring
-both prevents either side from creating a positive relationship alone.
+Changing a native profile allocates a new method version. Existing verifiers
+reject it instead of guessing.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Why bind both resolver bytes and a CAIP target?</AccordionTitle>
+    <AccordionTitle>Why not name methods only after curves?</AccordionTitle>
     <AccordionContent>
 
-`valueHash` protects the exact bytes returned by the resolver. `target` records
-their method-specific account meaning, including the chain and canonical
-address.
+Solana and Stellar both use Ed25519 but have different address encodings and
+message formats. Ethereum, TRON, Bitcoin, and Cosmos commonly use secp256k1 but
+do not sign or identify accounts in the same way.
 
-For Bitcoin, the resolver bytes are a `scriptPubKey` while the target is a
-readable CAIP-10 address. The verifier derives both from the same live value and
-requires them to agree.
+A curve verifies a mathematical signature. A method profile verifies that the
+signing key or policy controls one specific account on one specific network.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Can every curve sign the common digest?</AccordionTitle>
+    <AccordionTitle>Why link native standards instead of copying them?</AccordionTitle>
     <AccordionContent>
 
-Yes. A digest does not need to be a point on the signing curve. Signature
-systems accept bytes or derive an integer from bytes, then apply their own
-hashing and curve operations.
+The account profile should define how the common claim enters the native
+standard and which options are accepted. The native standard remains the
+reference for its signature construction and cryptographic verification.
 
-The difficult part is not curve compatibility. Each method must define exact
-message framing, domain separation, signature encoding, key-to-address
-binding, account rules, and live-state checks. That is why future chains wrap
-`commonClaimDigest` in their own native signing format instead of using one
-generic curve switch.
+Copying complete algorithms here would duplicate large specifications and
+eventually drift from their test vectors. The profile still has to pin an exact
+standard version; a link to “latest” is not sufficient for a final method.
 
     </AccordionContent>
 
   </AccordionItem>
 
   <AccordionItem>
-    <AccordionTitle>Why does proof contain only targetSignature?</AccordionTitle>
+    <AccordionTitle>Why is codec support not enough?</AccordionTitle>
     <AccordionContent>
 
-For EVM, the verifier derives the chain and address from the live coin type and
-record, then selects EOA or ERC-1271 from live code. For Bitcoin, the live
-`scriptPubKey` and BIP-322 witness contain everything required for script
-validation.
+An address codec only says how resolver bytes become a display address. It does
+not say which key signs messages, whether the key can rotate, how multisig
+works, or whether a contract or script controls the account.
 
-A proof-selected `scheme`, account type, public key, chain, or block would
-duplicate derived inputs or let untrusted data influence verification. Future
-methods may define additional closed fields when their native account model
-genuinely requires them.
-
-    </AccordionContent>
-
-  </AccordionItem>
-
-  <AccordionItem>
-    <AccordionTitle>Why are other ENS address records unsupported?</AccordionTitle>
-    <AccordionContent>
-
-Being storable in ENS or supported by an address codec does not define a safe
-signature proof. Solana PDAs have no private key, Cardano addresses may contain
-script credentials, NEAR accounts can rotate several access keys, and many
-chains support several signature families.
-
-A future method must define its accepted coin types, exact address bytes,
-network mapping, CAIP target, native signed message, proof encoding,
-key-to-account binding, live chain checks, rotation behavior, and test vectors.
-It can then be added without changing the common claim or existing methods.
+Verification support is added profile by profile even when ENS can already
+store and display the address.
 
     </AccordionContent>
 
