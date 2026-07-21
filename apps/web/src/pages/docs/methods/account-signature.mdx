@@ -17,18 +17,31 @@ The common method is defined below. The profile registry still needs frozen
 encodings and interoperability test vectors before these methods are final.
 :::
 
-`account-signature.<profile>.v1` verifies that the account stored in one ENS
-`addr` record signed the same claim as the current ENS authority.
+An ENS address record connects a name to an account:
 
-For example, a Bitcoin address uses `account-signature.bip322.v1`, while an EVM
-address uses `account-signature.eip155.v1`. The common verification flow stays
-the same. The profile selects only the native account-signature rules.
+```text
+alice.eth -> 0x1234...
+```
+
+This method asks both sides to approve that connection:
+
+1. the current authority for `alice.eth` signs the claim; and
+2. the account stored in the address record signs the same claim.
+
+A result is positive only when both signatures are valid for the live record.
+This prevents another ENS name from copying an address and reusing its proof.
+
+Each chain signs messages differently. The profile in the method name selects
+the chain-specific algorithm. For example, EVM accounts use
+`account-signature.eip155.v1` and Bitcoin accounts use
+`account-signature.bip322.v1`. The claim, proof envelope, and verification flow
+remain the same for every profile.
 
 ## Supported Records
 
-The method supports `addr(coinType)` records listed in the
-[profile registry](#profiles). It does not apply to text records or to an
-unregistered coin type.
+The method supports an `addr(coinType)` record when the selected
+[profile](#profiles) defines that chain and account type. It does not apply to
+text records or to an unregistered chain profile.
 
 For an address claim:
 
@@ -106,8 +119,9 @@ Every profile requires `targetSignature`:
 }
 ```
 
-When the profile registry says that a public key is required, the proof is
-exactly:
+Arweave, NEAR, Cardano, Cosmos SDK, and Tezos profiles also require the public
+key when it cannot be recovered from the native signature or read directly
+from the address. Their proof is exactly:
 
 ```json
 {
@@ -116,8 +130,9 @@ exactly:
 }
 ```
 
-Both values are strings. Unknown fields are forbidden. `publicKey` is forbidden
-unless the selected profile requires it.
+Both values are strings. Unknown fields are forbidden. Every other profile
+forbids `publicKey`. If its native signature format already carries a key, that
+key remains inside `targetSignature`.
 
 The public key is not trusted because it appears in the proof. The verifier
 must prove that it maps to the live address before using it to validate the
@@ -132,26 +147,22 @@ The ENS authority signature remains in the envelope's common
 The method identifier selects the complete native profile. A verifier must use
 the exact row selected by `claim.method` and must not fall back to another row.
 
-| Method                                   | ENS coin type                    | Supported account                                      | Native verifier                                                                                                                   | `proof` object                          |
-| ---------------------------------------- | -------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `account-signature.eip155.v1`            | `60` and ENSIP-11 EVM coin types | EOA or deployed ERC-1271 account                       | [EIP-712](https://eips.ethereum.org/EIPS/eip-712) and [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271)                         | `targetSignature`                       |
-| `account-signature.bip322.v1`            | `0`                              | Address supported by BIP-322 Simple                    | [BIP-322 Simple](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)                                                  | `targetSignature` contains native proof |
-| `account-signature.solana-offchain.v1`   | `501`                            | On-curve Ed25519 account                               | [Solana off-chain message signing](https://github.com/anza-xyz/agave/blob/master/docs/src/proposals/off-chain-message-signing.md) | `targetSignature`                       |
-| `account-signature.arweave-rsapss.v1`    | `472`                            | RSA-PSS account                                        | [Arweave message signing](https://docs.arconnect.io/api/sign-message)                                                             | `targetSignature`, `publicKey`          |
-| `account-signature.nep413.v1`            | `397`                            | Named or implicit account with a valid full-access key | [NEP-413](https://github.com/near/NEPs/blob/master/neps/nep-0413.md)                                                              | `targetSignature`, `publicKey`          |
-| `account-signature.cip8.v1`              | `1815`                           | Address with a key payment credential                  | [CIP-8](https://cips.cardano.org/cip/CIP-8)                                                                                       | `targetSignature`, `publicKey`          |
-| `account-signature.adr36.v1`             | Registered Cosmos SDK coin types | Direct secp256k1 account                               | [ADR-036](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-036-arbitrary-signature.md)                        | `targetSignature`, `publicKey`          |
-| `account-signature.substrate-signraw.v1` | `354`, `434`                     | Direct Polkadot or Kusama account                      | [Substrate `signRaw`](https://polkadot.js.org/docs/extension/cookbook/#sign-a-message)                                            | `targetSignature` contains native proof |
-| `account-signature.arc60.v1`             | `283`                            | Direct, non-rekeyed Ed25519 account                    | [ARC-60](https://dev.algorand.co/arc-standards/arc-0060/)                                                                         | `targetSignature`                       |
-| `account-signature.sui-personal.v1`      | `784`                            | Account supported by a native Sui serialized signature | [Sui personal-message signing](https://sdk.mystenlabs.com/sui/cryptography)                                                       | `targetSignature` contains native proof |
-| `account-signature.sep53.v1`             | `148`                            | Ed25519 `G...` account                                 | [SEP-53](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0053.md)                                           | `targetSignature`                       |
-| `account-signature.tip191.v1`            | `195`                            | Direct secp256k1 account                               | [TIP-191](https://github.com/tronprotocol/tips/blob/master/tip-191.md)                                                            | `targetSignature`                       |
-| `account-signature.filecoin-wallet.v1`   | `461`                            | Direct `f1` secp256k1 or `f3` BLS account              | [Filecoin WalletSign and WalletVerify](https://docs.filecoin.io/reference/json-rpc/wallet)                                        | `targetSignature` contains native proof |
-| `account-signature.tezos-micheline.v1`   | `1729`                           | Implicit `tz1`, `tz2`, `tz3`, or `tz4` account         | [Tezos Micheline string signing](https://gitlab.com/tezos/tzip/-/blob/master/drafts/current/draft-string-signing.md)              | `targetSignature`, `publicKey`          |
-
-“Native proof” means the linked standard already carries the key, signer, or
-script data needed by its verifier. It remains inside `targetSignature` in the
-profile's canonical encoding.
+| Method name                              | Chains              | Account type                                           | Algorithm                                                                                                                         |
+| ---------------------------------------- | ------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `account-signature.eip155.v1`            | EVM chains          | EOA or deployed ERC-1271 contract                      | [EIP-712](https://eips.ethereum.org/EIPS/eip-712) or [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271)                          |
+| `account-signature.bip322.v1`            | Bitcoin             | BIP-322-compatible address                             | [BIP-322 Simple](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)                                                  |
+| `account-signature.solana-offchain.v1`   | Solana              | On-curve Ed25519 account                               | [Solana off-chain message signing](https://github.com/anza-xyz/agave/blob/master/docs/src/proposals/off-chain-message-signing.md) |
+| `account-signature.arweave-rsapss.v1`    | Arweave             | RSA account                                            | [RSA-PSS message signing](https://docs.arconnect.io/api/sign-message)                                                             |
+| `account-signature.nep413.v1`            | NEAR                | Named or implicit account with a valid full-access key | [NEP-413](https://github.com/near/NEPs/blob/master/neps/nep-0413.md)                                                              |
+| `account-signature.cip8.v1`              | Cardano             | Address with a key payment credential                  | [CIP-8 COSE signing](https://cips.cardano.org/cip/CIP-8)                                                                          |
+| `account-signature.adr36.v1`             | Cosmos SDK chains   | Direct secp256k1 account                               | [ADR-036](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-036-arbitrary-signature.md)                        |
+| `account-signature.substrate-signraw.v1` | Polkadot and Kusama | Direct SS58 account                                    | [Substrate `signRaw`](https://polkadot.js.org/docs/extension/cookbook/#sign-a-message)                                            |
+| `account-signature.arc60.v1`             | Algorand            | Direct, non-rekeyed Ed25519 account                    | [ARC-60](https://dev.algorand.co/arc-standards/arc-0060/)                                                                         |
+| `account-signature.sui-personal.v1`      | Sui                 | Native Sui account                                     | [Sui personal-message signing](https://sdk.mystenlabs.com/sui/cryptography)                                                       |
+| `account-signature.sep53.v1`             | Stellar             | Ed25519 `G...` account                                 | [SEP-53](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0053.md)                                           |
+| `account-signature.tip191.v1`            | TRON                | Direct secp256k1 account                               | [TIP-191](https://github.com/tronprotocol/tips/blob/master/tip-191.md)                                                            |
+| `account-signature.filecoin-wallet.v1`   | Filecoin            | Direct `f1` secp256k1 or `f3` BLS account              | [WalletSign and WalletVerify](https://docs.filecoin.io/reference/json-rpc/wallet)                                                 |
+| `account-signature.tezos-micheline.v1`   | Tezos               | Implicit `tz1`, `tz2`, `tz3`, or `tz4` account         | [Micheline string signing](https://gitlab.com/tezos/tzip/-/blob/master/drafts/current/draft-string-signing.md)                    |
 
 The table is an allowlist. Multisig, script, contract, delegated, rekeyed,
 off-curve, or rotating-key account forms are unsupported unless their row
