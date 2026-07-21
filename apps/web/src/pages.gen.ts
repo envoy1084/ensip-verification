@@ -8,7 +8,6 @@ type Page =
   | { path: '/docs/components/authority'; render: 'static' }
   | { path: '/docs/components/claims-and-signatures'; render: 'static' }
   | { path: '/docs/components/discovery-records'; render: 'static' }
-  | { path: '/docs/components'; render: 'static' }
   | { path: '/docs/components/lifecycle'; render: 'static' }
   | { path: '/docs/components/results'; render: 'static' }
   | { path: '/docs/components/verification-descriptor'; render: 'static' }
@@ -18,6 +17,7 @@ type Page =
   | { path: '/docs/methods/https-origin'; render: 'static' }
   | { path: '/docs/methods/overview'; render: 'static' }
   | { path: '/docs/reference/references'; render: 'static' }
+  | { path: '/docs/walkthrough'; render: 'static' }
   | { path: '/'; render: 'static' }
 
 // prettier-ignore
