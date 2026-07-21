@@ -49,35 +49,32 @@ For an address claim:
 
 Hash the resolver bytes, not a displayed or re-encoded address.
 
-## Descriptor
+## Profiles
 
-HTTPS publication:
+The method identifier selects the complete native profile. A verifier must use
+the exact row selected by `claim.method` and must not fall back to another row.
 
-```text
-ensrv1 a=1 m=account-signature.<profile>.v1 u=https://proofs.example/account-proof.json
-```
+| Profile             | Chains              | Account type                                           | Algorithm                                                                                                                         |
+| ------------------- | ------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `eip155`            | EVM chains          | EOA or deployed ERC-1271 contract                      | [EIP-712](https://eips.ethereum.org/EIPS/eip-712) or [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271)                          |
+| `bip322`            | Bitcoin             | BIP-322-compatible address                             | [BIP-322 Simple](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)                                                  |
+| `solana-offchain`   | Solana              | On-curve Ed25519 account                               | [Solana off-chain message signing](https://github.com/anza-xyz/agave/blob/master/docs/src/proposals/off-chain-message-signing.md) |
+| `arweave-rsapss`    | Arweave             | RSA account                                            | [RSA-PSS message signing](https://docs.arconnect.io/api/sign-message)                                                             |
+| `nep413`            | NEAR                | Named or implicit account with a valid full-access key | [NEP-413](https://github.com/near/NEPs/blob/master/neps/nep-0413.md)                                                              |
+| `cip8`              | Cardano             | Address with a key payment credential                  | [CIP-8 COSE signing](https://cips.cardano.org/cip/CIP-8)                                                                          |
+| `adr36`             | Cosmos SDK chains   | Direct secp256k1 account                               | [ADR-036](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-036-arbitrary-signature.md)                        |
+| `substrate-signraw` | Polkadot and Kusama | Direct SS58 account                                    | [Substrate `signRaw`](https://polkadot.js.org/docs/extension/cookbook/#sign-a-message)                                            |
+| `arc60`             | Algorand            | Direct, non-rekeyed Ed25519 account                    | [ARC-60](https://dev.algorand.co/arc-standards/arc-0060/)                                                                         |
+| `sui-personal`      | Sui                 | Native Sui account                                     | [Sui personal-message signing](https://sdk.mystenlabs.com/sui/cryptography)                                                       |
+| `sep53`             | Stellar             | Ed25519 `G...` account                                 | [SEP-53](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0053.md)                                           |
+| `tip191`            | TRON                | Direct secp256k1 account                               | [TIP-191](https://github.com/tronprotocol/tips/blob/master/tip-191.md)                                                            |
+| `filecoin-wallet`   | Filecoin            | Direct `f1` secp256k1 or `f3` BLS account              | [WalletSign and WalletVerify](https://docs.filecoin.io/reference/json-rpc/wallet)                                                 |
+| `tezos-micheline`   | Tezos               | Implicit `tz1`, `tz2`, `tz3`, or `tz4` account         | [Micheline string signing](https://gitlab.com/tezos/tzip/-/blob/master/drafts/current/draft-string-signing.md)                    |
 
-IPFS publication:
-
-```text
-ensrv1 a=1 m=account-signature.<profile>.v1 u=ipfs://<proof-envelope-cid>
-```
-
-Replace `<profile>` with one exact identifier from the profile table and replace
-`<proof-envelope-cid>` with the complete CID. The angle-bracket placeholders
-are explanatory and are not included in a real descriptor.
-
-`u` is required and points directly to the proof envelope. Account records do
-not provide a deterministic place from which to fetch a signature, so these
-methods do not use a proof key.
-
-The proof may be published at an HTTPS URL or as immutable IPFS content. For
-IPFS, `u` contains the CID of the proof envelope. Changing the envelope creates
-a new CID, so the descriptor must also be updated.
-
-Apply the URI and retrieval rules defined by the
-[verification descriptor](../components/verification-descriptor). A verifier
-must not search for a proof at another location.
+The table is an allowlist. Multisig, script, contract, delegated, rekeyed,
+off-curve, or rotating-key account forms are unsupported unless their row
+explicitly permits them. Support for an ENS address codec alone does not make
+an account verifiable.
 
 ## Target
 
@@ -230,32 +227,38 @@ The selected profile defines whether `publicKey` is required and the exact
 encoding of each field. Unknown fields are forbidden. When present, the
 verifier must prove that `publicKey` controls the canonical CAIP-10 target.
 
-## Profiles
+## Descriptor
 
-The method identifier selects the complete native profile. A verifier must use
-the exact row selected by `claim.method` and must not fall back to another row.
+After creating and publishing the proof envelope, set the descriptor to its
+exact location.
 
-| Profile             | Chains              | Account type                                           | Algorithm                                                                                                                         |
-| ------------------- | ------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `eip155`            | EVM chains          | EOA or deployed ERC-1271 contract                      | [EIP-712](https://eips.ethereum.org/EIPS/eip-712) or [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271)                          |
-| `bip322`            | Bitcoin             | BIP-322-compatible address                             | [BIP-322 Simple](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)                                                  |
-| `solana-offchain`   | Solana              | On-curve Ed25519 account                               | [Solana off-chain message signing](https://github.com/anza-xyz/agave/blob/master/docs/src/proposals/off-chain-message-signing.md) |
-| `arweave-rsapss`    | Arweave             | RSA account                                            | [RSA-PSS message signing](https://docs.arconnect.io/api/sign-message)                                                             |
-| `nep413`            | NEAR                | Named or implicit account with a valid full-access key | [NEP-413](https://github.com/near/NEPs/blob/master/neps/nep-0413.md)                                                              |
-| `cip8`              | Cardano             | Address with a key payment credential                  | [CIP-8 COSE signing](https://cips.cardano.org/cip/CIP-8)                                                                          |
-| `adr36`             | Cosmos SDK chains   | Direct secp256k1 account                               | [ADR-036](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-036-arbitrary-signature.md)                        |
-| `substrate-signraw` | Polkadot and Kusama | Direct SS58 account                                    | [Substrate `signRaw`](https://polkadot.js.org/docs/extension/cookbook/#sign-a-message)                                            |
-| `arc60`             | Algorand            | Direct, non-rekeyed Ed25519 account                    | [ARC-60](https://dev.algorand.co/arc-standards/arc-0060/)                                                                         |
-| `sui-personal`      | Sui                 | Native Sui account                                     | [Sui personal-message signing](https://sdk.mystenlabs.com/sui/cryptography)                                                       |
-| `sep53`             | Stellar             | Ed25519 `G...` account                                 | [SEP-53](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0053.md)                                           |
-| `tip191`            | TRON                | Direct secp256k1 account                               | [TIP-191](https://github.com/tronprotocol/tips/blob/master/tip-191.md)                                                            |
-| `filecoin-wallet`   | Filecoin            | Direct `f1` secp256k1 or `f3` BLS account              | [WalletSign and WalletVerify](https://docs.filecoin.io/reference/json-rpc/wallet)                                                 |
-| `tezos-micheline`   | Tezos               | Implicit `tz1`, `tz2`, `tz3`, or `tz4` account         | [Micheline string signing](https://gitlab.com/tezos/tzip/-/blob/master/drafts/current/draft-string-signing.md)                    |
+HTTPS publication:
 
-The table is an allowlist. Multisig, script, contract, delegated, rekeyed,
-off-curve, or rotating-key account forms are unsupported unless their row
-explicitly permits them. Support for an ENS address codec alone does not make
-an account verifiable.
+```text
+ensrv1 a=1 m=account-signature.<profile>.v1 u=https://proofs.example/account-proof.json
+```
+
+IPFS publication:
+
+```text
+ensrv1 a=1 m=account-signature.<profile>.v1 u=ipfs://<proof-envelope-cid>
+```
+
+Replace `<profile>` with one exact identifier from the profile table and replace
+`<proof-envelope-cid>` with the complete CID. The angle-bracket placeholders
+are explanatory and are not included in a real descriptor.
+
+`u` is required and points directly to the proof envelope. Account records do
+not provide a deterministic place from which to fetch a signature, so these
+methods do not use a proof key.
+
+The proof may be published at an HTTPS URL or as immutable IPFS content. For
+IPFS, `u` contains the CID of the proof envelope. Changing the envelope creates
+a new CID, so the descriptor must also be updated.
+
+Apply the URI and retrieval rules defined by the
+[verification descriptor](../components/verification-descriptor). A verifier
+must not search for a proof at another location.
 
 ## Verification
 
