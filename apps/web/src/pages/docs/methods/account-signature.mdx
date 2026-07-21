@@ -15,22 +15,21 @@ import {
 An ENS address record connects a name to an account:
 
 ```solidity
-addr(namehash("alice.eth"), 60) -> 0x1234...
+addr(namehash(name), coinType) -> accountBytes
 ```
 
 This method asks both sides to approve that connection:
 
-1. the current authority for `alice.eth` signs the claim; and
+1. the current authority for the ENS name signs the claim; and
 2. the account stored in the address record signs the same claim.
 
 A result is positive only when both signatures are valid for the live record.
 This prevents another ENS name from copying an address and reusing its proof.
 
-Each chain signs messages differently. The profile in the method name selects
-the chain-specific algorithm. For example, EVM accounts use
-`account-signature.eip155.v1` and Bitcoin accounts use
-`account-signature.bip322.v1`. The claim, proof envelope, and verification flow
-remain the same for every profile.
+Each target chain signs messages differently. The profile in the method name
+selects the chain, supported account type, and native verification algorithm.
+The claim, proof envelope, and verification flow remain the same for every
+profile.
 
 ## Supported Records
 
@@ -43,7 +42,7 @@ For an address claim:
 | Claim field  | Required value                                                   |
 | ------------ | ---------------------------------------------------------------- |
 | `recordType` | `addr`                                                           |
-| `recordKey`  | Coin type as an unsigned decimal string, such as `0` or `60`     |
+| `recordKey`  | Coin type as an unsigned decimal string                          |
 | `valueHash`  | Keccak-256 of the exact bytes returned by `addr(node, coinType)` |
 | `method`     | Exact profile identifier from the registry                       |
 | `target`     | Canonical CAIP-10 account derived by the selected profile        |
@@ -55,14 +54,18 @@ Hash the resolver bytes, not a displayed or re-encoded address.
 HTTPS publication:
 
 ```text
-ensrv1 a=1 m=account-signature.bip322.v1 u=https://proofs.example/alice-btc.json
+ensrv1 a=1 m=account-signature.<profile>.v1 u=https://proofs.example/account-proof.json
 ```
 
 IPFS publication:
 
 ```text
-ensrv1 a=1 m=account-signature.bip322.v1 u=ipfs://<proof-envelope-cid>
+ensrv1 a=1 m=account-signature.<profile>.v1 u=ipfs://<proof-envelope-cid>
 ```
+
+Replace `<profile>` with one exact identifier from the profile table and replace
+`<proof-envelope-cid>` with the complete CID. The angle-bracket placeholders
+are explanatory and are not included in a real descriptor.
 
 `u` is required and points directly to the proof envelope. Account records do
 not provide a deterministic place from which to fetch a signature, so these
@@ -83,134 +86,135 @@ must not search for a proof at another location.
 The verifier derives it from the live address record. It is never copied from
 the proof without checking it.
 
-This Bitcoin example is used in the next sections. The values are fixed for the
-example; they are not the current live state of `alice.eth`.
+Start with these live inputs:
 
-| Input                | Value                                                  |
-| -------------------- | ------------------------------------------------------ |
-| ENS name             | `alice.eth`                                            |
-| Record               | `addr(0)`                                              |
-| Display address      | `1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH`                   |
-| Resolver bytes       | `0x76a914751e76e8199196d454941c45d1b3a323f1433bd688ac` |
-| Method               | `account-signature.bip322.v1`                          |
-| Bitcoin CAIP-2 chain | `bip122:000000000019d6689c085ae165831e93`              |
+| Input           | Source                                         |
+| --------------- | ---------------------------------------------- |
+| `coinType`      | The selected `addr(coinType)` record           |
+| `recordBytes`   | Exact bytes returned by `addr(node, coinType)` |
+| `method`        | Descriptor field `m`                           |
+| account profile | The exact profile selected by `method`         |
 
-Derive the target in this order:
+Then derive the target in this order:
 
 1. Decode the exact resolver bytes using the registered ENS address codec.
-2. Require `addr(0)` and the decoded address to be supported by
-   `account-signature.bip322.v1`.
-3. Select the Bitcoin mainnet CAIP-2 chain identifier.
-4. Append the canonical Bitcoin address to produce one CAIP-10 account.
+2. Require the profile to support that coin type and decoded account form.
+3. Derive the profile's exact CAIP-2 chain identifier from the coin type.
+4. Canonicalize the account address using the profile's rules.
+5. Join the CAIP-2 chain and canonical address as one CAIP-10 account.
 
 ```text
-bip122:000000000019d6689c085ae165831e93:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH
+target = <namespace>:<reference>:<account-address>
 ```
 
-That complete string is `claim.target`. Other profiles follow the same process
-using their registered ENS coin type, CAIP-2 chain identifier, address
-canonicalization, and account restrictions.
+The complete CAIP-10 string becomes `claim.target`. The exact resolver bytes
+are hashed separately:
+
+```text
+valueHash = keccak256(recordBytes)
+```
 
 Reject the proof if the chain or account cannot be derived without guessing.
-For example, a method must not silently treat a testnet address as mainnet or a
-script account as a direct key account.
+The verifier must not infer a network from user settings, accept another
+profile's address rules, or treat an unsupported account type as a direct-key
+account.
 
 ## Signed Message
 
-There are two signatures, and they sign related but different inputs:
+Both sides approve the same `commonClaimDigest`:
 
-| Signature            | Signer                    | Exact input                                                       |
-| -------------------- | ------------------------- | ----------------------------------------------------------------- |
-| `authoritySignature` | Current ENS authority     | EIP-712 `commonClaimDigest`                                       |
-| `targetSignature`    | Account in `claim.target` | The account message below, using the selected profile's algorithm |
+| Signature            | Approver                  | Protocol input      | Verification system                  |
+| -------------------- | ------------------------- | ------------------- | ------------------------------------ |
+| `authoritySignature` | Current ENS authority     | `commonClaimDigest` | ECDSA or ERC-1271                    |
+| `targetSignature`    | Account in `claim.target` | `commonClaimDigest` | Algorithm selected by `claim.method` |
 
-First build the complete common claim. For the Bitcoin example:
+First build the complete common claim:
 
 ```json
 {
-  "name": "alice.eth",
-  "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+  "name": "<normalized ENS name>",
+  "node": "0x<64 lowercase hex digits>",
   "recordType": "addr",
-  "recordKey": "0",
-  "valueHash": "0x9b8bc18682caba61b7c1cc4d666b33e0e860c50399bd273ecb52b89344160d17",
+  "recordKey": "<coin type as decimal>",
+  "valueHash": "0x<keccak256 of exact resolver bytes>",
   "authorityVersion": "1",
-  "authority": "0x1234567890abcdef1234567890abcdef12345678",
-  "method": "account-signature.bip322.v1",
-  "target": "bip122:000000000019d6689c085ae165831e93:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH",
-  "issuedAt": "1783728000",
-  "validUntil": "1786320000"
+  "authority": "0x<40 lowercase hex digits>",
+  "method": "account-signature.<profile>.v1",
+  "target": "<canonical CAIP-10 account>",
+  "issuedAt": "<Unix time in seconds>",
+  "validUntil": "<Unix time in seconds>"
 }
 ```
 
-`valueHash` above is the Keccak-256 hash of the exact resolver bytes shown in
-the Target section. Hashing the displayed Bitcoin address would produce a
-different and invalid claim.
-
 Encode this claim using the
-[common EIP-712 rules](../components/claims-and-signatures#common-claim). For
-these exact example values:
+[common EIP-712 rules](../components/claims-and-signatures#common-claim):
 
 ```text
-commonClaimDigest = 0x5959b46875182ad0ce2a88d6464e128c0f375ebe24b668b2945b9250d8ce668f
+structHash = EIP712.hashStruct(commonClaim)
+
+commonClaimDigest = keccak256(
+  0x1901 || domainSeparator || structHash
+)
 ```
 
-The current ENS authority signs that 32-byte digest. Do not sign the JSON text;
-JSON whitespace and member order are not part of the signature.
-
-Next, build the account message using the claim's exact `method`, `target`, and
-digest. For this example, the message is exactly:
+`commonClaimDigest` is exactly 32 bytes. It is the only protocol input to both
+approval procedures:
 
 ```text
-ENS Record Verification
-Method: account-signature.bip322.v1
-Account: bip122:000000000019d6689c085ae165831e93:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH
-Claim: 0x5959b46875182ad0ce2a88d6464e128c0f375ebe24b668b2945b9250d8ce668f
+authoritySignature = approveWithENSAuthority(commonClaimDigest)
+targetSignature    = approveWithTargetProfile(commonClaimDigest)
 ```
 
-Pass the UTF-8 bytes of those four lines to BIP-322 Simple. Use one LF byte
-between lines and no final line break. Do not add quotes, indentation, a prefix,
-or a trailing newline.
+Do not hash the JSON serialization. Do not calculate a second
+`keccak256(abi.encode(commonClaim))` for the target. The JSON only transports
+the typed fields; whitespace, member order, and string escaping do not affect
+the digest.
 
-Every account profile signs the same three values. The profile defines how
-those values enter its native signing algorithm. A verifier must use the
-algorithm selected by `claim.method`; neither the envelope nor the wallet may
-substitute another message wrapper.
+The target profile may apply its required native tagging, hashing, structured
+encoding, or account-policy check internally. That native operation is part of
+the selected algorithm. Its application message remains the exact 32-byte
+`commonClaimDigest`, and proof data cannot select another wrapper.
 
 ## Proof
 
 After both signatures are created, publish one proof envelope at descriptor
-`u`. For the Bitcoin example it has this exact shape:
+`u`:
 
 ```json
 {
   "v": "ensrv1",
   "claim": {
-    "name": "alice.eth",
-    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+    "name": "<normalized ENS name>",
+    "node": "0x<64 lowercase hex digits>",
     "recordType": "addr",
-    "recordKey": "0",
-    "valueHash": "0x9b8bc18682caba61b7c1cc4d666b33e0e860c50399bd273ecb52b89344160d17",
+    "recordKey": "<coin type as decimal>",
+    "valueHash": "0x<keccak256 of exact resolver bytes>",
     "authorityVersion": "1",
-    "authority": "0x1234567890abcdef1234567890abcdef12345678",
-    "method": "account-signature.bip322.v1",
-    "target": "bip122:000000000019d6689c085ae165831e93:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH",
-    "issuedAt": "1783728000",
-    "validUntil": "1786320000"
+    "authority": "0x<40 lowercase hex digits>",
+    "method": "account-signature.<profile>.v1",
+    "target": "<canonical CAIP-10 account>",
+    "issuedAt": "<Unix time in seconds>",
+    "validUntil": "<Unix time in seconds>"
   },
-  "authoritySignature": "0x<ENS-authority-signature>",
+  "authoritySignature": "<ENS-authority approval of commonClaimDigest>",
   "proof": {
-    "targetSignature": "<BIP-322-Simple-signature>"
+    "targetSignature": "<native target-account approval of commonClaimDigest>"
   }
 }
 ```
 
-`authoritySignature` contains the signature made by the current ENS authority.
-`proof.targetSignature` contains the native signature made by the target
-account. The placeholders above are replaced by the actual signature encodings
-defined by the selected profile.
+The envelope contains the typed claim and the two approvals. It does not contain
+a separately signed JSON document or a separate target hash.
 
-Some address formats contain only a hash of a public key. When the profile
-cannot recover that key from `targetSignature`, the proof also carries it:
+### Public Key
+
+The bytes returned by `addr()` encode an account address. They are not always a
+public key. An address may instead contain a key hash, script hash, account ID,
+or another chain-defined identifier.
+
+If the resolver bytes are the public key, the signature can recover the key, or
+the native proof already carries it, `publicKey` is forbidden. If none of those
+is true, the selected profile may require:
 
 ```json
 {
@@ -219,15 +223,10 @@ cannot recover that key from `targetSignature`, the proof also carries it:
 }
 ```
 
-Arweave, NEAR, Cardano, Cosmos SDK, and Tezos use this second shape. Both values
-are strings. Unknown fields are forbidden. Every other profile forbids
-`publicKey`. If a native signature already contains the key, it remains inside
-`targetSignature`.
-
-The public key is not trusted because it appears in the proof. The verifier
-must prove that it maps to the live address before using it to validate the
-signature. A native proof that already carries the public key or signer data
-must not duplicate it in `publicKey`.
+Both values are strings and unknown fields are forbidden. The profile defines
+their exact encodings. Before checking the signature, the verifier must derive
+the live account identifier from `publicKey` and require it to equal the target
+derived from `addr()`. A supplied public key is never trusted by itself.
 
 A proof cannot become valid by copying these fields into another envelope. Both
 signatures are bound to `commonClaimDigest`, and that digest includes the ENS
@@ -355,10 +354,11 @@ under the profile's account-state and freshness rules.
     <AccordionTitle>Which profiles are ready to be frozen?</AccordionTitle>
     <AccordionContent>
 
-Every row needs one exact target mapping, native-message adapter, signature and
-key encoding, size limit, and positive and negative test vectors. Profiles
-without two interoperable implementations should remain draft and be reported
-as unsupported by production verifiers.
+Every row needs one exact target mapping, native procedure for approving the
+32-byte `commonClaimDigest`, signature and key encoding, size limit, and
+positive and negative test vectors. Profiles without two interoperable
+implementations should remain draft and be reported as unsupported by
+production verifiers.
 
     </AccordionContent>
 
