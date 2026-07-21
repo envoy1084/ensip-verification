@@ -144,9 +144,11 @@ The common envelope is:
     "validUntil": "1786320000"
   },
   "authoritySignature": "0x<signature>",
-  "proof": {} // Method defined
+  "proof": {}
 }
 ```
+
+The selected method defines the contents of `proof`.
 
 `v`, `claim`, `authoritySignature`, and `proof` are required exactly once.
 `proof` is always an object and is closed by the selected method.

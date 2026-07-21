@@ -53,10 +53,12 @@ Hash the resolver bytes, not a displayed or re-encoded address.
 ID](https://standards.chainagnostic.org/CAIPs/caip-10) for the live address. The
 selected profile defines how to derive it from the coin type and resolver bytes.
 
-## Profiles
+## Candidate Profiles
 
-The method identifier selects the complete native profile. A verifier must use
-the exact row selected by `claim.method` and must not fall back to another row.
+The following profiles are candidates for future support. A profile is not
+supported until its complete native rules and interoperability vectors are
+defined. A verifier must use the exact profile selected by `claim.method` and
+must not fall back to another profile.
 
 | Profile             | Chains              | Account type                                           | Algorithm                                                                                                      |
 | ------------------- | ------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
