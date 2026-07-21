@@ -12,15 +12,10 @@ import {
 
 # Method: `account-signature.<profile>.v1`
 
-:::warning[In progress]
-The common method is defined below. The profile registry still needs frozen
-encodings and interoperability test vectors before these methods are final.
-:::
-
 An ENS address record connects a name to an account:
 
-```text
-alice.eth -> 0x1234...
+```solidity
+addr(namehash("alice.eth"), 60) -> 0x1234...
 ```
 
 This method asks both sides to approve that connection:
@@ -57,13 +52,25 @@ Hash the resolver bytes, not a displayed or re-encoded address.
 
 ## Descriptor
 
+HTTPS publication:
+
 ```text
 ensrv1 a=1 m=account-signature.bip322.v1 u=https://proofs.example/alice-btc.json
+```
+
+IPFS publication:
+
+```text
+ensrv1 a=1 m=account-signature.bip322.v1 u=ipfs://<proof-envelope-cid>
 ```
 
 `u` is required and points directly to the proof envelope. Account records do
 not provide a deterministic place from which to fetch a signature, so these
 methods do not use a proof key.
+
+The proof may be published at an HTTPS URL or as immutable IPFS content. For
+IPFS, `u` contains the CID of the proof envelope. Changing the envelope creates
+a new CID, so the descriptor must also be updated.
 
 Apply the URI and retrieval rules defined by the
 [verification descriptor](../components/verification-descriptor). A verifier
@@ -71,57 +78,139 @@ must not search for a proof at another location.
 
 ## Target
 
-The selected profile derives `target` from the live coin type and address bytes:
+`target` answers one question: **which account must sign this claim?**
+
+The verifier derives it from the live address record. It is never copied from
+the proof without checking it.
+
+This Bitcoin example is used in the next sections. The values are fixed for the
+example; they are not the current live state of `alice.eth`.
+
+| Input                | Value                                                  |
+| -------------------- | ------------------------------------------------------ |
+| ENS name             | `alice.eth`                                            |
+| Record               | `addr(0)`                                              |
+| Display address      | `1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH`                   |
+| Resolver bytes       | `0x76a914751e76e8199196d454941c45d1b3a323f1433bd688ac` |
+| Method               | `account-signature.bip322.v1`                          |
+| Bitcoin CAIP-2 chain | `bip122:000000000019d6689c085ae165831e93`              |
+
+Derive the target in this order:
 
 1. Decode the exact resolver bytes using the registered ENS address codec.
-2. Require the coin type and account form allowed by the selected profile.
-3. Derive the profile's exact CAIP-2 network identifier.
-4. Canonicalize the account address using that profile's rules.
-5. Serialize the result as one CAIP-10 account identifier.
+2. Require `addr(0)` and the decoded address to be supported by
+   `account-signature.bip322.v1`.
+3. Select the Bitcoin mainnet CAIP-2 chain identifier.
+4. Append the canonical Bitcoin address to produce one CAIP-10 account.
 
 ```text
-<namespace>:<reference>:<account-address>
+bip122:000000000019d6689c085ae165831e93:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH
 ```
 
-Do not trust `claim.target` as an input. Recompute it from the live record and
-require an exact match. Reject the record if its network or account form cannot
-be derived without guessing.
+That complete string is `claim.target`. Other profiles follow the same process
+using their registered ENS coin type, CAIP-2 chain identifier, address
+canonicalization, and account restrictions.
+
+Reject the proof if the chain or account cannot be derived without guessing.
+For example, a method must not silently treat a testnet address as mainnet or a
+script account as a direct key account.
 
 ## Signed Message
 
-Calculate `commonClaimDigest` from the complete
-[common claim](../components/claims-and-signatures#common-claim).
+There are two signatures, and they sign related but different inputs:
 
-Text-message profiles sign the UTF-8 bytes of exactly:
+| Signature            | Signer                    | Exact input                                                       |
+| -------------------- | ------------------------- | ----------------------------------------------------------------- |
+| `authoritySignature` | Current ENS authority     | EIP-712 `commonClaimDigest`                                       |
+| `targetSignature`    | Account in `claim.target` | The account message below, using the selected profile's algorithm |
 
-```text
-ENS Record Verification
-Method: <claim.method>
-Account: <claim.target>
-Claim: 0x<64-lowercase-hex-commonClaimDigest>
-```
-
-Use one LF byte between lines and no final line break. Replace each placeholder
-with its exact claim value; angle brackets are not included.
-
-Structured-message profiles encode the same `method`, `target`, and
-`commonClaimDigest` as native typed fields. The profile registry selects the
-only permitted native wrapper. Proof data cannot select a different wrapper or
-signature algorithm.
-
-## Proof
-
-Every profile requires `targetSignature`:
+First build the complete common claim. For the Bitcoin example:
 
 ```json
 {
-  "targetSignature": "<profile-defined signature>"
+  "name": "alice.eth",
+  "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+  "recordType": "addr",
+  "recordKey": "0",
+  "valueHash": "0x9b8bc18682caba61b7c1cc4d666b33e0e860c50399bd273ecb52b89344160d17",
+  "authorityVersion": "1",
+  "authority": "0x1234567890abcdef1234567890abcdef12345678",
+  "method": "account-signature.bip322.v1",
+  "target": "bip122:000000000019d6689c085ae165831e93:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH",
+  "issuedAt": "1783728000",
+  "validUntil": "1786320000"
 }
 ```
 
-Arweave, NEAR, Cardano, Cosmos SDK, and Tezos profiles also require the public
-key when it cannot be recovered from the native signature or read directly
-from the address. Their proof is exactly:
+`valueHash` above is the Keccak-256 hash of the exact resolver bytes shown in
+the Target section. Hashing the displayed Bitcoin address would produce a
+different and invalid claim.
+
+Encode this claim using the
+[common EIP-712 rules](../components/claims-and-signatures#common-claim). For
+these exact example values:
+
+```text
+commonClaimDigest = 0x5959b46875182ad0ce2a88d6464e128c0f375ebe24b668b2945b9250d8ce668f
+```
+
+The current ENS authority signs that 32-byte digest. Do not sign the JSON text;
+JSON whitespace and member order are not part of the signature.
+
+Next, build the account message using the claim's exact `method`, `target`, and
+digest. For this example, the message is exactly:
+
+```text
+ENS Record Verification
+Method: account-signature.bip322.v1
+Account: bip122:000000000019d6689c085ae165831e93:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH
+Claim: 0x5959b46875182ad0ce2a88d6464e128c0f375ebe24b668b2945b9250d8ce668f
+```
+
+Pass the UTF-8 bytes of those four lines to BIP-322 Simple. Use one LF byte
+between lines and no final line break. Do not add quotes, indentation, a prefix,
+or a trailing newline.
+
+Every account profile signs the same three values. The profile defines how
+those values enter its native signing algorithm. A verifier must use the
+algorithm selected by `claim.method`; neither the envelope nor the wallet may
+substitute another message wrapper.
+
+## Proof
+
+After both signatures are created, publish one proof envelope at descriptor
+`u`. For the Bitcoin example it has this exact shape:
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+    "recordType": "addr",
+    "recordKey": "0",
+    "valueHash": "0x9b8bc18682caba61b7c1cc4d666b33e0e860c50399bd273ecb52b89344160d17",
+    "authorityVersion": "1",
+    "authority": "0x1234567890abcdef1234567890abcdef12345678",
+    "method": "account-signature.bip322.v1",
+    "target": "bip122:000000000019d6689c085ae165831e93:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH",
+    "issuedAt": "1783728000",
+    "validUntil": "1786320000"
+  },
+  "authoritySignature": "0x<ENS-authority-signature>",
+  "proof": {
+    "targetSignature": "<BIP-322-Simple-signature>"
+  }
+}
+```
+
+`authoritySignature` contains the signature made by the current ENS authority.
+`proof.targetSignature` contains the native signature made by the target
+account. The placeholders above are replaced by the actual signature encodings
+defined by the selected profile.
+
+Some address formats contain only a hash of a public key. When the profile
+cannot recover that key from `targetSignature`, the proof also carries it:
 
 ```json
 {
@@ -130,17 +219,19 @@ from the address. Their proof is exactly:
 }
 ```
 
-Both values are strings. Unknown fields are forbidden. Every other profile
-forbids `publicKey`. If its native signature format already carries a key, that
-key remains inside `targetSignature`.
+Arweave, NEAR, Cardano, Cosmos SDK, and Tezos use this second shape. Both values
+are strings. Unknown fields are forbidden. Every other profile forbids
+`publicKey`. If a native signature already contains the key, it remains inside
+`targetSignature`.
 
 The public key is not trusted because it appears in the proof. The verifier
 must prove that it maps to the live address before using it to validate the
 signature. A native proof that already carries the public key or signer data
 must not duplicate it in `publicKey`.
 
-The ENS authority signature remains in the envelope's common
-`authoritySignature` field. A positive result requires both signatures.
+A proof cannot become valid by copying these fields into another envelope. Both
+signatures are bound to `commonClaimDigest`, and that digest includes the ENS
+name, record, address value, authority, method, target, and validity period.
 
 ## Profiles
 
