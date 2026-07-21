@@ -49,6 +49,10 @@ For an address claim:
 
 Hash the resolver bytes, not a displayed or re-encoded address.
 
+`claim.target` is the canonical [CAIP-10 account
+ID](https://standards.chainagnostic.org/CAIPs/caip-10) for the live address. The
+selected profile defines how to derive it from the coin type and resolver bytes.
+
 ## Profiles
 
 The method identifier selects the complete native profile. A verifier must use
@@ -71,166 +75,9 @@ the exact row selected by `claim.method` and must not fall back to another row.
 | `filecoin-wallet`   | Filecoin            | Direct `f1` secp256k1 or `f3` BLS account              | [WalletSign and WalletVerify](https://docs.filecoin.io/reference/json-rpc/wallet)                                                 |
 | `tezos-micheline`   | Tezos               | Implicit `tz1`, `tz2`, `tz3`, or `tz4` account         | [Micheline string signing](https://gitlab.com/tezos/tzip/-/blob/master/drafts/current/draft-string-signing.md)                    |
 
-The table is an allowlist. Multisig, script, contract, delegated, rekeyed,
-off-curve, or rotating-key account forms are unsupported unless their row
-explicitly permits them. Support for an ENS address codec alone does not make
-an account verifiable.
-
-## Target
-
-`claim.target` is the canonical [CAIP-10 account
-ID](https://standards.chainagnostic.org/CAIPs/caip-10) for the live `addr`
-record.
-
-```text
-<chain-id>:<account-address>
-```
-
-The selected profile defines the required CAIP-10 namespace, chain reference,
-and account canonicalization. The verifier derives the value from the live coin
-type and resolver bytes and requires an exact match with `claim.target`.
-
-## Signed Message
-
-Calculate `commonClaimDigest` once from the
-[common EIP-712 claim](../components/claims-and-signatures#common-claim):
-
-```text
-commonClaimDigest = keccak256(
-  0x1901 || domainSeparator || hashStruct(commonClaim)
-)
-```
-
-The result is exactly 32 bytes. It is the protocol input to both signatures:
-
-```text
-authoritySignature = ENS authority signs commonClaimDigest
-targetSignature    = target account signs commonClaimDigest
-```
-
-The ENS authority uses the common EIP-712 authority-signature rules. The target
-account uses the native algorithm selected by `claim.method`.
-
-### Calculate With Viem
-
-Viem's [`hashTypedData`](https://viem.sh/docs/utilities/hashTypedData) utility
-calculates the EIP-712 digest:
-
-```ts
-import { hashTypedData } from "viem";
-
-const domain = {
-  name: "ENS Record Verification",
-  version: "1",
-  chainId: 1,
-} as const;
-
-const types = {
-  ENSRecordVerification: [
-    { name: "name", type: "string" },
-    { name: "node", type: "bytes32" },
-    { name: "recordType", type: "string" },
-    { name: "recordKey", type: "string" },
-    { name: "valueHash", type: "bytes32" },
-    { name: "authorityVersion", type: "uint32" },
-    { name: "authority", type: "address" },
-    { name: "method", type: "string" },
-    { name: "target", type: "string" },
-    { name: "issuedAt", type: "uint64" },
-    { name: "validUntil", type: "uint64" },
-  ],
-} as const;
-
-const message = {
-  ...claim,
-  authorityVersion: BigInt(claim.authorityVersion),
-  issuedAt: BigInt(claim.issuedAt),
-  validUntil: BigInt(claim.validUntil),
-};
-
-const typedData = {
-  domain,
-  types,
-  primaryType: "ENSRecordVerification",
-  message,
-} as const;
-
-const commonClaimDigest = hashTypedData(typedData);
-```
-
-The JSON envelope stores unsigned integers as decimal strings. Viem receives
-those three integer fields as `bigint` when calculating the EIP-712 digest.
-
-### EVM Target
-
-An EVM EOA signs the same typed data with
-[`signTypedData`](https://viem.sh/docs/actions/wallet/signTypedData):
-
-```ts
-const targetSignature = await walletClient.signTypedData({
-  account: targetAddress,
-  ...typedData,
-});
-```
-
-This signs `commonClaimDigest`; do not use `signMessage`. For an ERC-1271 target,
-validate `targetSignature` by calling
-`isValidSignature(commonClaimDigest, targetSignature)` on the target contract.
-
-### Bitcoin Target
-
-The [BIP-322](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)
-profile uses the 32 raw bytes of `commonClaimDigest` as its message `m`:
-
-```ts
-import { hexToBytes } from "viem";
-
-const messageBytes = hexToBytes(commonClaimDigest);
-
-// Pseudocode: exact function names vary between BIP-322 implementations.
-const targetSignature = bip322.signSimple(targetAddress, messageBytes);
-```
-
-The BIP-322 implementation internally calculates:
-
-```text
-messageHash = taggedHash("BIP0322-signed-message", commonClaimDigest)
-```
-
-It then constructs the native script proof. Pass the raw digest bytes, not the
-`0x`-prefixed text and not a separately calculated BIP-322 message hash.
-
-Do not sign the JSON envelope and do not calculate a separate target digest.
-
-## Proof
-
-The proof envelope stores the ENS authority signature in
-`authoritySignature`. Its method-specific `proof` object is:
-
-```json
-{
-  "targetSignature": "<profile-defined signature>"
-}
-```
-
-If the profile cannot obtain the signing key from the address, signature, or
-native proof, it may require:
-
-```json
-{
-  "targetSignature": "<profile-defined signature>",
-  "publicKey": "<profile-defined public key>"
-}
-```
-
-The selected profile defines whether `publicKey` is required and the exact
-encoding of each field. Unknown fields are forbidden. When present, the
-verifier must prove that `publicKey` controls the canonical CAIP-10 target.
-
 ## Descriptor
 
-After creating and publishing the proof envelope, set the descriptor to its
-exact location.
+The descriptor selects the profile and points to the exact proof envelope.
 
 HTTPS publication:
 
@@ -259,6 +106,68 @@ a new CID, so the descriptor must also be updated.
 Apply the URI and retrieval rules defined by the
 [verification descriptor](../components/verification-descriptor). A verifier
 must not search for a proof at another location.
+
+## Proof
+
+The resource at `u` is a complete [proof
+envelope](../components/claims-and-signatures#proof-envelope). For example, an
+EVM address proof has this shape:
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+    "recordType": "addr",
+    "recordKey": "60",
+    "valueHash": "0x06e120c2c3547c60ee47f712d32e5acf38b35d1cc62e23b055a69bb88284c281",
+    "authorityVersion": "1",
+    "authority": "0x1234567890abcdef1234567890abcdef12345678",
+    "method": "account-signature.eip155.v1",
+    "target": "eip155:1:0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    "issuedAt": "1783728000",
+    "validUntil": "1791504000"
+  },
+  "authoritySignature": "0x<authority-signature>",
+  "proof": {
+    "targetSignature": "<profile-defined-signature>"
+  }
+}
+```
+
+`authoritySignature` is the ENS authority's signature. `targetSignature` is the
+signature made by the account in `claim.target`.
+
+A profile may also require `proof.publicKey` when the signing key cannot be
+recovered from the address, signature, or native proof. The profile defines the
+exact encoding. Unknown fields are forbidden, and the verifier must prove that
+any supplied public key controls the exact CAIP-10 target.
+
+## Signed Message
+
+Calculate one 32-byte digest from the [common EIP-712
+claim](../components/claims-and-signatures#common-claim):
+
+```text
+commonClaimDigest = keccak256(
+  0x1901 || domainSeparator || hashStruct(commonClaim)
+)
+
+authoritySignature = authority.signEIP712(commonClaim)
+targetSignature = selectedProfile.sign(
+  account = commonClaim.target,
+  message = bytes(commonClaimDigest)
+)
+```
+
+The authority signature is validated against `commonClaimDigest` using the
+common authority-signature rules. The target account signs the raw 32 digest
+bytes using the native algorithm selected by `commonClaim.method`.
+
+Do not sign the JSON envelope, the hexadecimal text representation of the
+digest, or a separately constructed target claim. A profile may wrap the raw
+digest as required by its native signing standard.
 
 ## Verification
 
@@ -314,12 +223,12 @@ An unknown profile, unsupported account form, unavailable proof URI, or
 unavailable target-chain state is not a positive result. A transport failure is
 not evidence that either signature is cryptographically invalid.
 
-## Lifetime And Caching
+## Caching
 
-The maximum signed lifetime is 30 days:
+The proposed maximum signed lifetime is 90 days:
 
 ```text
-validUntil - issuedAt <= 2,592,000 seconds
+validUntil - issuedAt <= 7,776,000 seconds
 ```
 
 A positive result must not be reused past the earliest of:
@@ -329,7 +238,7 @@ A positive result must not be reused past the earliest of:
 - `authorityValidUntil`, when present; and
 - a shorter target-chain or account-policy validity bound.
 
-The 30-day signature lifetime does not permit a 30-day cache. ENS state and
+The 90-day signature lifetime does not permit a 90-day cache. ENS state and
 stateful account authority can change earlier and must be re-evaluated.
 
 ## Security Boundary
@@ -351,6 +260,21 @@ under the profile's account-state and freshness rules.
 ## Open Issues
 
 <Accordion>
+  <AccordionItem>
+    <AccordionTitle>Should the maximum signed lifetime be 90 days?</AccordionTitle>
+    <AccordionContent>
+
+The current draft proposes a 90-day maximum. A longer lifetime reduces how
+often both signers must renew the proof, but it also leaves old proof material
+usable for longer if the descriptor later points to it again.
+
+This limit is still subject to discussion. It does not change the five-minute
+maximum for caching a positive verification result.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
   <AccordionItem>
     <AccordionTitle>Which profiles are ready to be frozen?</AccordionTitle>
     <AccordionContent>
