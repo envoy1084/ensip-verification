@@ -34,10 +34,7 @@ export default defineConfig({
   sidebar: [
     {
       text: "Start",
-      items: [
-        { text: "Introduction", link: "/docs" },
-        { text: "Protocol Overview", link: "/docs/components" },
-      ],
+      items: [{ text: "Introduction", link: "/docs" }],
     },
     {
       text: "Core Components",
@@ -70,6 +67,10 @@ export default defineConfig({
         { text: "DNS TXT", link: "/docs/methods/dns-txt" },
         { text: "Account Signature", link: "/docs/methods/account-signature" },
       ],
+    },
+    {
+      text: "Walkthrough",
+      items: [{ text: "Protocol Walkthrough", link: "/docs/walkthrough" }],
     },
     {
       text: "References",
