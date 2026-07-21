@@ -1,6 +1,6 @@
 ---
 title: Protocol Overview
-description: What is published, what is checked, and what a result means.
+description: How one live ENS record is bound to its authority and external target.
 ---
 
 # Protocol Overview
@@ -10,70 +10,145 @@ This page has not been finalized. Requirements, formats, and examples may
 change while the protocol is under discussion.
 :::
 
-Record Verification adds a proof layer to an existing ENS resolver record. It
-binds a method-specific proof to one exact name, record selector, and live
-resolver value. It does not replace the record or change normal ENS resolution.
+Record Verification lets a client check one precise statement:
 
-## Records
+> The current ENS authority approved this exact resolver record, and the
+> external target accepted the same binding using the selected method.
 
-Assume `alice.eth` contains:
+Verification happens in a client or SDK. It does not change normal ENS
+resolution, require a new resolver interface, or store a permanent
+`verified` state onchain.
+
+## What Is Published
+
+Verification uses three pieces:
+
+| Piece          | Where it is found              | Purpose                                                       |
+| -------------- | ------------------------------ | ------------------------------------------------------------- |
+| Target record  | ENS resolver                   | Contains the value being verified.                            |
+| Descriptor     | Companion ENS text record      | Selects the authority algorithm, method, and optional URI.    |
+| Proof envelope | Location defined by the method | Carries the signed claim and method-specific target evidence. |
+
+For example:
 
 ```text
 text("url") = "https://example.com/profile"
-```
-
-The name can opt into verification by setting another ENS text record:
-
-```text
 text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-The first record is the target resolver record. The second is its verification
-descriptor. The descriptor selects the authority rules and method used to
-validate target control or a policy-accepted attestation.
+The target record remains an ordinary ENS record. The companion descriptor
+means:
 
-## Verification
+- `ensrv1`: use version 1 of the common protocol;
+- `a=1`: use Authority Algorithm 1; and
+- `m=https-origin.v1`: use the HTTPS-origin verification method.
+
+Some methods also require `u=<absolute-uri>`. `u` only tells the verifier where
+to fetch the proof envelope. It is not proof data and is not part of the signed
+claim.
+
+## What The Proof Binds
+
+Every proof envelope contains:
+
+| Field                | Meaning                                                                 |
+| -------------------- | ----------------------------------------------------------------------- |
+| `v`                  | Common envelope version.                                                |
+| `claim`              | The exact ENS record, authority, method, target, and validity interval. |
+| `authoritySignature` | Approval from the authority computed from live ENS state.               |
+| `proof`              | Evidence defined by the selected method.                                |
+
+The common claim binds all of the following:
+
+```text
+normalized ENS name + node
+record type + record key + hash of the live value
+authority algorithm + current authority
+verification method + canonical target
+issued time + expiry time
+```
+
+The verifier derives these values again. A value is never trusted only because
+it appears in the proof envelope.
+
+## Verification Flow
 
 ```mermaid
 flowchart LR
-  A["Read live record and descriptor"] --> B["Bind proof to exact value"]
-  B --> C["Validate live authority approval"]
-  C --> D["Validate target evidence"]
-  D --> E["Return a structured result"]
+  A["Read ENS state at one block"] --> B["Derive authority, value hash, and target"]
+  B --> C["Obtain the method proof"]
+  C --> D["Match the claim to live state"]
+  D --> E["Validate authority approval"]
+  E --> F["Validate target evidence"]
+  F --> G["Return the result"]
 ```
 
-A verifier reads both records at the same Ethereum block. It then checks that:
+A verifier performs these steps:
 
-1. the common claim identifies the same ENS name and record selector;
-2. `valueHash` matches the current resolver value;
-3. the claim names the current authority for the exact ENS name;
-4. that authority signed the complete common claim;
-5. the selected method proof is valid;
-6. the claim and proof have not expired or been revoked.
+1. Normalize the ENS name using ENSIP-15.
+2. Resolve the target record and its descriptor using the same name and
+   Ethereum block.
+3. Parse the descriptor and load the exact authority and method versions. Do
+   not fall back to another version or method.
+4. At the same block, compute the authority for the exact name and any known
+   authority expiry.
+5. Hash the decoded live record value and derive the method's canonical target.
+6. Obtain the proof envelope from the exact location defined by the method.
+7. Require every common claim field to match the values derived from live ENS
+   state, then check its lifetime.
+8. Validate `authoritySignature` against the computed authority.
+9. Validate the method-specific target evidence against the same claim.
 
-## Results
+A positive result requires every step to succeed. Changing the record,
+descriptor, authority, proof, or target evidence requires a fresh evaluation.
 
-| Result                                              | Meaning                                                                                       |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `verified: true`, `verificationType: "control"`     | The live authority approved the claim and method evidence demonstrated control of its target. |
-| `verified: true`, `verificationType: "attestation"` | A client-accepted issuer attested to the record-bound claim.                                  |
-| `verified: false`                                   | One or more required checks did not pass.                                                     |
+## What Each Method Checks
 
-The target may be an HTTPS origin, DNS domain, blockchain account, or another
-resource defined by a method profile. The method profile defines what evidence
-must validate and therefore what a positive result means.
+| Method                           | Supported record | Target evidence                                                                 | Positive result means                                      |
+| -------------------------------- | ---------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `https-origin.v1`                | HTTPS text value | The envelope is served at the derived well-known URL by the exact HTTPS origin. | Control of the HTTPS origin for this ENS record.           |
+| `dns-txt.v1`                     | HTTPS text value | DNSSEC authenticates the envelope at the derived TXT owner.                     | Control of DNS for the exact hostname in this ENS record.  |
+| `account-signature.<profile>.v1` | Address record   | The target account signs the common claim digest using its native profile.      | Control of the CAIP-10 account in this ENS address record. |
 
-Verification proves only the verification type described by the result. It
-does not establish safety, reputation, legal ownership, or ENS endorsement.
-The base protocol reserves `attestation`; version 1 does not define a concrete
-attestation method.
+Every method also requires the current ENS authority's signature. HTTPS and
+DNS use `proof: {}` because publication at the method-derived location is the
+target evidence. An account method carries a `targetSignature` in `proof`.
+
+## Result And Freshness
+
+When all common and method checks succeed, the minimal result is:
+
+```json
+{
+  "verified": true,
+  "verificationType": "control"
+}
+```
+
+When any required check fails, is unsupported, or cannot be completed, the
+minimal result is:
+
+```json
+{
+  "verified": false
+}
+```
+
+A positive result applies only to the record value, ENS block, target evidence,
+and time at which it was evaluated. Its hard expiry is the earliest applicable
+claim, authority, or method-evidence expiry. A cached positive result must also
+be checked again within five minutes, or sooner when a method requires it.
+
+`control` means the capabilities required by the selected method participated
+in the binding. It does not prove safety, reputation, legal ownership, human
+identity, or ENS endorsement. `attestation` is reserved for a future method;
+version 1 does not currently define one.
 
 ## Component Definitions
 
-The proposal is being developed as separate components so each part can be
-reviewed and hardened before an ENSIP is assembled:
+Read the detailed rules in this order:
 
-1. [Resolution and Discovery](./discovery-records)
+1. [Discovery Records](./discovery-records)
 2. [Verification Descriptor](./verification-descriptor)
 3. [Authority](./authority)
 4. [Claims and Target Proofs](./claims-and-signatures)
