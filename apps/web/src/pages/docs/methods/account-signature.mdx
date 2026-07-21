@@ -81,140 +81,48 @@ must not search for a proof at another location.
 
 ## Target
 
-`target` answers one question: **which account must sign this claim?**
-
-The verifier derives it from the live address record. It is never copied from
-the proof without checking it.
-
-Start with these live inputs:
-
-| Input           | Source                                         |
-| --------------- | ---------------------------------------------- |
-| `coinType`      | The selected `addr(coinType)` record           |
-| `recordBytes`   | Exact bytes returned by `addr(node, coinType)` |
-| `method`        | Descriptor field `m`                           |
-| account profile | The exact profile selected by `method`         |
-
-Then derive the target in this order:
-
-1. Decode the exact resolver bytes using the registered ENS address codec.
-2. Require the profile to support that coin type and decoded account form.
-3. Derive the profile's exact CAIP-2 chain identifier from the coin type.
-4. Canonicalize the account address using the profile's rules.
-5. Join the CAIP-2 chain and canonical address as one CAIP-10 account.
+`claim.target` is the canonical [CAIP-10 account
+ID](https://standards.chainagnostic.org/CAIPs/caip-10) for the live `addr`
+record.
 
 ```text
-target = <namespace>:<reference>:<account-address>
+<chain-id>:<account-address>
 ```
 
-The complete CAIP-10 string becomes `claim.target`. The exact resolver bytes
-are hashed separately:
-
-```text
-valueHash = keccak256(recordBytes)
-```
-
-Reject the proof if the chain or account cannot be derived without guessing.
-The verifier must not infer a network from user settings, accept another
-profile's address rules, or treat an unsupported account type as a direct-key
-account.
+The selected profile defines the required CAIP-10 namespace, chain reference,
+and account canonicalization. The verifier derives the value from the live coin
+type and resolver bytes and requires an exact match with `claim.target`.
 
 ## Signed Message
 
-Both sides approve the same `commonClaimDigest`:
-
-| Signature            | Approver                  | Protocol input      | Verification system                  |
-| -------------------- | ------------------------- | ------------------- | ------------------------------------ |
-| `authoritySignature` | Current ENS authority     | `commonClaimDigest` | ECDSA or ERC-1271                    |
-| `targetSignature`    | Account in `claim.target` | `commonClaimDigest` | Algorithm selected by `claim.method` |
-
-First build the complete common claim:
-
-```json
-{
-  "name": "<normalized ENS name>",
-  "node": "0x<64 lowercase hex digits>",
-  "recordType": "addr",
-  "recordKey": "<coin type as decimal>",
-  "valueHash": "0x<keccak256 of exact resolver bytes>",
-  "authorityVersion": "1",
-  "authority": "0x<40 lowercase hex digits>",
-  "method": "account-signature.<profile>.v1",
-  "target": "<canonical CAIP-10 account>",
-  "issuedAt": "<Unix time in seconds>",
-  "validUntil": "<Unix time in seconds>"
-}
-```
-
-Encode this claim using the
-[common EIP-712 rules](../components/claims-and-signatures#common-claim):
+Calculate the 32-byte `commonClaimDigest` using the
+[common EIP-712 claim](../components/claims-and-signatures#common-claim).
 
 ```text
-structHash = EIP712.hashStruct(commonClaim)
-
-commonClaimDigest = keccak256(
-  0x1901 || domainSeparator || structHash
-)
+authoritySignature = ENS authority signs commonClaimDigest
+targetSignature    = target account signs commonClaimDigest
 ```
 
-`commonClaimDigest` is exactly 32 bytes. It is the only protocol input to both
-approval procedures:
+The ENS authority uses the common EIP-712 authority-signature rules. The target
+account uses the native algorithm selected by `claim.method`. That algorithm may
+apply its own required encoding or hashing internally, but its protocol input
+is the same `commonClaimDigest`.
 
-```text
-authoritySignature = approveWithENSAuthority(commonClaimDigest)
-targetSignature    = approveWithTargetProfile(commonClaimDigest)
-```
-
-Do not hash the JSON serialization. Do not calculate a second
-`keccak256(abi.encode(commonClaim))` for the target. The JSON only transports
-the typed fields; whitespace, member order, and string escaping do not affect
-the digest.
-
-The target profile may apply its required native tagging, hashing, structured
-encoding, or account-policy check internally. That native operation is part of
-the selected algorithm. Its application message remains the exact 32-byte
-`commonClaimDigest`, and proof data cannot select another wrapper.
+Do not sign the JSON envelope and do not calculate a separate target digest.
 
 ## Proof
 
-After both signatures are created, publish one proof envelope at descriptor
-`u`:
+The proof envelope stores the ENS authority signature in
+`authoritySignature`. Its method-specific `proof` object is:
 
 ```json
 {
-  "v": "ensrv1",
-  "claim": {
-    "name": "<normalized ENS name>",
-    "node": "0x<64 lowercase hex digits>",
-    "recordType": "addr",
-    "recordKey": "<coin type as decimal>",
-    "valueHash": "0x<keccak256 of exact resolver bytes>",
-    "authorityVersion": "1",
-    "authority": "0x<40 lowercase hex digits>",
-    "method": "account-signature.<profile>.v1",
-    "target": "<canonical CAIP-10 account>",
-    "issuedAt": "<Unix time in seconds>",
-    "validUntil": "<Unix time in seconds>"
-  },
-  "authoritySignature": "<ENS-authority approval of commonClaimDigest>",
-  "proof": {
-    "targetSignature": "<native target-account approval of commonClaimDigest>"
-  }
+  "targetSignature": "<profile-defined signature>"
 }
 ```
 
-The envelope contains the typed claim and the two approvals. It does not contain
-a separately signed JSON document or a separate target hash.
-
-### Public Key
-
-The bytes returned by `addr()` encode an account address. They are not always a
-public key. An address may instead contain a key hash, script hash, account ID,
-or another chain-defined identifier.
-
-If the resolver bytes are the public key, the signature can recover the key, or
-the native proof already carries it, `publicKey` is forbidden. If none of those
-is true, the selected profile may require:
+If the profile cannot obtain the signing key from the address, signature, or
+native proof, it may require:
 
 ```json
 {
@@ -223,14 +131,9 @@ is true, the selected profile may require:
 }
 ```
 
-Both values are strings and unknown fields are forbidden. The profile defines
-their exact encodings. Before checking the signature, the verifier must derive
-the live account identifier from `publicKey` and require it to equal the target
-derived from `addr()`. A supplied public key is never trusted by itself.
-
-A proof cannot become valid by copying these fields into another envelope. Both
-signatures are bound to `commonClaimDigest`, and that digest includes the ENS
-name, record, address value, authority, method, target, and validity period.
+The selected profile defines whether `publicKey` is required and the exact
+encoding of each field. Unknown fields are forbidden. When present, the
+verifier must prove that `publicKey` controls the canonical CAIP-10 target.
 
 ## Profiles
 
