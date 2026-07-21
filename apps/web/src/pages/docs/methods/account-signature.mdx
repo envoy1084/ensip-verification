@@ -95,8 +95,16 @@ type and resolver bytes and requires an exact match with `claim.target`.
 
 ## Signed Message
 
-Calculate the 32-byte `commonClaimDigest` using the
-[common EIP-712 claim](../components/claims-and-signatures#common-claim).
+Calculate `commonClaimDigest` once from the
+[common EIP-712 claim](../components/claims-and-signatures#common-claim):
+
+```text
+commonClaimDigest = keccak256(
+  0x1901 || domainSeparator || hashStruct(commonClaim)
+)
+```
+
+The result is exactly 32 bytes. It is the protocol input to both signatures:
 
 ```text
 authoritySignature = ENS authority signs commonClaimDigest
@@ -104,9 +112,96 @@ targetSignature    = target account signs commonClaimDigest
 ```
 
 The ENS authority uses the common EIP-712 authority-signature rules. The target
-account uses the native algorithm selected by `claim.method`. That algorithm may
-apply its own required encoding or hashing internally, but its protocol input
-is the same `commonClaimDigest`.
+account uses the native algorithm selected by `claim.method`.
+
+### Calculate With Viem
+
+Viem's [`hashTypedData`](https://viem.sh/docs/utilities/hashTypedData) utility
+calculates the EIP-712 digest:
+
+```ts
+import { hashTypedData } from "viem";
+
+const domain = {
+  name: "ENS Record Verification",
+  version: "1",
+  chainId: 1,
+} as const;
+
+const types = {
+  ENSRecordVerification: [
+    { name: "name", type: "string" },
+    { name: "node", type: "bytes32" },
+    { name: "recordType", type: "string" },
+    { name: "recordKey", type: "string" },
+    { name: "valueHash", type: "bytes32" },
+    { name: "authorityVersion", type: "uint32" },
+    { name: "authority", type: "address" },
+    { name: "method", type: "string" },
+    { name: "target", type: "string" },
+    { name: "issuedAt", type: "uint64" },
+    { name: "validUntil", type: "uint64" },
+  ],
+} as const;
+
+const message = {
+  ...claim,
+  authorityVersion: BigInt(claim.authorityVersion),
+  issuedAt: BigInt(claim.issuedAt),
+  validUntil: BigInt(claim.validUntil),
+};
+
+const typedData = {
+  domain,
+  types,
+  primaryType: "ENSRecordVerification",
+  message,
+} as const;
+
+const commonClaimDigest = hashTypedData(typedData);
+```
+
+The JSON envelope stores unsigned integers as decimal strings. Viem receives
+those three integer fields as `bigint` when calculating the EIP-712 digest.
+
+### EVM Target
+
+An EVM EOA signs the same typed data with
+[`signTypedData`](https://viem.sh/docs/actions/wallet/signTypedData):
+
+```ts
+const targetSignature = await walletClient.signTypedData({
+  account: targetAddress,
+  ...typedData,
+});
+```
+
+This signs `commonClaimDigest`; do not use `signMessage`. For an ERC-1271 target,
+validate `targetSignature` by calling
+`isValidSignature(commonClaimDigest, targetSignature)` on the target contract.
+
+### Bitcoin Target
+
+The [BIP-322](https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki)
+profile uses the 32 raw bytes of `commonClaimDigest` as its message `m`:
+
+```ts
+import { hexToBytes } from "viem";
+
+const messageBytes = hexToBytes(commonClaimDigest);
+
+// Pseudocode: exact function names vary between BIP-322 implementations.
+const targetSignature = bip322.signSimple(targetAddress, messageBytes);
+```
+
+The BIP-322 implementation internally calculates:
+
+```text
+messageHash = taggedHash("BIP0322-signed-message", commonClaimDigest)
+```
+
+It then constructs the native script proof. Pass the raw digest bytes, not the
+`0x`-prefixed text and not a separately calculated BIP-322 message hash.
 
 Do not sign the JSON envelope and do not calculate a separate target digest.
 
