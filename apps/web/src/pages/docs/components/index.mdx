@@ -10,80 +10,74 @@ This page has not been finalized. Requirements, formats, and examples may
 change while the protocol is under discussion.
 :::
 
-This walkthrough verifies:
+This page explains the complete protocol using one example: verifying the URL
+record of `alice.eth` with `https-origin.v1`.
 
-```text
-alice.eth → text("url") → https://example.com/profile
-```
+The result answers one question:
 
-A positive result requires approval from both the current `alice.eth` authority
-and the HTTPS origin `https://example.com`.
+> Did the current authority for `alice.eth` approve this exact URL record, and
+> is the HTTPS origin currently publishing that approval?
 
-## 1. ENS Records
+Verification happens in a client or SDK. The protocol does not store a
+permanent onchain `verified` flag.
 
-The resolver contains the target record:
+## 1. Publish The ENS Records
+
+`alice.eth` publishes the URL as a normal resolver record:
 
 ```text
 text("url") = "https://example.com/profile"
 ```
 
-This value alone does not prove control of `example.com`.
-
-The name opts this record into verification with a companion text record:
+It opts this record into verification with a companion text record:
 
 ```text
 text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
 ```
 
-The descriptor selects the common protocol (`ensrv1`), authority algorithm
-(`a=1`), and target-verification method (`m=https-origin.v1`). There is no `u`
-field because this method derives the proof location from the live URL.
+The descriptor means:
 
-## 2. Authority
+- `ensrv1`: use version 1 of Record Verification;
+- `a=1`: use Authority Algorithm 1; and
+- `m=https-origin.v1`: verify control through the HTTPS origin.
 
-Authority is the canonical account required to approve verification for the
-exact ENS name. The verifier computes it from ENS ownership state; the proof
-cannot choose it.
+There is no `u` field. This method derives the proof location from the live URL
+record, so the descriptor cannot redirect verification to another server.
 
-Assume `alice.eth` is an active, unwrapped `.eth` second-level name. Authority
-Algorithm 1 reads the Base Registrar registrant and registration expiry:
+## 2. Build The Claim
+
+The proof publisher derives the claim from one ENS snapshot. A verifier later
+derives the same values again from its own evaluation snapshot. For this
+example, assume Authority Algorithm 1 returns:
 
 ```text
-tokenId = uint256(keccak256(bytes("alice")))
-authority = BaseRegistrar.ownerOf(tokenId)
-          = 0x1234567890abcdef1234567890abcdef12345678
-authorityValidUntil = BaseRegistrar.nameExpires(tokenId)
+0x1234567890abcdef1234567890abcdef12345678
 ```
 
-Wrapped names use the exact Name Wrapper owner. Other unwrapped names use the
-exact Registry owner. Reverse names are unsupported.
+The protocol derives these claim values:
 
-Resolver operators and delegated record writers are not additional
-authorities.
+| Claim field        | Derived value                                                    |
+| ------------------ | ---------------------------------------------------------------- |
+| `name`             | `alice.eth`                                                      |
+| `node`             | `namehash("alice.eth")`                                          |
+| `recordType`       | `text`                                                           |
+| `recordKey`        | `url`                                                            |
+| `valueHash`        | `keccak256(UTF8("https://example.com/profile"))`                 |
+| `authorityVersion` | `1`, copied from descriptor field `a`                            |
+| `authority`        | Current authority computed from ENS                              |
+| `method`           | `https-origin.v1`, copied from descriptor field `m`              |
+| `target`           | `https://example.com`, the canonical origin derived from the URL |
+| `issuedAt`         | Time at which the claim is created                               |
+| `validUntil`       | First time at which the claim is no longer valid                 |
 
-## 3. Common Claim
+The exact hashes used below are:
 
-The record value is `https://example.com/profile`; its method target is
-`https://example.com`. `valueHash` binds the complete URL, while HTTPS proves
-control of the origin.
+```text
+node      = 0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec
+valueHash = 0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142
+```
 
-| Claim field        | Value                                      |
-| ------------------ | ------------------------------------------ |
-| `name`             | Normalized `alice.eth`                     |
-| `node`             | `namehash("alice.eth")`                    |
-| `recordType`       | `text`                                     |
-| `recordKey`        | `url`                                      |
-| `valueHash`        | Keccak-256 of the exact UTF-8 record value |
-| `authorityVersion` | Descriptor field `a`                       |
-| `authority`        | Account computed from live ENS state       |
-| `method`           | Descriptor field `m`                       |
-| `target`           | Canonical target derived by the method     |
-| `issuedAt`         | Claim creation time                        |
-| `validUntil`       | First time at which the claim is invalid   |
-
-## 4. Authority Signature
-
-The authority approves the complete claim as EIP-712 typed data:
+The current ENS authority signs the complete claim using EIP-712:
 
 ```text
 domain.name    = "ENS Record Verification"
@@ -94,23 +88,12 @@ commonClaimDigest = EIP712Hash(domain, claim)
 authoritySignature = authority.signTypedData(domain, claim)
 ```
 
-The signature covers the typed claim, not its JSON serialization. EOA
-signatures are checked by recovery; contract signatures use ERC-1271 at the ENS
-evaluation block.
+The resulting signature is over `commonClaimDigest`. The authority does not
+sign the JSON file or an Ethereum-prefixed personal message.
 
-## 5. Proof Publication
+## 3. Publish The Proof Envelope
 
-The method derives a proof key from the protocol domain, authority version and
-address, ENS node, record type and key, and method. It identifies one
-deterministic publication slot.
-
-The origin serves the envelope at:
-
-```text
-https://example.com/.well-known/ens-record-verification/<64-lowercase-hex-proof-key>
-```
-
-The complete envelope is:
+The complete proof envelope is:
 
 ```json
 {
@@ -133,36 +116,68 @@ The complete envelope is:
 }
 ```
 
-The placeholder is replaced by the actual signature bytes. `proof` is `{}`
-because serving the envelope from the exact WebPKI-authenticated origin is the
-target evidence.
+`0x<authority-signature>` represents the actual lowercase hexadecimal
+signature bytes in a published envelope.
 
-## 6. Verification
+`https-origin.v1` calculates a proof key from the ENS name, record selector,
+authority, authority version, and method. The origin publishes the envelope at:
 
-The verifier:
+```text
+https://example.com/.well-known/ens-record-verification/<64-lowercase-hex-proof-key>
+```
 
-1. Normalizes `alice.eth` using ENSIP-15.
-2. Reads the URL, descriptor, and authority state at one Ethereum block.
-3. Requires both records to be non-empty and parses the exact descriptor
-   versions without fallback.
-4. Computes the current authority and any known authority expiry.
-5. Recomputes `node`, `valueHash`, and the canonical target from live data.
-6. Derives the proof key and fetches the exact well-known URL.
-7. Requires valid WebPKI TLS, status `200`, `application/json`, no redirects,
-   no ambient credentials, and the method's size and network limits.
-8. Parses the closed envelope and rejects missing, duplicate, or unknown
-   members.
-9. Compares every derived claim field with live ENS state.
-10. Validates the claim lifetime and every applicable authority or method
-    expiry.
-11. Validates `authoritySignature` for the computed authority.
-12. Requires `proof` to be exactly `{}`.
+The proof key gives this record its own deterministic publication path. It is
+not a secret or an integrity hash.
 
-Every check is required.
+`proof` is empty because no additional target signature is needed. Serving the
+envelope from the exact WebPKI-authenticated origin is the target's evidence.
 
-## 7. Result
+## 4. Verify The Record
 
-When all checks succeed:
+```mermaid
+sequenceDiagram
+  autonumber
+  actor App
+  participant SDK as Verification SDK
+  participant ENS as ENS and Universal Resolver
+  participant Origin as https://example.com
+
+  App->>SDK: Verify alice.eth text("url")
+  SDK->>ENS: Read record, descriptor, and authority at one block
+  ENS-->>SDK: Return live ENS state
+  SDK->>SDK: Derive valueHash, target, and proof key
+  SDK->>Origin: GET the deterministic proof URL
+  Origin-->>SDK: Return the proof envelope
+  SDK->>SDK: Match every claim field to live ENS state
+  SDK->>SDK: Validate authoritySignature and time bounds
+  SDK-->>App: Return the verification result
+```
+
+The verifier performs these checks:
+
+1. Normalize `alice.eth` using ENSIP-15.
+2. Read `text("url")`, its descriptor, and all authority state at one Ethereum
+   block.
+3. Require both resolver records to be non-empty.
+4. Parse the descriptor and load exactly Authority Algorithm 1 and
+   `https-origin.v1`. Do not fall back to another version or method.
+5. Compute the current authority for the exact name.
+6. Hash the decoded URL value and derive the canonical HTTPS origin.
+7. Derive the proof key and fetch the envelope from the exact well-known URL.
+8. Require the HTTP response to pass the method's TLS, redirect, status,
+   media-type, size, encoding, and network rules.
+9. Parse the closed envelope and require every claim field to equal the value
+   derived from live ENS state.
+10. Require the claim, authority, and method evidence to be current.
+11. Validate `authoritySignature` against the computed ENS authority using EOA
+    recovery or ERC-1271 at the same block.
+12. Require `proof` to be exactly an empty object.
+
+If any check fails or cannot be completed, verification is not positive.
+
+## 5. Return The Result
+
+When every check succeeds:
 
 ```json
 {
@@ -171,15 +186,43 @@ When all checks succeed:
 }
 ```
 
-This proves that both the ENS authority and HTTPS origin approved the exact live
-record. It does not prove safety, identity, reputation, or legal ownership.
+This means the current ENS authority approved the exact live URL record and the
+origin `https://example.com` published that approval at the required path.
 
-The maximum signed lifetime for `https-origin.v1` is one year. A positive result
-must be re-evaluated within five minutes and expires sooner when the claim,
-authority, or method evidence expires.
+It does not prove that the page is safe, that the authority legally owns the
+domain, or that the same controller owns another subdomain, protocol, or port.
 
-Otherwise the verifier returns `{ "verified": false }`. The URL still resolves
-normally.
+A positive result applies only to the ENS snapshot, proof publication, and time
+used for that evaluation. It must not be cached for more than five minutes and
+must expire sooner if the claim, ENS authority, or method evidence expires.
 
-Continue with [Discovery Records](./discovery-records), then follow the
-component pages in order.
+When a required check fails, is unsupported, or is unavailable:
+
+```json
+{
+  "verified": false
+}
+```
+
+The resolver still returns the original URL. A non-positive verification result
+does not remove or invalidate the ENS record.
+
+## Other Methods
+
+The common flow stays the same for every method. Only the target and its
+evidence change:
+
+- `dns-txt.v1` reads the envelope from a DNSSEC-authenticated TXT record.
+- `account-signature.<profile>.v1` validates a signature from the account in an
+  ENS address record.
+
+See [Method Profiles](../methods/overview) for those rules.
+
+## Detailed Components
+
+1. [Discovery Records](./discovery-records)
+2. [Verification Descriptor](./verification-descriptor)
+3. [Authority](./authority)
+4. [Claims and Target Proofs](./claims-and-signatures)
+5. [Lifecycle](./lifecycle)
+6. [Verification Results](./results)
