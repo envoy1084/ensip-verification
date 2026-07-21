@@ -91,9 +91,7 @@ IPFS publication:
 ensrv1 a=1 m=account-signature.<profile>.v1 u=ipfs://<proof-envelope-cid>
 ```
 
-Replace `<profile>` with one exact identifier from the profile table and replace
-`<proof-envelope-cid>` with the complete CID. The angle-bracket placeholders
-are explanatory and are not included in a real descriptor.
+Replace `<profile>` with one exact identifier from the profile table.
 
 `u` is required and points directly to the proof envelope. Account records do
 not provide a deterministic place from which to fetch a signature, so these
@@ -110,8 +108,8 @@ must not search for a proof at another location.
 ## Proof
 
 The resource at `u` is a complete [proof
-envelope](../components/claims-and-signatures#proof-envelope). For example, an
-EVM address proof has this shape:
+envelope](../components/claims-and-signatures#proof-envelope). For example, a
+Bitcoin address proof has this shape:
 
 ```json
 {
@@ -120,18 +118,18 @@ EVM address proof has this shape:
     "name": "alice.eth",
     "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
     "recordType": "addr",
-    "recordKey": "60",
-    "valueHash": "0x06e120c2c3547c60ee47f712d32e5acf38b35d1cc62e23b055a69bb88284c281",
+    "recordKey": "0",
+    "valueHash": "0x11b469329dc927a13638ec09294fa2e578ef6f71e2c8ed15266a02822114e8ef",
     "authorityVersion": "1",
     "authority": "0x1234567890abcdef1234567890abcdef12345678",
-    "method": "account-signature.eip155.v1",
-    "target": "eip155:1:0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    "method": "account-signature.bip322.v1",
+    "target": "bip122:000000000019d6689c085ae165831e93:bc1q9vza2e8x573nczrlzms0wvx3gsqjx7vavgkx0l",
     "issuedAt": "1783728000",
     "validUntil": "1791504000"
   },
   "authoritySignature": "0x<authority-signature>",
   "proof": {
-    "targetSignature": "<profile-defined-signature>"
+    "targetSignature": "<bip322-simple-signature>"
   }
 }
 ```
