@@ -1,6 +1,6 @@
 # v0 Roadmap
 
-Publish an experimental v0 SDK and an implementer reference for ENS record
+Publish an experimental v0 SDK and a technical reference for ENS record
 verification. Develop them together: a milestone is complete only when its
 normative reference pages, SDK behavior, conformance vectors, and tests agree.
 
@@ -17,11 +17,11 @@ normative reference pages, SDK behavior, conformance vectors, and tests agree.
       Node verifier first; expose browser support only where its DNS, CORS, and
       peer-address limitations are explicit.
 
-## Implementer Reference Structure
+## Reference Structure
 
-Create a top-level **Implementer Reference** navigation entry at `/references`.
-Keep these pages normative and concise; explanatory rationale remains in the
-existing protocol docs.
+Create a top-level **Reference** navigation entry at `/references`. Keep these
+pages normative and concise; explanatory rationale remains in the existing
+protocol docs.
 
 - [x] **Overview and conformance** — supported versions, normative language,
       terminology, verifier requirements, and platform capabilities.
@@ -95,7 +95,7 @@ existing protocol docs.
 ### 6. EVM account-signature method
 
 - [ ] Freeze the exact `account-signature.eip155.v1` profile before coding it.
-- [ ] Finish its implementer reference page and account vectors.
+- [ ] Finish its reference page and account vectors.
 - [ ] Implement address-record decoding, chain and CAIP-10 derivation, proof URI
       retrieval, and target EOA/ERC-1271 verification.
 - [ ] Add EOA, contract-wallet, wrong-chain, wrong-account, and revocation tests.
@@ -116,12 +116,12 @@ existing protocol docs.
       normalization data, parser limits, HTTP encodings/timeouts, snapshot
       freshness/finality, diagnostics, and cache bounds.
 - [ ] Ensure the SDK tests consume the same machine-readable vectors rendered by
-      the implementer reference.
+      the reference.
 - [ ] Document public API, runtime support, security boundary, known limitations,
       and one example per method in the SDK README.
 - [ ] Finalize package name, exports, license files, peer/dependency policy, and
       remove `private` only when ready to publish.
 - [ ] Pass formatting, lint, typecheck, unit and integration tests, build,
       `publint`, package dry-run, docs build, and dead-link checks.
-- [ ] Publish the implementer reference and the SDK as matching v0 versions, then
+- [ ] Publish the reference and the SDK as matching v0 versions, then
       tag the release and record the exact conformance-vector version.

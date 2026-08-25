@@ -31,54 +31,69 @@ export default defineConfig({
   mcp: {
     enabled: true,
   },
-  sidebar: [
+  topNav: [
+    { text: "Protocol", link: "/docs", match: "/docs" },
     {
-      text: "Start",
-      items: [{ text: "Introduction", link: "/docs" }],
-    },
-    {
-      text: "Core Components",
-      items: [
-        {
-          text: "Discovery Records",
-          link: "/docs/components/discovery-records",
-        },
-        {
-          text: "Verification Descriptor",
-          link: "/docs/components/verification-descriptor",
-        },
-        {
-          text: "Authority",
-          link: "/docs/components/authority",
-        },
-        {
-          text: "Claims and Target Proofs",
-          link: "/docs/components/claims-and-signatures",
-        },
-        { text: "Lifecycle", link: "/docs/components/lifecycle" },
-        { text: "Verification Results", link: "/docs/components/results" },
-      ],
-    },
-    {
-      text: "Methods",
-      items: [
-        { text: "Overview", link: "/docs/methods/overview" },
-        { text: "HTTPS Origin", link: "/docs/methods/https-origin" },
-        { text: "DNS TXT", link: "/docs/methods/dns-txt" },
-        { text: "Account Signature", link: "/docs/methods/account-signature" },
-      ],
-    },
-    {
-      text: "Walkthrough",
-      items: [{ text: "Protocol Walkthrough", link: "/docs/walkthrough" }],
-    },
-    {
-      text: "Implementer Reference",
-      items: [{ text: "Overview and Conformance", link: "/references" }],
-    },
-    {
-      text: "References",
-      items: [{ text: "References", link: "/docs/reference/references" }],
+      text: "Reference",
+      link: "/references",
+      match: "/references",
     },
   ],
+  sidebar: {
+    "/docs": [
+      {
+        text: "Start",
+        items: [{ text: "Introduction", link: "/docs" }],
+      },
+      {
+        text: "Core Components",
+        items: [
+          {
+            text: "Discovery Records",
+            link: "/docs/components/discovery-records",
+          },
+          {
+            text: "Verification Descriptor",
+            link: "/docs/components/verification-descriptor",
+          },
+          {
+            text: "Authority",
+            link: "/docs/components/authority",
+          },
+          {
+            text: "Claims and Target Proofs",
+            link: "/docs/components/claims-and-signatures",
+          },
+          { text: "Lifecycle", link: "/docs/components/lifecycle" },
+          { text: "Verification Results", link: "/docs/components/results" },
+        ],
+      },
+      {
+        text: "Methods",
+        items: [
+          { text: "Overview", link: "/docs/methods/overview" },
+          { text: "HTTPS Origin", link: "/docs/methods/https-origin" },
+          { text: "DNS TXT", link: "/docs/methods/dns-txt" },
+          {
+            text: "Account Signature",
+            link: "/docs/methods/account-signature",
+          },
+        ],
+      },
+      {
+        text: "Walkthrough",
+        items: [{ text: "Protocol Walkthrough", link: "/docs/walkthrough" }],
+      },
+      {
+        text: "References",
+        items: [{ text: "References", link: "/docs/reference/references" }],
+      },
+    ],
+    "/references": [
+      {
+        text: "Start",
+        items: [{ text: "Overview and Conformance", link: "/references" }],
+      },
+    ],
+  },
 });
