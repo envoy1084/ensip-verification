@@ -19,6 +19,7 @@ type Page =
   | { path: '/docs/reference/references'; render: 'static' }
   | { path: '/docs/walkthrough'; render: 'static' }
   | { path: '/'; render: 'static' }
+  | { path: '/references'; render: 'static' }
 
 // prettier-ignore
 declare module 'waku/router' {
