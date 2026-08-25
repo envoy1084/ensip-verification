@@ -19,10 +19,11 @@ normative reference pages, SDK behavior, conformance vectors, and tests agree.
 
 ## Implementer Reference Structure
 
-Create a top-level **Implementers** navigation entry. Keep these pages normative
-and concise; explanatory rationale remains in the existing protocol docs.
+Create a top-level **Implementer Reference** navigation entry at `/references`.
+Keep these pages normative and concise; explanatory rationale remains in the
+existing protocol docs.
 
-- [ ] **Overview and conformance** — supported versions, normative language,
+- [x] **Overview and conformance** — supported versions, normative language,
       terminology, verifier requirements, and platform capabilities.
 - [ ] **Data types and encoding** — ASCII and UTF-8, canonical integers,
       lowercase hex, addresses, bytes, timestamps, limits, and rejection rules.

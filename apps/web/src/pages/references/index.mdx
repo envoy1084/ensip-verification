@@ -1,0 +1,210 @@
+---
+title: Implementer Reference
+description: Normative requirements for implementations of ENS Record Verification.
+---
+
+# Implementer Reference
+
+This reference defines the normative requirements for implementing ENS Record
+Verification. It specifies accepted inputs, canonical encodings, required
+algorithms, validation order, method behavior, and conformance tests.
+
+The pages under `/references` are written for implementers. Explanations,
+motivation, examples, and protocol design rationale remain in the
+[protocol documentation](/docs).
+
+> **Status:** This is an experimental v0 reference. Rules and identifiers are
+> not frozen until their reference pages and conformance vectors are complete.
+> An implementation must identify the exact reference version it implements.
+
+## Normative Language
+
+The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHOULD**, **SHOULD NOT**,
+and **MAY** are to be interpreted as described by
+[BCP 14](https://www.rfc-editor.org/info/bcp14) when, and only when, they appear
+in all capitals.
+
+Normative requirements determine conformance. Examples explain those
+requirements but do not replace them.
+
+## v0 Target Profile
+
+The initial reference targets the following protocol profile:
+
+| Component              | v0 target                                                            |
+| ---------------------- | -------------------------------------------------------------------- |
+| Common version         | `ensrv1`                                                             |
+| ENS deployment         | Ethereum mainnet                                                     |
+| Authority algorithm    | Authority Algorithm 1                                                |
+| URL control method     | `https-origin.v1`                                                    |
+| URL DNS method         | `dns-txt.v1`                                                         |
+| Account control method | `account-signature.eip155.v1`, pending its profile and vector freeze |
+
+`https-origin.v1` and `dns-txt.v1` apply to eligible ENS text records that
+contain HTTPS URLs. The account-signature method applies only to address
+records supported by its concrete profile.
+
+The generic identifier `account-signature.<profile>.v1` names a family of
+methods. It is not itself an implementable method. A verifier MUST select and
+implement one exact registered profile and MUST NOT fall back to another
+profile.
+
+## Verification Input
+
+One verification attempt evaluates:
+
+- one ENSIP-15-normalized ENS name;
+- one exact resolver-record selector;
+- the live record value and its derived verification descriptor;
+- the exact ENS authority selected by the descriptor's authority algorithm;
+- the external evidence required by the selected method;
+- one evaluation snapshot and one checked-at time; and
+- verifier policy required by the selected method and runtime.
+
+The target record, descriptor, ENS ownership state, ENS expiry state, authority
+account code, and ERC-1271 calls MUST be evaluated against the same Ethereum
+block. A verifier MUST NOT combine values from different ENS blocks into one
+result.
+
+## Verification Outcome
+
+A positive result has this protocol meaning:
+
+```json
+{
+  "verified": true,
+  "verificationType": "control"
+}
+```
+
+It means every common requirement and every requirement of the selected method
+passed for the exact live record and evaluation context.
+
+When any required check fails, is unsupported, is unavailable, or cannot be
+completed conclusively, the verifier MUST NOT return a positive result. The
+minimal non-positive result is:
+
+```json
+{ "verified": false }
+```
+
+An implementation MAY expose diagnostics in addition to this minimal result.
+Unless a reference page explicitly declares a diagnostic code normative,
+diagnostics are implementation metadata and do not change the protocol
+outcome.
+
+## Conformance Requirements
+
+An implementation conforms for a method only when it satisfies every common
+requirement and every requirement in that method profile.
+
+A conforming verifier MUST:
+
+1. implement the exact common, authority, and method versions selected by the
+   descriptor;
+2. reject unknown versions, unknown fields, duplicate fields, and malformed
+   encodings as specified by their reference pages;
+3. avoid fallback to another version, authority algorithm, method, proof
+   location, target interpretation, or signature algorithm;
+4. derive the expected name, node, selector, record-value hash, authority,
+   method, and target from live inputs rather than trusting proof-supplied
+   values;
+5. evaluate all ENS-dependent inputs against one block;
+6. validate the complete closed proof envelope and compare every common claim
+   field;
+7. validate claim, authority, and method time bounds immediately before
+   returning a positive result;
+8. validate the current authority signature and all method-specific evidence;
+9. enforce method transport and network policy, including limits and freshness;
+   and
+10. pass every applicable normative conformance vector.
+
+An SDK may expose parsers, derivation functions, or other partially conforming
+components. It MUST NOT describe a partial component as a conforming verifier
+for a method it cannot evaluate completely.
+
+## Fail-Closed Behavior
+
+Unsupported and unavailable are different diagnostic conditions, but neither
+can produce a positive result.
+
+In particular, a verifier MUST NOT:
+
+- ignore an unknown descriptor or envelope field;
+- interpret an unknown version using the closest known version;
+- accept an authority supplied only by the proof;
+- substitute a parent owner, resolver operator, gateway, or delegated record
+  writer when the selected authority algorithm cannot resolve an authority;
+- follow an external proof location not selected by the live descriptor or
+  method;
+- skip a signature, DNSSEC, TLS, network-address, expiry, or freshness check
+  because the runtime cannot perform it; or
+- reuse a positive result beyond its calculated freshness or validity bound.
+
+## Runtime Capabilities
+
+Method conformance depends on runtime capabilities.
+
+A server verifier can perform DNSSEC validation and inspect resolved and
+connected network addresses. A browser verifier normally cannot inspect its
+connected peer address, may depend on CORS, and does not have a standard native
+DNSSEC validation interface.
+
+A runtime that cannot perform a required method check MUST return a
+non-positive result for that attempt. Documentation for a browser or restricted
+runtime MUST identify which methods it can evaluate conformantly and which
+operations are unavailable.
+
+## Terminology
+
+| Term                    | Normative meaning                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Record selector         | The resolver function and exact key or numeric parameter identifying one target record.                        |
+| Discovery record        | The derived ENS text record that stores the verification descriptor for one target record.                     |
+| Verification descriptor | The closed `ensrv` value selecting a common version, authority algorithm, method, and optional proof location. |
+| Evaluation block        | The Ethereum block against which all ENS-dependent reads and calls for one attempt are evaluated.              |
+| Checked-at time         | The verifier's Unix time used for claim, authority, method, and cache-bound checks.                            |
+| Authority               | The canonical account selected from live ENS state by the chosen authority algorithm.                          |
+| Common claim            | The closed EIP-712 statement binding one live ENS record, authority, method, target, and validity interval.    |
+| Target                  | The canonical external resource derived from the live record by the selected method.                           |
+| Proof envelope          | The closed object containing the common claim, authority signature, and method proof.                          |
+| Method evidence         | Target-controlled proof required by one immutable method profile.                                              |
+| Effective valid-until   | The earliest known hard expiry across the claim, authority, and method evidence.                               |
+| Cache-until             | The first time a result must be re-evaluated, independent of its hard validity bound.                          |
+| Positive result         | A result for which every required common and method-specific check passed.                                     |
+| Non-positive result     | Any result that is not positive, including invalid, unsupported, unavailable, expired, or blocked cases.       |
+
+## Reference Organization
+
+The remaining reference pages define:
+
+1. primitive data types and canonical encodings;
+2. record discovery and descriptor grammar;
+3. ENS snapshot evaluation and Authority Algorithm 1;
+4. common claims, proof envelopes, signatures, and proof keys;
+5. lifecycle, result, and caching rules;
+6. the ordered verification algorithm;
+7. each immutable method profile; and
+8. machine-readable conformance vectors.
+
+An implementation MUST satisfy both the normative reference text and the
+applicable conformance vectors. A conflict between them is a specification
+defect. Until the conflict is resolved, an implementation MUST NOT rely on the
+ambiguous case to produce a positive result.
+
+## Versioning
+
+The common version, authority version, and method version change independently.
+An implementation MUST use the exact versions selected by the descriptor.
+
+A semantic change to an already frozen grammar, authority algorithm, signed
+claim, proof format, target derivation, verification procedure, or result
+meaning requires a new applicable version. A new version MUST NOT silently
+change the interpretation of an older identifier.
+
+## Security Boundary
+
+Record Verification proves only the relationship defined by the selected
+method for one exact live resolver record. It does not prove that a target is
+safe, non-malicious, legally owned, globally authentic, or trusted for another
+record, name, protocol, host, port, path, account, or chain.

@@ -73,6 +73,10 @@ export default defineConfig({
       items: [{ text: "Protocol Walkthrough", link: "/docs/walkthrough" }],
     },
     {
+      text: "Implementer Reference",
+      items: [{ text: "Overview and Conformance", link: "/references" }],
+    },
+    {
       text: "References",
       items: [{ text: "References", link: "/docs/reference/references" }],
     },
