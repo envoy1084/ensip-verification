@@ -1,0 +1,3 @@
+export const DESCRIPTOR_MAX_BYTES = 2_048;
+export const METHOD_IDENTIFIER_MAX_BYTES = 64;
+export const PROOF_URI_MAX_BYTES = 1_024;

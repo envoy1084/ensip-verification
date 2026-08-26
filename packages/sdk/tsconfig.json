@@ -1,4 +1,7 @@
 {
   "extends": "klarity/tsconfig/library",
-  "include": ["src", "tsdown.config.ts"]
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["src", "test", "tsdown.config.ts"]
 }

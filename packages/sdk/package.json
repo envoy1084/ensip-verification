@@ -16,16 +16,21 @@
   "scripts": {
     "build": "tsdown",
     "lint": "oxlint --deny-warnings .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "viem": "catalog:"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "klarity": "0.2.0",
     "oxlint": "catalog:",
     "publint": "catalog:",
     "tsdown": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
