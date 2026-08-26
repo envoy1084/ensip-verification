@@ -87,16 +87,16 @@ and the draft `account-signature.eip155.v1` method.
 
 ## 5. Claims, Envelopes, and Authority Signatures
 
-- [ ] Implement duplicate-aware raw JSON parsing before map construction.
-- [ ] Implement the closed common proof-envelope schema.
-- [ ] Implement the exact common-claim schema and live-field comparison.
-- [ ] Implement resolver value-byte hashing for every supported record type.
-- [ ] Implement the `ensrv1` EIP-712 domain, type hash, struct hash, and final
+- [x] Implement duplicate-aware raw JSON parsing before map construction.
+- [x] Implement the closed common proof-envelope schema.
+- [x] Implement the exact common-claim schema and live-field comparison.
+- [x] Implement resolver value-byte hashing for every supported record type.
+- [x] Implement the `ensrv1` EIP-712 domain, type hash, struct hash, and final
       digest.
-- [ ] Implement deterministic proof-key derivation.
-- [ ] Implement canonical 65-byte, low-`s` EOA authority-signature validation.
-- [ ] Implement strict ERC-1271 authority-signature validation at the ENS block.
-- [ ] Reject malformed ABI, raw four-byte ERC-1271 output, bad padding, trailing
+- [x] Implement deterministic proof-key derivation.
+- [x] Implement canonical 65-byte, low-`s` EOA authority-signature validation.
+- [x] Implement strict ERC-1271 authority-signature validation at the ENS block.
+- [x] Reject malformed ABI, raw four-byte ERC-1271 output, bad padding, trailing
       data, counterfactual contracts, and signature fallback.
 - [ ] Add JSON, hashing, EIP-712, proof-key, EOA, and ERC-1271 tests with exact
       intermediate values.
@@ -104,10 +104,10 @@ and the draft `account-signature.eip155.v1` method.
 ## 6. Lifecycle and Results
 
 - [ ] Implement one verifier-controlled `checkedAt` time per attempt.
-- [ ] Implement future-skew, issuance, exclusive-expiry, and maximum-lifetime
+- [x] Implement future-skew, issuance, exclusive-expiry, and maximum-lifetime
       checks.
-- [ ] Calculate `effectiveValidUntil` from claim, authority, and method bounds.
-- [ ] Calculate `cacheUntil` using the five-minute ceiling and authenticated
+- [x] Calculate `effectiveValidUntil` from claim, authority, and method bounds.
+- [x] Calculate `cacheUntil` using the five-minute ceiling and authenticated
       method freshness.
 - [ ] Map expected malformed, invalid, expired, unsupported, unavailable, and
       policy-blocked failures into detailed non-positive results.
