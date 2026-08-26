@@ -1,6 +1,8 @@
 import { Schema } from "effect";
 
+import type { EnsNameIdentity } from "./name.js";
 import { LogicalResolverValue, RecordSelector } from "./records.js";
+import type { RecordSelector as RecordSelectorType } from "./records.js";
 
 const EthereumMainnetChainId = Schema.Literal(1);
 
@@ -50,6 +52,18 @@ export const EnsRecordSnapshot = Schema.Struct({
 });
 
 export type EnsRecordSnapshot = typeof EnsRecordSnapshot.Type;
+
+export interface ReadRecordInput {
+  readonly name: EnsNameIdentity;
+  readonly selector: RecordSelectorType;
+  readonly snapshot: EnsSnapshot;
+}
+
+export interface ReadRecordSnapshotInput {
+  readonly name: EnsNameIdentity;
+  readonly selector: RecordSelectorType;
+  readonly blockNumber: bigint;
+}
 
 export class UnsupportedEnsChainError extends Schema.TaggedError<UnsupportedEnsChainError>()(
   "UnsupportedEnsChainError",

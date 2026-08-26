@@ -23,11 +23,6 @@ export const v0DescriptorRegistry: DescriptorRegistry = {
   ]),
 };
 
-const fail = (
-  reason: DescriptorParseError["reason"],
-  message: string,
-): DescriptorParseError => new DescriptorParseError({ reason, message });
-
 export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   input: string,
   registry: DescriptorRegistry = v0DescriptorRegistry,
@@ -37,10 +32,10 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
     input.length > DESCRIPTOR_MAX_BYTES ||
     Array.from(input).some((character) => character.charCodeAt(0) > 0x7f)
   ) {
-    return yield* fail(
-      "invalid_encoding",
-      "descriptor must contain 1-2048 ASCII bytes",
-    );
+    return yield* new DescriptorParseError({
+      reason: "invalid_encoding",
+      message: "descriptor must contain 1-2048 ASCII bytes",
+    });
   }
 
   const tokens = input.split(" ");
@@ -49,36 +44,40 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
     tokens.length < 3 ||
     tokens.length > 4
   ) {
-    return yield* fail(
-      "invalid_structure",
-      "descriptor must contain a version and two or three single-space fields",
-    );
+    return yield* new DescriptorParseError({
+      reason: "invalid_structure",
+      message:
+        "descriptor must contain a version and two or three single-space fields",
+    });
   }
   if (tokens[0] !== "ensrv1") {
-    return yield* fail(
-      "invalid_structure",
-      "unsupported common protocol version",
-    );
+    return yield* new DescriptorParseError({
+      reason: "invalid_structure",
+      message: "unsupported common protocol version",
+    });
   }
 
   const fields = new Map<string, string>();
   for (const token of tokens.slice(1)) {
     const separator = token.indexOf("=");
     if (separator <= 0 || separator === token.length - 1) {
-      return yield* fail(
-        "invalid_field",
-        "descriptor field must have a non-empty name and value",
-      );
+      return yield* new DescriptorParseError({
+        reason: "invalid_field",
+        message: "descriptor field must have a non-empty name and value",
+      });
     }
     const name = token.slice(0, separator);
     if (name !== "a" && name !== "m" && name !== "u") {
-      return yield* fail("invalid_field", `unknown descriptor field: ${name}`);
+      return yield* new DescriptorParseError({
+        reason: "invalid_field",
+        message: `unknown descriptor field: ${name}`,
+      });
     }
     if (fields.has(name)) {
-      return yield* fail(
-        "duplicate_field",
-        `duplicate descriptor field: ${name}`,
-      );
+      return yield* new DescriptorParseError({
+        reason: "duplicate_field",
+        message: `duplicate descriptor field: ${name}`,
+      });
     }
     fields.set(name, token.slice(separator + 1));
   }
@@ -86,32 +85,47 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   const authorityInput = fields.get("a");
   const methodInput = fields.get("m");
   if (authorityInput === undefined || methodInput === undefined) {
-    return yield* fail(
-      "missing_field",
-      "descriptor requires exactly one a field and one m field",
-    );
+    return yield* new DescriptorParseError({
+      reason: "missing_field",
+      message: "descriptor requires exactly one a field and one m field",
+    });
   }
 
   const authorityVersion = yield* Schema.decodeUnknownEffect(AuthorityVersion)(
     authorityInput,
   ).pipe(
-    Effect.mapError(() => fail("invalid_field", "invalid authority version")),
+    Effect.mapError(
+      () =>
+        new DescriptorParseError({
+          reason: "invalid_field",
+          message: "invalid authority version",
+        }),
+    ),
   );
   const method = yield* Schema.decodeUnknownEffect(MethodIdentifier)(
     methodInput,
   ).pipe(
-    Effect.mapError(() => fail("invalid_field", "invalid method identifier")),
+    Effect.mapError(
+      () =>
+        new DescriptorParseError({
+          reason: "invalid_field",
+          message: "invalid method identifier",
+        }),
+    ),
   );
 
   if (!registry.authorityVersions.has(authorityVersion)) {
-    return yield* fail(
-      "unsupported_authority",
-      `unsupported authority version: ${authorityVersion}`,
-    );
+    return yield* new DescriptorParseError({
+      reason: "unsupported_authority",
+      message: `unsupported authority version: ${authorityVersion}`,
+    });
   }
   const methodPolicy = registry.methods.get(method);
   if (methodPolicy === undefined) {
-    return yield* fail("unsupported_method", `unsupported method: ${method}`);
+    return yield* new DescriptorParseError({
+      reason: "unsupported_method",
+      message: `unsupported method: ${method}`,
+    });
   }
 
   const uriInput = fields.get("u");
@@ -120,23 +134,35 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
     proofUri = yield* Schema.decodeUnknownEffect(AbsoluteProofUri)(
       uriInput,
     ).pipe(
-      Effect.mapError(() => fail("invalid_uri", "invalid absolute proof URI")),
+      Effect.mapError(
+        () =>
+          new DescriptorParseError({
+            reason: "invalid_uri",
+            message: "invalid absolute proof URI",
+          }),
+      ),
     );
   }
 
   if (methodPolicy.proofUri === "forbidden" && proofUri !== undefined) {
-    return yield* fail("uri_policy", `method ${method} forbids u`);
+    return yield* new DescriptorParseError({
+      reason: "uri_policy",
+      message: `method ${method} forbids u`,
+    });
   }
   if (methodPolicy.proofUri === "required" && proofUri === undefined) {
-    return yield* fail("uri_policy", `method ${method} requires u`);
+    return yield* new DescriptorParseError({
+      reason: "uri_policy",
+      message: `method ${method} requires u`,
+    });
   }
   if (proofUri !== undefined && methodPolicy.schemes !== undefined) {
     const scheme = proofUri.slice(0, proofUri.indexOf(":"));
     if (!methodPolicy.schemes.has(scheme)) {
-      return yield* fail(
-        "uri_policy",
-        `method ${method} does not permit the ${scheme}: scheme`,
-      );
+      return yield* new DescriptorParseError({
+        reason: "uri_policy",
+        message: `method ${method} does not permit the ${scheme}: scheme`,
+      });
     }
   }
 
