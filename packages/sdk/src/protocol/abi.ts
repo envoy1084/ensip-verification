@@ -43,3 +43,7 @@ export const baseRegistrarAbi = parseAbi([
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function nameExpires(uint256 tokenId) view returns (uint256)",
 ]);
+
+export const erc1271Abi = parseAbi([
+  "function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)",
+]);
