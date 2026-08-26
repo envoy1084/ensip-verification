@@ -1,0 +1,160 @@
+---
+title: Conformance Vectors
+description: Required machine-readable vector organization, assertions, fixtures, and implementation pass criteria.
+---
+
+# Conformance Vectors
+
+Conformance vectors are normative inputs and expected outputs shared by the
+reference and SDK implementations. Prose examples are not conformance vectors.
+
+> **Status:** This page defines the vector contract. The v0 corpus has not yet
+> been populated or frozen.
+
+## Versioning
+
+Every vector corpus MUST identify:
+
+- common reference version;
+- authority-algorithm version;
+- applicable method version;
+- vector-schema version; and
+- immutable corpus content hash.
+
+A published SDK conformance claim MUST name the exact corpus version it passes.
+Changing an expected result, input byte, cryptographic intermediate, or fixture
+requires a new corpus version.
+
+## Case Shape
+
+Each machine-readable case MUST contain:
+
+```json
+{
+  "id": "descriptor/valid/minimal",
+  "area": "descriptor",
+  "description": "Canonical descriptor without a proof URI",
+  "input": {},
+  "expect": {
+    "outcome": "accept",
+    "value": {}
+  },
+  "reference": "/references/discovery-and-descriptor"
+}
+```
+
+Required members are:
+
+| Member        | Requirement                                            |
+| ------------- | ------------------------------------------------------ |
+| `id`          | Stable unique lowercase path-like identifier           |
+| `area`        | Registered vector area                                 |
+| `description` | Short statement of the behavior under test             |
+| `input`       | Complete deterministic input or fixture references     |
+| `expect`      | Exact accept/reject result and required derived values |
+| `reference`   | Reference page or fragment owning the normative rule   |
+
+Objects MUST be closed. Vector integers and bytes use the protocol's canonical
+decimal and hexadecimal JSON encodings unless the case intentionally supplies
+invalid raw input.
+
+An invalid-input case MUST preserve the original bytes. It MUST NOT rely on a
+host JSON parser when duplicate members, malformed UTF-8, BOMs, trailing data,
+or invalid escapes are the behavior under test.
+
+## Expectations
+
+`expect.outcome` is exactly `accept` or `reject`.
+
+Accepted cases MUST include every deterministic public intermediate needed to
+locate disagreement. Rejected cases MUST identify the first normative rule
+violated, but MUST NOT require one SDK-specific diagnostic code until diagnostic
+codes are frozen.
+
+A case MUST test one primary rule. Additional malformed properties that make
+the expected rejection ambiguous are forbidden unless the case explicitly
+tests precedence.
+
+## Required Areas
+
+The v0 corpus MUST cover:
+
+| Area            | Required coverage                                                    |
+| --------------- | -------------------------------------------------------------------- |
+| Encoding        | Integer, hex, UTF-8, Unicode, size, and exact-comparison boundaries  |
+| Discovery       | Every selector mapping, embedded brackets, coin types, and limits    |
+| Descriptor      | Grammar, order, duplicates, unknowns, URI parsing, and serialization |
+| Name            | ENSIP-15 positive/negative names, DNS encoding, and namehash         |
+| Snapshot        | Pinned reads, strict ABI decoding, CCIP Read, and reorg behavior     |
+| Authority       | Every Algorithm 1 branch, zero owners, fuses, and expiry boundaries  |
+| Claim           | Every field comparison and JSON closed-object rule                   |
+| EIP-712         | Type hash, domain separator, struct hash, and final digest           |
+| Signature       | EOA malleability and ERC-1271 success/failure/ABI cases              |
+| Proof key       | Every input hash, encoded preimage, and final key                    |
+| Lifecycle       | Clock skew, exclusive expiry, maximum lifetime, and cache bounds     |
+| HTTPS method    | URL parsing, proof URL, TLS/HTTP policy, size, and network blocking  |
+| DNS method      | Base32, owner limits, TXT chunks, aliases, DNSSEC, and freshness     |
+| EIP-155 account | Coin mapping, target, EOA/ERC-1271, target blocks, and proof URI     |
+| End to end      | Complete positive and representative non-positive evaluations        |
+
+Every numerical and size limit MUST have cases immediately below, at, and above
+the boundary where meaningful.
+
+## Cryptographic Intermediates
+
+Positive cryptographic cases MUST expose at least:
+
+```text
+normalizedName
+node
+valueBytes
+valueHash
+claimTypeHash
+domainSeparator
+claimStructHash
+commonClaimDigest
+proofKeyTypeHash
+recordTypeHash
+recordKeyHash
+methodHash
+proofKey
+```
+
+Signature cases MUST include the exact message digest, signature bytes,
+expected recovered account or ERC-1271 calldata, exact return bytes, and
+evaluation block context.
+
+## Deterministic Fixtures
+
+Conformance tests MUST NOT depend on mutable public RPC, HTTP, DNS, IPFS, or
+clock state.
+
+The corpus MUST provide deterministic fixtures for:
+
+- Ethereum block headers, code, calls, returns, reverts, and reorgs;
+- Universal Resolver and CCIP Read request/response transcripts;
+- HTTP DNS resolutions, peer addresses, TLS outcomes, headers, body chunks,
+  compressed limits, redirects, and timeouts;
+- complete signed DNS zones, trust anchors, alias chains, TTL age, and
+  validation time; and
+- target-chain blocks and ERC-1271 behavior.
+
+Fixture clocks and block timestamps MUST be explicit.
+
+## Pass Criteria
+
+An implementation passes one advertised profile only when it:
+
+1. executes every applicable case without modifying the corpus;
+2. matches every accept/reject expectation;
+3. matches every required deterministic intermediate byte for byte;
+4. enforces fixture I/O boundaries without contacting live services; and
+5. reports unsupported for vector areas outside its advertised runtime profile.
+
+Skipping an applicable case is failure, not success. A restricted runtime may
+publish a narrower conformance tuple only when the omitted capability is
+explicit in that tuple.
+
+At least two independent implementations MUST produce identical frozen
+intermediates before the corresponding protocol identifier is considered
+interoperable.

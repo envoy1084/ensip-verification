@@ -1,3 +1,13 @@
 {
-  "index": "Overview and Conformance"
+  "index": "Overview and Conformance",
+  "data-types-and-encoding": "Data Types and Encoding",
+  "discovery-and-descriptor": "Discovery and Descriptor Grammar",
+  "ens-snapshot-and-authority": "ENS Snapshot and Authority",
+  "claims-envelopes-and-signatures": "Claims, Envelopes, and Signatures",
+  "lifecycle-and-results": "Lifecycle and Results",
+  "verification-algorithm": "Verification Algorithm",
+  "method-https-origin": "Method — HTTPS Origin",
+  "method-dns-txt": "Method — DNS TXT",
+  "method-account-signature-eip155": "Method — EIP-155 Account Signature",
+  "conformance-vectors": "Conformance Vectors"
 }

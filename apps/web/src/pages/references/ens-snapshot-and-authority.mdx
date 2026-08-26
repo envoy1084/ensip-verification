@@ -1,0 +1,224 @@
+---
+title: ENS Snapshot and Authority
+description: Normative pinned ENS resolution and Authority Algorithm 1 for Ethereum mainnet.
+---
+
+# ENS Snapshot and Authority
+
+This page defines the ENS state that belongs to one verification attempt and
+the account selected by Authority Algorithm 1.
+
+## Evaluation Snapshot
+
+Before reading ENS state, the verifier MUST select one Ethereum mainnet block
+and record:
+
+| Field           | Requirement                                    |
+| --------------- | ---------------------------------------------- |
+| Chain ID        | `1`                                            |
+| Block number    | Exact number used for every snapshot operation |
+| Block hash      | Hash identifying the selected canonical block  |
+| Block timestamp | Timestamp from that block's header             |
+
+The following operations MUST use that block:
+
+- target-record resolution;
+- discovery-record resolution;
+- ENS Registry ownership reads;
+- Name Wrapper data reads;
+- Base Registrar ownership and expiry reads;
+- authority code lookup; and
+- authority ERC-1271 validation.
+
+An implementation SHOULD anchor RPC calls by block hash when the provider
+supports it. If it uses a block number, it MUST verify that the canonical block
+at that number still has the recorded hash before returning a positive result.
+If the block is removed by a reorganization, the evaluation MUST be discarded
+and repeated against a new snapshot.
+
+The checked-at wall-clock time is not the block timestamp. The block timestamp
+is used for ownership-expiry checks at the snapshot; checked-at is used for
+claim validity and the returned result's current validity.
+
+## Name Preparation
+
+The verifier MUST:
+
+1. normalize the caller-supplied name using the
+   [ENSIP-15](https://docs.ens.domains/ensip/15/) algorithm and data selected by
+   `ensrv1`;
+2. reject a normalization failure;
+3. calculate `node = namehash(normalizedName)`; and
+4. DNS-encode that same normalized name according to
+   [ENSIP-10](https://docs.ens.domains/ensip/10/) for Universal Resolver calls.
+
+The normalized string, node, and DNS-encoded name MUST be reused unchanged
+throughout the attempt. A response or proof MUST NOT replace any of them.
+
+The exact ENSIP-15 normalization-data release for v0 is not yet frozen.
+
+## Pinned Record Resolution
+
+Resolve both the target selector and its derived discovery `text` key through
+an [ENSIP-23](https://docs.ens.domains/ensip/23/) Universal Resolver at the
+evaluation block. Both calls MUST use the same DNS-encoded name.
+
+CCIP Read is permitted. Every `OffchainLookup` callback and every subsequent
+resolver call MUST remain pinned to the evaluation block. Redirecting a
+callback or retry to `latest` is invalid.
+
+For each result, the verifier MUST:
+
+1. require the Universal Resolver call to succeed;
+2. strictly ABI-decode the Universal Resolver response;
+3. strictly decode exactly one return value of the selected resolver function;
+4. reject a wrong return type, malformed offset or padding, trailing return
+   data, or invalid UTF-8 string; and
+5. reject an empty logical target value or empty descriptor.
+
+The resolver address returned by resolution is diagnostic context only. It is
+not an authority and is not included in the common claim.
+
+The descriptor MUST be parsed according to
+[Discovery and Descriptor Grammar](./discovery-and-descriptor). The target
+record's logical bytes are hashed according to
+[Data Types and Encoding](./data-types-and-encoding).
+
+## Authority Algorithm 1
+
+Authority Algorithm 1 applies only to Ethereum mainnet and descriptor
+`a=1`.
+
+### Contracts
+
+| Contract       | Mainnet address                              |
+| -------------- | -------------------------------------------- |
+| ENS Registry   | `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` |
+| Base Registrar | `0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85` |
+| Name Wrapper   | `0xD4416b13d2b3a9Bae7AcD5D6C2BbDBE25686401`  |
+
+The algorithm returns:
+
+```text
+authority: address
+authorityValidUntil?: uint64
+```
+
+Absence of `authorityValidUntil` means that Algorithm 1 found no scheduled
+ownership expiry. It does not mean that the authority cannot change.
+
+### Name Classification
+
+A `.eth` second-level name has exactly two labels and a final label equal to
+`eth`. Its registrar token ID is:
+
+```text
+tokenId = uint256(keccak256(UTF8(firstLabel)))
+```
+
+A reverse name is the name `reverse` itself or any name whose final label is
+`reverse`. Algorithm 1 does not support reverse names.
+
+[`PARENT_CANNOT_CONTROL`](https://docs.ens.domains/wrapper/fuses/) is Name
+Wrapper fuse bit `1 << 16` (`0x00010000`).
+
+### Ordered Algorithm
+
+All calls below use the evaluation block, and every “active” test means:
+
+```text
+blockTimestamp < expiry
+```
+
+1. Reject a reverse name.
+2. Read `registryOwner = ENSRegistry.owner(node)`.
+3. If `registryOwner == NameWrapper`:
+   1. Read
+      `(wrappedOwner, fuses, wrapperExpiry) = NameWrapper.getData(uint256(node))`.
+   2. Require `wrappedOwner != address(0)`.
+   3. If the name is a `.eth` second-level name:
+      1. derive its registrar `tokenId`;
+      2. read `registrarExpiry = BaseRegistrar.nameExpires(tokenId)`;
+      3. require `blockTimestamp < registrarExpiry`;
+      4. require `BaseRegistrar.ownerOf(tokenId) == NameWrapper`; and
+      5. return `wrappedOwner` with
+         `authorityValidUntil = registrarExpiry`.
+   4. Otherwise, if
+      `(fuses & PARENT_CANNOT_CONTROL) != 0`:
+      1. require `blockTimestamp < wrapperExpiry`; and
+      2. return `wrappedOwner` with
+         `authorityValidUntil = wrapperExpiry`.
+   5. Otherwise, return `wrappedOwner` without an authority-expiry bound.
+4. Otherwise, if the name is a `.eth` second-level name:
+   1. derive its registrar `tokenId`;
+   2. read `registrarExpiry = BaseRegistrar.nameExpires(tokenId)`;
+   3. require `blockTimestamp < registrarExpiry`;
+   4. read `registrant = BaseRegistrar.ownerOf(tokenId)`;
+   5. require `registrant != address(0)`; and
+   6. return `registrant` with
+      `authorityValidUntil = registrarExpiry`.
+5. Otherwise:
+   1. require `registryOwner != address(0)`; and
+   2. return `registryOwner` without an authority-expiry bound.
+
+Any revert, malformed return, missing contract state, failed active test, or
+zero selected owner makes authority resolution non-positive.
+
+The selected account MUST equal `claim.authority`. Authority-signature
+validation is defined by the claims and signatures page; it uses the authority
+account's code at this same evaluation block.
+
+## Authority Selection Constraints
+
+Algorithm 1 selects only the account returned above. It MUST NOT substitute:
+
+- an ENS Registry operator;
+- a Base Registrar operator;
+- a Name Wrapper operator or approved account;
+- the resolver or a resolver delegate;
+- an ancestor owner;
+- a CCIP Read gateway or signer;
+- an address contained in the target record; or
+- an authority supplied by the proof.
+
+A wildcard-resolved or offchain virtual child with no nonzero exact owner under
+Algorithm 1 is unsupported, even when its target and descriptor resolve
+successfully.
+
+For a wrapped `.eth` second-level name, the authority bound is the Base
+Registrar's `nameExpires(tokenId)`, not the wrapper's stored expiry. The
+wrapper value includes the registration grace period and MUST NOT extend a
+positive verification result into grace.
+
+For another wrapped name, wrapper expiry is an authority bound only while
+`PARENT_CANNOT_CONTROL` is burned. Without that fuse, expiry resets wrapper
+fuses but is not treated as the current wrapped owner's scheduled ownership
+expiry.
+
+## Current-Time Requirement
+
+Immediately before returning a positive result, if
+`authorityValidUntil` exists, require:
+
+```text
+checkedAt < authorityValidUntil
+```
+
+This check is additional to the snapshot-time active check. It prevents an old
+snapshot from extending a result beyond a known authority expiry.
+
+## Unfrozen v0 Parameters
+
+Stable v0 conformance still requires decisions for:
+
+- the exact Universal Resolver deployment or deployment-selection rule;
+- maximum snapshot age and caller-selectable finality policy;
+- authenticated revision consistency between separate CCIP Read responses;
+- treatment of an unwrapped subname left behind after its parent is
+  re-registered; and
+- whether an unexpired proof may become valid again when a previous authority
+  later regains the name.
+
+Until CCIP revision consistency is frozen, implementations supporting separate
+offchain target and descriptor responses MUST document their consistency
+policy and MUST NOT claim stable interoperability for that case.

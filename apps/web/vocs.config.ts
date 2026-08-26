@@ -94,6 +94,61 @@ export default defineConfig({
         text: "Start",
         items: [{ text: "Overview and Conformance", link: "/references" }],
       },
+      {
+        text: "Common",
+        items: [
+          {
+            text: "Data Types and Encoding",
+            link: "/references/data-types-and-encoding",
+          },
+          {
+            text: "Discovery and Descriptor Grammar",
+            link: "/references/discovery-and-descriptor",
+          },
+          {
+            text: "ENS Snapshot and Authority",
+            link: "/references/ens-snapshot-and-authority",
+          },
+          {
+            text: "Claims, Envelopes, and Signatures",
+            link: "/references/claims-envelopes-and-signatures",
+          },
+          {
+            text: "Lifecycle and Results",
+            link: "/references/lifecycle-and-results",
+          },
+          {
+            text: "Verification Algorithm",
+            link: "/references/verification-algorithm",
+          },
+        ],
+      },
+      {
+        text: "Methods",
+        items: [
+          {
+            text: "HTTPS Origin",
+            link: "/references/method-https-origin",
+          },
+          {
+            text: "DNS TXT",
+            link: "/references/method-dns-txt",
+          },
+          {
+            text: "EIP-155 Account Signature",
+            link: "/references/method-account-signature-eip155",
+          },
+        ],
+      },
+      {
+        text: "Validation",
+        items: [
+          {
+            text: "Conformance Vectors",
+            link: "/references/conformance-vectors",
+          },
+        ],
+      },
     ],
   },
 });

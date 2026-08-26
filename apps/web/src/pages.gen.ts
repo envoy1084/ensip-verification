@@ -19,7 +19,17 @@ type Page =
   | { path: '/docs/reference/references'; render: 'static' }
   | { path: '/docs/walkthrough'; render: 'static' }
   | { path: '/'; render: 'static' }
+  | { path: '/references/claims-envelopes-and-signatures'; render: 'static' }
+  | { path: '/references/conformance-vectors'; render: 'static' }
+  | { path: '/references/data-types-and-encoding'; render: 'static' }
+  | { path: '/references/discovery-and-descriptor'; render: 'static' }
+  | { path: '/references/ens-snapshot-and-authority'; render: 'static' }
   | { path: '/references'; render: 'static' }
+  | { path: '/references/lifecycle-and-results'; render: 'static' }
+  | { path: '/references/method-account-signature-eip155'; render: 'static' }
+  | { path: '/references/method-dns-txt'; render: 'static' }
+  | { path: '/references/method-https-origin'; render: 'static' }
+  | { path: '/references/verification-algorithm'; render: 'static' }
 
 // prettier-ignore
 declare module 'waku/router' {

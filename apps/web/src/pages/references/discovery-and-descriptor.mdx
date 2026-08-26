@@ -1,0 +1,199 @@
+---
+title: Discovery and Descriptor Grammar
+description: Normative record-selector mapping, discovery-key derivation, descriptor grammar, parsing, and serialization.
+---
+
+# Discovery and Descriptor Grammar
+
+This page defines how a target resolver record selects its discovery record and
+how the discovery record selects an authority algorithm, verification method,
+and optional proof location.
+
+## Supported Record Selectors
+
+The verifier begins with one exact selector supplied by the caller:
+
+| Selector               | `recordType`  | `recordKey`                  |
+| ---------------------- | ------------- | ---------------------------- |
+| `text(node, key)`      | `text`        | Exact `key`                  |
+| `addr(node, coinType)` | `addr`        | Canonical decimal `coinType` |
+| `contenthash(node)`    | `contenthash` | Empty string                 |
+| `data(node, key)`      | `data`        | Exact `key`                  |
+
+Unknown resolver functions are unsupported. A new function requires a
+registered `recordType`, exact selector mapping, strict return decoder,
+`valueHash` input definition, and empty-value rule.
+
+## Discovery-Key Derivation
+
+The discovery record is a `text` record on the same node as the target record.
+Its key is constructed as follows:
+
+| Target selector        | Discovery text key                              |
+| ---------------------- | ----------------------------------------------- |
+| `text(node, key)`      | `verification[text][` + key + `]`               |
+| `addr(node, coinType)` | `verification[addr][` + decimal(coinType) + `]` |
+| `contenthash(node)`    | `verification[contenthash]`                     |
+| `data(node, key)`      | `verification[data][` + key + `]`               |
+
+`+` denotes direct string concatenation. Text and data keys MUST be copied
+exactly. Brackets and any other valid characters in the original key remain
+part of the discovery key:
+
+```text
+key:       agent-endpoint[mcp]
+discovery: verification[text][agent-endpoint[mcp]]
+```
+
+A verifier constructs this key from the known selector. It MUST NOT parse a
+discovery key to recover or infer a selector.
+
+For `addr`, the coin type MUST use the canonical unsigned-decimal encoding
+defined by [Data Types and Encoding](./data-types-and-encoding). Alternate
+forms such as `060`, `+60`, and `0x3c` are invalid.
+
+## Record Resolution
+
+The target record and discovery record MUST be resolved using:
+
+- the same normalized ENS name;
+- the same DNS-encoded name;
+- the same node; and
+- the same evaluation block.
+
+The complete requirements for pinned resolution, strict return decoding, CCIP
+Read, and reorganization handling are defined by
+[ENS Snapshot and Authority](./ens-snapshot-and-authority).
+
+An empty target record or empty discovery record is non-positive. The verifier
+MUST parse the descriptor returned by the discovery record; it MUST NOT obtain
+a descriptor from an index, parent name, alternate resolver key, cache entry
+for another block, or proof envelope.
+
+## Descriptor Fields
+
+| Field | Presence        | Value                                    |
+| ----- | --------------- | ---------------------------------------- |
+| `a`   | Exactly once    | Authority algorithm version              |
+| `m`   | Exactly once    | Immutable verification-method identifier |
+| `u`   | Method-specific | Absolute external proof URI              |
+
+No other field is defined for `ensrv1`. The descriptor contains no inline
+claim, signature, proof bytes, or proof hash.
+
+## Descriptor Grammar
+
+The following ABNF uses the terminals from
+[RFC 5234](https://www.rfc-editor.org/rfc/rfc5234.html) and the
+case-sensitive string notation from
+[RFC 7405](https://www.rfc-editor.org/rfc/rfc7405.html):
+
+```abnf
+descriptor       = common-version 2*3(SP field)
+common-version   = %s"ensrv1"
+
+field            = authority-field / method-field / uri-field
+authority-field  = %s"a=" authority-version
+method-field     = %s"m=" method-id
+uri-field        = %s"u=" uri-value
+
+authority-version = positive-decimal
+positive-decimal  = NONZERO-DIGIT *DIGIT
+NONZERO-DIGIT     = %x31-39
+DIGIT             = %x30-39
+
+method-id        = method-label *("." method-label) "." method-version
+method-label     = LCALPHA / (LCALPHA *method-char method-end)
+method-char      = LCALPHA / DIGIT / "-"
+method-end       = LCALPHA / DIGIT
+method-version   = %s"v" positive-decimal
+LCALPHA          = %x61-7A
+
+uri-value        = 1*(%x21-7E)
+```
+
+The grammar defines lexical structure. The following semantic constraints also
+apply:
+
+- the descriptor is ASCII and at most 2,048 bytes;
+- fields are separated by exactly one `U+0020` space;
+- leading or trailing whitespace, repeated spaces, tabs, and line breaks are
+  invalid;
+- `a` and `m` occur exactly once;
+- `u` occurs at most once;
+- duplicate and unknown fields are invalid;
+- `a` is in the range `1` through `4294967295`;
+- `m` is at most 64 ASCII bytes;
+- `u` is at most 1,024 ASCII bytes; and
+- the selected authority version and method must be implemented exactly.
+
+Field order is semantically irrelevant when parsing. The `2*3` repetition does
+not make arbitrary combinations valid; required-field counts and the selected
+method's `u` policy are enforced after lexical parsing.
+
+## URI Validation
+
+Split a field token at its first `=`; subsequent `=` characters remain part of
+the URI.
+
+`u` MUST parse as an absolute URI under
+[RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html). It MUST contain a
+scheme and MUST NOT contain user information or a fragment. A verifier MUST NOT
+trim, repair, percent-decode, or resolve it against a base URI.
+
+The method defines permitted schemes, URI canonicalization, and retrieval
+policy. Every unlisted scheme is unsupported. Parsing an absolute URI does not
+authorize fetching it.
+
+The v0 field policy is:
+
+| Method                        | `u` policy              |
+| ----------------------------- | ----------------------- |
+| `https-origin.v1`             | Forbidden               |
+| `dns-txt.v1`                  | Forbidden               |
+| `account-signature.eip155.v1` | Required; `https:` only |
+
+## Parsing Algorithm
+
+Given the exact bytes returned by the discovery `text` record:
+
+1. Reject an empty value, a value over 2,048 bytes, or non-ASCII input.
+2. Tokenize only on `U+0020`; reject empty tokens.
+3. Require the first token to equal `ensrv1`.
+4. For each remaining token, split at the first `=`; reject a missing name,
+   missing separator, or empty value.
+5. Reject every unknown or duplicate field.
+6. Require exactly one `a` and one `m`.
+7. Validate `a`, `m`, and optional `u` against the grammar and limits.
+8. Load the exact authority algorithm and method. Do not perform version or
+   profile fallback.
+9. Enforce the selected method's `u` presence and URI policy.
+
+Parsing MUST complete before any proof retrieval begins.
+
+## Canonical Serialization
+
+A serializer MUST emit one of these shapes:
+
+```text
+ensrv1 a=<authority-version> m=<method-id>
+ensrv1 a=<authority-version> m=<method-id> u=<absolute-uri>
+```
+
+It MUST emit fields in `a`, `m`, `u` order with one ASCII space between
+tokens and no leading or trailing whitespace. It MUST serialize the parsed
+integer value of `a` in canonical decimal.
+
+Parsing accepts reordered fields because field order has no semantics.
+Serialization always uses canonical order.
+
+## Unfrozen v0 Parameters
+
+The following must be resolved before stable v0 conformance:
+
+- maximum UTF-8 byte length of the complete discovery key;
+- registration of the parameterized `verification[...]` key family;
+- authority-version and method-identifier registries.
+
+Until the discovery-key limit is frozen, implementations MUST document their
+limit and MUST NOT claim stable interoperability beyond it.

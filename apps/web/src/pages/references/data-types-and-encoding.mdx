@@ -1,0 +1,199 @@
+---
+title: Data Types and Encoding
+description: Canonical wire encodings, field derivations, limits, and rejection rules for ENS Record Verification.
+---
+
+# Data Types and Encoding
+
+This page defines only protocol-wide encoding decisions. Field-specific
+grammars and additional constraints are defined on the page that owns the
+field.
+
+An implementation MUST validate a value's encoding and size before using it in
+a derivation, comparison, hash, signature operation, resolver call, or external
+request.
+
+## Exactness
+
+Unless a rule explicitly requires a transformation, strings and bytes are used
+exactly as received. Implementations MUST NOT trim, case-fold, normalize,
+percent-decode, repair, or otherwise rewrite a value before validating or
+comparing it.
+
+Identifiers and tokens are case-sensitive. Byte values are compared byte for
+byte. Strings are compared by exact Unicode scalar-value sequence. Numeric
+values are compared as integers only after their canonical wire encoding has
+been validated.
+
+## Text Decoding
+
+Text inputs MUST be decoded as strict UTF-8. A decoder MUST reject malformed,
+truncated, overlong, surrogate, or out-of-range sequences; it MUST NOT replace
+invalid input with `U+FFFD`.
+
+The proof-envelope JSON document MUST NOT begin with a UTF-8 byte-order mark.
+
+Fields declared ASCII MUST reject every code point above `U+007F`. ASCII does
+not imply that control characters are accepted; the field's grammar determines
+the permitted subset.
+
+Byte limits are measured against the exact byte sequence named by the rule,
+never UTF-16 code units or displayed characters. A limit on decoded content is
+applied after transport content decoding.
+
+## Canonical Unsigned Integers
+
+The canonical decimal representation is:
+
+```abnf
+DIGIT          = %x30-39
+NONZERO-DIGIT  = %x31-39
+decimal-uint   = "0" / (NONZERO-DIGIT *DIGIT)
+```
+
+Signs, whitespace, separators, leading zeros, decimal points, and exponents are
+invalid. After lexical validation, the value MUST be within the field's range:
+
+| Use                          | Type     | Accepted range                    | Wire representation          |
+| ---------------------------- | -------- | --------------------------------- | ---------------------------- |
+| Descriptor authority version | `uint32` | `1`–`4294967295`                  | Unquoted ASCII decimal       |
+| Claim authority version      | `uint32` | `1`–`4294967295`                  | JSON decimal string          |
+| `issuedAt`, `validUntil`     | `uint64` | `0`–`18446744073709551615`        | JSON decimal string          |
+| `addr` record coin type      | unsigned | Range defined by the resolver ABI | Canonical decimal record key |
+
+EIP-712 integers MUST NOT be represented as JSON numbers. Implementations MUST
+use an integer type that preserves the full declared range.
+
+## Canonical Hexadecimal
+
+Every protocol hexadecimal string MUST:
+
+- start with the exact prefix `0x`;
+- use only lowercase `0`–`9` and `a`–`f`;
+- contain exactly two digits per byte; and
+- preserve leading zero bytes.
+
+The empty encoding `0x` is valid only where the owning field permits empty
+bytes.
+
+| Field                        | Required encoded width                      |
+| ---------------------------- | ------------------------------------------- |
+| ENS node and `valueHash`     | `0x` plus 64 lowercase hexadecimal digits   |
+| Ethereum address             | `0x` plus 40 lowercase hexadecimal digits   |
+| EOA authority signature      | `0x` plus 130 lowercase hexadecimal digits  |
+| ERC-1271 authority signature | Even-length lowercase hex for 1–8,192 bytes |
+
+Mixed-case checksum addresses are not accepted in protocol JSON. Address
+comparison is performed on the decoded 20 bytes. Whether the zero address is
+semantically valid is defined by the authority or method algorithm using the
+field.
+
+## Protocol Identifiers
+
+| Value             | Requirement                                      |
+| ----------------- | ------------------------------------------------ |
+| Common version    | Exact ASCII token `ensrv1`                       |
+| Method identifier | Exact ASCII token, at most 64 bytes              |
+| URL methods       | `https-origin.v1` or `dns-txt.v1`                |
+| Account method    | `account-signature.eip155.v1`; not frozen        |
+| Record type       | Exactly `text`, `addr`, `contenthash`, or `data` |
+
+Unknown identifiers MUST be rejected. Implementations MUST NOT infer behavior
+from an unknown identifier or select the closest supported version.
+
+## Names, Keys, URIs, and Targets
+
+### ENS name
+
+The caller-supplied name MUST be normalized with the ENSIP-15 algorithm and
+normalization data selected by the common version. The resulting exact string
+MUST be used for resolution, namehash, and `claim.name`; the proof-supplied name
+MUST NOT be normalized before comparison.
+
+The v0 ENSIP-15 normalization-data release is not yet frozen.
+
+### Record key
+
+| Record type   | Common-claim key               |
+| ------------- | ------------------------------ |
+| `text`        | Exact resolver key             |
+| `addr`        | Coin type in canonical decimal |
+| `contenthash` | Empty string                   |
+| `data`        | Exact resolver key             |
+
+Text and data keys MUST NOT be trimmed, normalized, case-folded,
+percent-decoded, or reconstructed from the discovery-record name.
+
+The maximum UTF-8 length of a record key and complete discovery key is not yet
+frozen.
+
+### URI
+
+A descriptor proof URI MUST be an ASCII absolute URI under RFC 3986 and MUST
+NOT be repaired or resolved against a base URI. Parsing the URI does not
+authorize retrieval. The descriptor and selected method define accepted
+schemes, components, canonicalization, and retrieval policy.
+
+An RFC 3986 URI is not implicitly a WHATWG URL. A method that requires WHATWG
+URL parsing states that operation explicitly.
+
+### Target
+
+There is no common target normalization. The selected method derives the
+canonical target from the exact live record value. `claim.target` MUST equal
+that derived target exactly.
+
+## Resolver Value Hash
+
+`valueHash` is Keccak-256 of the decoded logical resolver value:
+
+| Record type   | Bytes to hash                                        |
+| ------------- | ---------------------------------------------------- |
+| `text`        | Strict UTF-8 encoding of the decoded resolver string |
+| `addr`        | Exact bytes in the decoded resolver `bytes` value    |
+| `contenthash` | Exact bytes in the decoded resolver `bytes` value    |
+| `data`        | Exact bytes in the decoded resolver `bytes` value    |
+
+Implementations MUST NOT hash calldata, ABI offsets or padding, raw EVM return
+data, Universal Resolver framing, a formatted address, or any other displayed
+representation.
+
+## Proof-Envelope Field Encoding
+
+| Claim value                            | JSON encoding                             |
+| -------------------------------------- | ----------------------------------------- |
+| Name, record type, key, method, target | JSON string                               |
+| Authority version and Unix times       | Canonical decimal JSON string             |
+| Node and value hash                    | Lowercase 32-byte hexadecimal JSON string |
+| Authority address                      | Lowercase 20-byte hexadecimal JSON string |
+| Signature bytes                        | Lowercase hexadecimal JSON string         |
+
+The JSON serialization is not itself signed. The verifier decodes these values
+and constructs the EIP-712 typed-data digest defined by the claims page.
+
+Closed-object rules, duplicate-member rejection, required fields, and JSON
+structural limits are defined by the claims and envelopes page.
+
+## Limits
+
+| Object                                  | Limit             |
+| --------------------------------------- | ----------------- |
+| Complete verification descriptor        | 2,048 ASCII bytes |
+| Descriptor method identifier            | 64 ASCII bytes    |
+| Descriptor proof URI                    | 1,024 ASCII bytes |
+| Decoded proof envelope                  | 256 KiB           |
+| `https-origin.v1` decoded response body | 256 KiB           |
+| `dns-txt.v1` concatenated proof value   | 2,048 bytes       |
+| ERC-1271 authority signature            | 1–8,192 bytes     |
+| EOA authority signature                 | Exactly 65 bytes  |
+
+When multiple limits apply, the strictest limit applies. The maximum discovery
+key length and JSON nesting, member-count, and individual-string limits are not
+yet frozen.
+
+## Rejection Rule
+
+An invalid or non-canonical required value makes the attempt non-positive. A
+verifier MUST NOT coerce an integer, truncate input, repair text, accept an
+alternate decimal or hexadecimal representation, normalize an exact field, or
+continue an operation that depends on the invalid value.

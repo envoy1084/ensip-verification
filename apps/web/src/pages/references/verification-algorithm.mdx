@@ -1,0 +1,145 @@
+---
+title: Verification Algorithm
+description: Ordered fail-closed algorithm joining ENS discovery, authority, claims, lifecycle, and method evidence.
+---
+
+# Verification Algorithm
+
+This page defines the required order and data dependencies for one verification
+attempt. A method page may add steps inside the indicated method boundaries but
+MUST NOT omit or reorder a common dependency in a way that changes its meaning.
+
+## Inputs
+
+One attempt receives:
+
+| Input                  | Requirement                                       |
+| ---------------------- | ------------------------------------------------- |
+| ENS name               | Caller-supplied string                            |
+| Target record selector | One supported exact selector                      |
+| ENS block policy       | Policy for selecting one mainnet snapshot         |
+| Checked-at time        | Verifier-controlled Unix time                     |
+| Method/runtime policy  | Transport, network, finality, and resource limits |
+
+Proof bytes, authority, target, descriptor, and derived claim fields are not
+caller-authoritative inputs.
+
+## Ordered Procedure
+
+The verifier MUST execute the following logical procedure:
+
+1. **Validate the request**
+   1. Require a supported target selector.
+   2. Validate its key or coin type.
+   3. Normalize the ENS name with the version-selected ENSIP-15 data.
+   4. Derive the normalized name, node, DNS-encoded name, `recordType`,
+      `recordKey`, and discovery key.
+2. **Select the ENS snapshot**
+   1. Select one Ethereum mainnet evaluation block under runtime policy.
+   2. Record its number, hash, and timestamp.
+3. **Resolve live records**
+   1. Resolve the target record at the evaluation block.
+   2. Resolve the derived discovery `text` record at the same block.
+   3. Apply strict resolver and ABI decoding.
+   4. Require both logical values to be nonempty.
+4. **Parse the descriptor**
+   1. Parse the discovery value using the `ensrv1` closed grammar.
+   2. Load the exact authority algorithm and method.
+   3. Reject an unsupported identifier without fallback.
+   4. Enforce the method's proof-URI presence and scheme policy.
+5. **Resolve authority**
+   1. Run the selected authority algorithm at the evaluation block.
+   2. Require a nonzero supported authority.
+   3. Preserve any `authorityValidUntil`.
+6. **Derive expected claim inputs**
+   1. Derive `valueHash` from the decoded logical target value.
+   2. Derive the canonical method target.
+   3. Derive a proof key when the method uses one.
+   4. Derive the one authorized proof location.
+7. **Retrieve method evidence**
+   1. Apply the method's network and transport policy before and during I/O.
+   2. Enforce streaming byte and time limits.
+   3. Do not follow or search alternate proof locations.
+8. **Parse the envelope**
+   1. Apply the method's decoded-body limit.
+   2. Parse strict duplicate-aware UTF-8 JSON.
+   3. Require the exact closed top-level, claim, and method-proof objects.
+   4. Require `v == "ensrv1"`.
+9. **Compare the common claim**
+   1. Compare every derived non-time field with its expected live value.
+   2. Validate canonical integer, address, hash, and string encodings.
+   3. Apply the selected method's maximum signed lifetime.
+10. **Validate authority approval**
+    1. Calculate the common EIP-712 digest.
+    2. Read authority code at the ENS evaluation block.
+    3. Validate the EOA or ERC-1271 authority signature without fallback.
+11. **Validate method evidence**
+    1. Validate the exact closed `proof` object.
+    2. Validate live publication, DNSSEC, target signature, or other evidence
+       required by the selected method.
+    3. Preserve any method hard-expiry and authenticated cache bound.
+12. **Revalidate terminal conditions**
+    1. Use the attempt's single verifier-controlled `checkedAt`.
+    2. Recheck claim, authority, and method exclusive time bounds immediately
+       before the result.
+    3. Confirm that the ENS block hash remains canonical.
+    4. Confirm any required target-chain snapshot remains acceptable.
+13. **Return**
+    1. If every required check passed, return the positive control result and
+       calculate `effectiveValidUntil` and `cacheUntil`.
+    2. Otherwise, return a non-positive protocol result with optional
+       diagnostics.
+
+An implementation MAY combine independent RPC calls or perform safe bounded
+work concurrently. The resulting values MUST still represent the dependencies
+and snapshots above. Concurrency MUST NOT cause proof retrieval before the live
+descriptor and method have been fully validated.
+
+## Method Dispatch Contract
+
+The common verifier provides a selected method with:
+
+```text
+normalizedName
+node
+recordType
+recordKey
+liveValue
+valueHash
+authorityVersion
+authority
+authorityValidUntil?
+method
+proofUri?
+domainSeparator
+evaluationBlock
+checkedAt
+```
+
+The method returns either non-positive or:
+
+```text
+target
+proofEnvelopeBytes
+methodEvidenceValidUntil?
+methodEvidenceCacheUntil?
+```
+
+The common verifier, not the method, parses and compares the common claim and
+validates the authority signature. A method MUST NOT override a common field,
+authority decision, or lifecycle bound.
+
+## Fail-Closed Requirements
+
+The attempt is non-positive if:
+
+- a required value is malformed, empty, unknown, expired, or non-canonical;
+- a required operation reverts, times out, exceeds a bound, or is unavailable;
+- two required values cannot be shown to belong to the required snapshot;
+- a runtime cannot enforce a required transport or network rule; or
+- any proof, signature, DNSSEC, TLS, authority, claim, or final canonicality
+  check fails.
+
+No recovery path may substitute another name, record, block, authority,
+descriptor, method, profile, URI, DNS owner, host, account, chain, signature
+scheme, or proof.
