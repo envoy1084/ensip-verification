@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
-import { MAINNET_UNIVERSAL_RESOLVER_ADDRESS } from "../src/protocol/contracts.js";
+import { MAINNET_UNIVERSAL_RESOLVER_ADDRESS } from "../src/data/contracts.js";
 import { EthereumAddress } from "../src/schema/encoding.js";
 import { EnsSnapshot } from "../src/schema/ens.js";
 

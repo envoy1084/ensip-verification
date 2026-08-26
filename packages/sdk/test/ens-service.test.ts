@@ -3,8 +3,8 @@ import { Effect, Schema } from "effect";
 
 import { encodeFunctionResult, type Hex, type PublicClient } from "viem";
 
+import { resolverTextAbi } from "../src/data/abi.js";
 import { EnsService } from "../src/ens/service.js";
-import { resolverTextAbi } from "../src/protocol/abi.js";
 import { prepareEnsName } from "../src/protocol/name.js";
 import { RecordSelector } from "../src/schema/records.js";
 

@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import {
   METHOD_IDENTIFIER_MAX_BYTES,
   PROOF_URI_MAX_BYTES,
-} from "../protocol/limits.js";
+} from "../data/limits.js";
 import { Uint32 } from "./encoding.js";
 
 export const ProtocolVersion = Schema.Literal("ensrv1");

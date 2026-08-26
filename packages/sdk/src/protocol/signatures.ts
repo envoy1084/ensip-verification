@@ -11,12 +11,12 @@ import {
   type PublicClient,
 } from "viem";
 
+import { erc1271Abi } from "../data/abi.js";
+import { AUTHORITY_SIGNATURE_MAX_BYTES } from "../data/limits.js";
 import {
   ClaimError,
   type ValidateAuthoritySignatureInput,
 } from "../schema/claims.js";
-import { erc1271Abi } from "./abi.js";
-import { AUTHORITY_SIGNATURE_MAX_BYTES } from "./limits.js";
 
 const SECP256K1_ORDER =
   0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;

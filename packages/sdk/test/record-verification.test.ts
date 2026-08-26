@@ -2,8 +2,8 @@ import { assert, describe, it } from "@effect/vitest";
 
 import { encodeFunctionResult, type PublicClient } from "viem";
 
+import { resolverTextAbi } from "../src/data/abi.js";
 import { RecordVerification } from "../src/index.js";
-import { resolverTextAbi } from "../src/protocol/abi.js";
 
 const resolverAddress = "0x0000000000000000000000000000000000000123";
 

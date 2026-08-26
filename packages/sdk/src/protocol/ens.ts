@@ -10,6 +10,17 @@ import {
 } from "viem";
 
 import {
+  resolverAddressAbi,
+  resolverContenthashAbi,
+  resolverDataAbi,
+  resolverTextAbi,
+  universalResolverResolveAbi,
+} from "../data/abi.js";
+import {
+  ETHEREUM_MAINNET_CHAIN_ID,
+  MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
+} from "../data/contracts.js";
+import {
   EnsReadError,
   type EnsRecordSnapshot,
   EnsSnapshot,
@@ -24,17 +35,6 @@ import {
   RecordSelector,
   type RecordSelector as RecordSelectorType,
 } from "../schema/records.js";
-import {
-  resolverAddressAbi,
-  resolverContenthashAbi,
-  resolverDataAbi,
-  resolverTextAbi,
-  universalResolverResolveAbi,
-} from "./abi.js";
-import {
-  ETHEREUM_MAINNET_CHAIN_ID,
-  MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
-} from "./contracts.js";
 import { deriveDiscoveryKey } from "./discovery.js";
 
 const encodeRecordCall = (

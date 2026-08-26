@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 
+import { DESCRIPTOR_MAX_BYTES } from "../data/limits.js";
 import {
   AbsoluteProofUri,
   type Descriptor,
@@ -9,7 +10,6 @@ import {
   MethodIdentifier,
   AuthorityVersion,
 } from "../schema/descriptor.js";
-import { DESCRIPTOR_MAX_BYTES } from "./limits.js";
 
 export const v0DescriptorRegistry: DescriptorRegistry = {
   authorityVersions: new Set([1n]),

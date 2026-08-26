@@ -9,16 +9,20 @@ import {
 } from "viem";
 
 import {
-  type EnsAuthority,
-  EnsAuthorityError,
-  type ResolveEnsAuthorityV1Input,
-} from "../schema/ens.js";
-import { baseRegistrarAbi, ensRegistryAbi, nameWrapperAbi } from "./abi.js";
+  baseRegistrarAbi,
+  ensRegistryAbi,
+  nameWrapperAbi,
+} from "../data/abi.js";
 import {
   ENS_BASE_REGISTRAR_ADDRESS,
   ENS_NAME_WRAPPER_ADDRESS,
   ENS_REGISTRY_ADDRESS,
-} from "./contracts.js";
+} from "../data/contracts.js";
+import {
+  type EnsAuthority,
+  EnsAuthorityError,
+  type ResolveEnsAuthorityV1Input,
+} from "../schema/ens.js";
 
 export const PARENT_CANNOT_CONTROL = 1 << 16;
 

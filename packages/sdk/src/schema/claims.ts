@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import type { Hex } from "viem";
 
-import { AUTHORITY_SIGNATURE_MAX_BYTES } from "../protocol/limits.js";
+import { AUTHORITY_SIGNATURE_MAX_BYTES } from "../data/limits.js";
 import {
   AuthorityVersion,
   MethodIdentifier,

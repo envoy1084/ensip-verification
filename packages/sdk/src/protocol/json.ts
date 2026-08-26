@@ -1,13 +1,13 @@
 import { Effect, Schema } from "effect";
 
-import { ClaimError, ProofEnvelope } from "../schema/claims.js";
-import { isUnicodeScalarSequence } from "./encoding.js";
 import {
   JSON_MAX_DEPTH,
   JSON_MAX_STRING_BYTES,
   JSON_MAX_VALUES,
   PROOF_ENVELOPE_MAX_BYTES,
-} from "./limits.js";
+} from "../data/limits.js";
+import { ClaimError, ProofEnvelope } from "../schema/claims.js";
+import { isUnicodeScalarSequence } from "./encoding.js";
 
 export interface StrictJsonLimits {
   readonly maximumBytes?: number;
