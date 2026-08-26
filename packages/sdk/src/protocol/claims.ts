@@ -71,7 +71,16 @@ export const deriveCommonClaim = Effect.fn("deriveCommonClaim")(function* (
   input: DeriveCommonClaimInput,
 ) {
   const { recordType, recordKey } = deriveRecordMetadata(input.selector);
-  const valueHash = yield* deriveResolverValueHash(input.value);
+  const valueHash = yield* deriveResolverValueHash(input.value).pipe(
+    Effect.mapError(
+      (cause) =>
+        new ClaimError({
+          code: "INVALID_CLAIM",
+          message: "unable to hash the live resolver value",
+          cause,
+        }),
+    ),
+  );
 
   return yield* Schema.decodeUnknownEffect(CommonClaim)({
     name: input.name.normalizedName,
