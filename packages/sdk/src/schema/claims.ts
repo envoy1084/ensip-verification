@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 import type { Hex } from "viem";
 
+import { AUTHORITY_SIGNATURE_MAX_BYTES } from "../protocol/limits.js";
 import {
   AuthorityVersion,
   MethodIdentifier,
@@ -38,10 +39,15 @@ export const CommonClaim = Schema.Struct({
 
 export type CommonClaim = typeof CommonClaim.Type;
 
+const AuthoritySignature = LowercaseHex.check(
+  Schema.isMinLength(4, { expected: "at least one signature byte" }),
+  Schema.isMaxLength(2 + AUTHORITY_SIGNATURE_MAX_BYTES * 2),
+);
+
 export const ProofEnvelope = Schema.Struct({
   v: ProtocolVersion,
   claim: CommonClaim,
-  authoritySignature: LowercaseHex,
+  authoritySignature: AuthoritySignature,
   proof: Schema.Record(Schema.String, Schema.Json),
 });
 

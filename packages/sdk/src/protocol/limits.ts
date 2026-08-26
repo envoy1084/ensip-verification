@@ -1,3 +1,8 @@
 export const DESCRIPTOR_MAX_BYTES = 2_048;
 export const METHOD_IDENTIFIER_MAX_BYTES = 64;
 export const PROOF_URI_MAX_BYTES = 1_024;
+export const PROOF_ENVELOPE_MAX_BYTES = 256 * 1_024;
+export const JSON_MAX_DEPTH = 32;
+export const JSON_MAX_VALUES = 4_096;
+export const JSON_MAX_STRING_BYTES = 64 * 1_024;
+export const AUTHORITY_SIGNATURE_MAX_BYTES = 8_192;
