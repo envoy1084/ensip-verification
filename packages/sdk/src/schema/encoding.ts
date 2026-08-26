@@ -54,6 +54,22 @@ export const EthereumAddress = Schema.String.check(
 
 export type EthereumAddress = typeof EthereumAddress.Type;
 
+export const LowercaseEthereumAddress = Schema.String.check(
+  Schema.isPattern(/^0x[0-9a-f]{40}$/, {
+    expected: "a lowercase 20-byte Ethereum address",
+  }),
+);
+
+export type LowercaseEthereumAddress = typeof LowercaseEthereumAddress.Type;
+
+export const Bytes32Hex = Schema.String.check(
+  Schema.isPattern(/^0x[0-9a-f]{64}$/, {
+    expected: "a lowercase 32-byte hexadecimal value",
+  }),
+);
+
+export type Bytes32Hex = typeof Bytes32Hex.Type;
+
 export const LowercaseHex = Schema.String.check(
   Schema.isPattern(/^0x(?:[0-9a-f]{2})*$/, {
     expected: "0x-prefixed, even-length lowercase hexadecimal",
