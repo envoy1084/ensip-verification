@@ -9,7 +9,9 @@ and the draft `account-signature.eip155.v1` method.
 - [ ] Pin the exact ENSIP-15 normalization data used by `ensrv1`.
 - [ ] Set the maximum discovery-key and record-key byte lengths.
 - [ ] Set finite JSON nesting, member-count, and string limits.
-- [ ] Select the supported Ethereum mainnet Universal Resolver deployment.
+- [x] Fix v0 to Ethereum mainnet and ENSjs's Universal Resolver at
+      `0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe`, without a custom-resolver
+      override.
 - [ ] Define ENS block finality, maximum snapshot age, and reorg policy.
 - [ ] Define the CCIP Read consistency requirement for multiple offchain reads.
 - [ ] Freeze HTTP content encodings, deadlines, cache behavior, and network
@@ -62,6 +64,8 @@ and the draft `account-signature.eip155.v1` method.
 
 - [x] Implement ENSIP-15 normalization and namehash derivation.
 - [x] Implement DNS wire-name encoding for Universal Resolver calls.
+- [x] Define ENS snapshot, resolution, and expected read-failure schemas.
+- [x] Add the fixed mainnet Universal Resolver address and strict `resolve` ABI.
 - [ ] Implement small ENS read functions over the caller-provided Viem
       `PublicClient`; do not add a generic Ethereum RPC service abstraction.
 - [ ] Implement block selection with number, hash, timestamp, and canonicality
