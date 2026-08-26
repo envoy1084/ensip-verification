@@ -1,7 +1,10 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { parseDescriptor, serializeDescriptor } from "../src/index.js";
+import {
+  parseDescriptor,
+  serializeDescriptor,
+} from "../src/protocol/descriptor.js";
 
 describe("verification descriptors", () => {
   it.effect("parses canonical descriptors", () =>

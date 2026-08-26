@@ -199,7 +199,7 @@ export const readEnsRecord: (
   "readEnsRecord",
 )(function* (
   publicClient: PublicClient,
-  { name, selector, snapshot }: ReadRecordInput,
+  { name, selector, blockNumber }: ReadRecordInput,
 ) {
   const recordCall = encodeRecordCall(name, selector);
   const [response, resolver] = yield* Effect.tryPromise({
@@ -209,7 +209,7 @@ export const readEnsRecord: (
         abi: universalResolverResolveAbi,
         functionName: "resolve",
         args: [bytesToHex(name.dnsEncodedName), recordCall],
-        blockNumber: snapshot.blockNumber,
+        blockNumber,
       }),
     catch: (cause) =>
       new EnsReadError({
@@ -236,7 +236,7 @@ export const readEnsRecordSnapshot: (
   const record = yield* readEnsRecord(publicClient, {
     name,
     selector,
-    snapshot,
+    blockNumber: snapshot.blockNumber,
   });
   const discoveryKey = yield* deriveDiscoveryKey(selector).pipe(
     Effect.mapError(
@@ -264,7 +264,7 @@ export const readEnsRecordSnapshot: (
   const discovery = yield* readEnsRecord(publicClient, {
     name,
     selector: discoverySelector,
-    snapshot,
+    blockNumber: snapshot.blockNumber,
   });
 
   return { snapshot, record, discovery } satisfies EnsRecordSnapshot;

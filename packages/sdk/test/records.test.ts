@@ -1,13 +1,12 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
+import { deriveDiscoveryKey } from "../src/protocol/discovery.js";
 import {
-  deriveDiscoveryKey,
   deriveLogicalResolverValueBytes,
   deriveRecordMetadata,
-  LogicalResolverValue,
-  RecordSelector,
-} from "../src/index.js";
+} from "../src/protocol/records.js";
+import { LogicalResolverValue, RecordSelector } from "../src/schema/records.js";
 
 describe("record selectors and discovery", () => {
   it.effect("derives exact record metadata", () =>

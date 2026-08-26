@@ -1,15 +1,9 @@
-export * from "./protocol/abi.js";
-export * from "./protocol/authority.js";
-export * from "./protocol/contracts.js";
-export * from "./protocol/descriptor.js";
-export * from "./protocol/discovery.js";
-export * from "./protocol/encoding.js";
-export * from "./protocol/ens.js";
-export * from "./protocol/limits.js";
-export * from "./protocol/name.js";
-export * from "./protocol/records.js";
-export * from "./schema/descriptor.js";
-export * from "./schema/encoding.js";
-export * from "./schema/ens.js";
-export * from "./schema/name.js";
-export * from "./schema/records.js";
+export { RecordVerification } from "./record-verification.js";
+export type {
+  GetRecordData,
+  GetRecordInput,
+  GetRecordResult,
+  RecordVerificationError,
+  RecordVerificationOptions,
+  VerificationResult,
+} from "./schema/sdk.js";

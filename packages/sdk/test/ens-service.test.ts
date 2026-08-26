@@ -4,11 +4,9 @@ import { Effect, Schema } from "effect";
 import { encodeFunctionResult, type Hex, type PublicClient } from "viem";
 
 import { EnsService } from "../src/ens/service.js";
-import {
-  prepareEnsName,
-  RecordSelector,
-  resolverTextAbi,
-} from "../src/index.js";
+import { resolverTextAbi } from "../src/protocol/abi.js";
+import { prepareEnsName } from "../src/protocol/name.js";
+import { RecordSelector } from "../src/schema/records.js";
 
 const resolverAddress = "0x0000000000000000000000000000000000000123";
 const blockHash = `0x${"ab".repeat(32)}` as Hex;

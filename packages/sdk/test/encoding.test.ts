@@ -2,14 +2,12 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
 import {
-  AuthorityVersion,
   decodeStrictUtf8,
   encodeUtf8,
-  HexBytes,
-  Uint64,
-  Uint256,
   utf8ByteLength,
-} from "../src/index.js";
+} from "../src/protocol/encoding.js";
+import { AuthorityVersion } from "../src/schema/descriptor.js";
+import { HexBytes, Uint64, Uint256 } from "../src/schema/encoding.js";
 
 describe("protocol encodings", () => {
   it.effect("decodes canonical decimal values without precision loss", () =>

@@ -4,13 +4,15 @@ import { Effect } from "effect";
 import type { Address, PublicClient } from "viem";
 
 import {
+  PARENT_CANNOT_CONTROL,
+  resolveEnsAuthorityV1,
+} from "../src/protocol/authority.js";
+import {
   ENS_BASE_REGISTRAR_ADDRESS,
   ENS_NAME_WRAPPER_ADDRESS,
   ENS_REGISTRY_ADDRESS,
-  PARENT_CANNOT_CONTROL,
-  prepareEnsName,
-  resolveEnsAuthorityV1,
-} from "../src/index.js";
+} from "../src/protocol/contracts.js";
+import { prepareEnsName } from "../src/protocol/name.js";
 
 const owner = "0x0000000000000000000000000000000000000001";
 const registrant = "0x0000000000000000000000000000000000000002";

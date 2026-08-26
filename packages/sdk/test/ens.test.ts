@@ -1,11 +1,9 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
-import {
-  EnsSnapshot,
-  EthereumAddress,
-  MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
-} from "../src/index.js";
+import { MAINNET_UNIVERSAL_RESOLVER_ADDRESS } from "../src/protocol/contracts.js";
+import { EthereumAddress } from "../src/schema/encoding.js";
+import { EnsSnapshot } from "../src/schema/ens.js";
 
 describe("ENS schemas", () => {
   it.effect("accepts a mainnet block snapshot", () =>

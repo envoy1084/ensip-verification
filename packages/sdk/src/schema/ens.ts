@@ -49,7 +49,7 @@ export type EnsRecordSnapshot = typeof EnsRecordSnapshot.Type;
 export interface ReadRecordInput {
   readonly name: EnsNameIdentity;
   readonly selector: RecordSelectorType;
-  readonly snapshot: EnsSnapshot;
+  readonly blockNumber: bigint;
 }
 
 export interface ReadRecordSnapshotInput {

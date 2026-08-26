@@ -28,14 +28,13 @@ and the draft `account-signature.eip155.v1` method.
       script.
 - [x] Establish feature-focused source folders and a deliberate root export
       facade.
-- [x] Keep schemas, branded types, and schema errors in focused `schema/`
-      modules.
+- [x] Keep schemas, types, and schema errors in focused `schema/` modules.
 - [x] Keep protocol constants and Effect-based derivation helpers in focused
       `protocol/` modules, with one clear responsibility per file.
 - [x] Reuse Viem for hexadecimal conversion, ENS normalization, namehash, and
       DNS packet encoding instead of maintaining local equivalents.
-- [x] Define branded protocol types without exposing wire-format strings to
-      internal verification logic.
+- [x] Keep ordinary public and internal values unbranded; use schemas for
+      validation and reserve brands for invariants that genuinely require them.
 - [ ] Keep expected protocol failures typed with Effect schemas, but avoid
       wrapping straightforward Viem calls and non-failing checks in needless
       services or abstractions.
@@ -186,11 +185,14 @@ and the draft `account-signature.eip155.v1` method.
 - [ ] Dispatch exact authority and method versions through their registries.
 - [ ] Revalidate time, ENS canonicality, target-chain state, and method
       freshness immediately before a positive result.
-- [ ] Expose `new RecordVerification({ publicClient })` as the Promise-based
+- [x] Expose `new RecordVerification({ publicClient })` as the Promise-based
       public boundary while keeping protocol workflows as Effects internally.
-- [ ] Add `getText`, `getRecord`, `getAddress`, and `getContentHash` methods
-      with a `verify` option that performs proof verification only when true.
-- [ ] Translate expected typed Effect failures to `{ error }` at the public
+- [x] Expose one `getRecord({ name, type, key, verify? })` method and make its
+      verification field conditional on the literal `verify` flag.
+- [ ] Run proof verification only when `verify` is true; until the verifier is
+      complete, return `VERIFICATION_NOT_IMPLEMENTED` without performing a
+      partial verification.
+- [x] Translate expected typed Effect failures to `{ error }` at the public
       boundary without hiding defects or invalid construction.
 - [ ] Expose a minimal protocol-result projection.
 - [ ] Add safe spans and structured diagnostics without logging proof bodies,
