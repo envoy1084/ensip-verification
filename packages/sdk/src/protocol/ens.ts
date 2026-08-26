@@ -30,38 +30,38 @@ import {
 import { RpcError } from "../schema/errors.js";
 import type { EnsNameIdentity } from "../schema/name.js";
 import {
-  LogicalResolverValue,
-  RecordSelector,
-  type RecordSelector as RecordSelectorType,
+  LogicalResolverValueSchema,
+  type RecordSelector,
+  RecordSelectorSchema,
 } from "../schema/records.js";
 import { deriveDiscoveryKey } from "./discovery.js";
 
 const encodeRecordCall = (
   name: EnsNameIdentity,
-  selector: RecordSelectorType,
+  selector: RecordSelector,
 ): Hex => {
   const node = name.node as Hex;
 
-  switch (selector["_tag"]) {
-    case "Text":
+  switch (selector.type) {
+    case "text":
       return encodeFunctionData({
         abi: resolverTextAbi,
         functionName: "text",
         args: [node, selector.key],
       });
-    case "Address":
+    case "addr":
       return encodeFunctionData({
         abi: resolverAddressAbi,
         functionName: "addr",
-        args: [node, selector.coinType],
+        args: [node, BigInt(selector.key)],
       });
-    case "Contenthash":
+    case "contenthash":
       return encodeFunctionData({
         abi: resolverContenthashAbi,
         functionName: "contenthash",
         args: [node],
       });
-    case "Data":
+    case "data":
       return encodeFunctionData({
         abi: resolverDataAbi,
         functionName: "data",
@@ -71,26 +71,26 @@ const encodeRecordCall = (
 };
 
 const decodeRecordValue = Effect.fn("decodeRecordValue")(function* (
-  selector: RecordSelectorType,
+  selector: RecordSelector,
   response: Hex,
 ) {
   if (response === "0x") return null;
 
   const decoded = yield* Effect.try({
     try: () => {
-      switch (selector["_tag"]) {
-        case "Text":
+      switch (selector.type) {
+        case "text":
           return {
-            _tag: "Text" as const,
+            type: "text" as const,
             value: decodeFunctionResult({
               abi: resolverTextAbi,
               functionName: "text",
               data: response,
             }),
           };
-        case "Address":
+        case "addr":
           return {
-            _tag: "Address" as const,
+            type: "addr" as const,
             value: hexToBytes(
               decodeFunctionResult({
                 abi: resolverAddressAbi,
@@ -99,9 +99,9 @@ const decodeRecordValue = Effect.fn("decodeRecordValue")(function* (
               }),
             ),
           };
-        case "Contenthash":
+        case "contenthash":
           return {
-            _tag: "Contenthash" as const,
+            type: "contenthash" as const,
             value: hexToBytes(
               decodeFunctionResult({
                 abi: resolverContenthashAbi,
@@ -110,9 +110,9 @@ const decodeRecordValue = Effect.fn("decodeRecordValue")(function* (
               }),
             ),
           };
-        case "Data":
+        case "data":
           return {
-            _tag: "Data" as const,
+            type: "data" as const,
             value: hexToBytes(
               decodeFunctionResult({
                 abi: resolverDataAbi,
@@ -132,7 +132,9 @@ const decodeRecordValue = Effect.fn("decodeRecordValue")(function* (
 
   if (decoded.value.length === 0) return null;
 
-  return yield* Schema.decodeUnknownEffect(LogicalResolverValue)(decoded).pipe(
+  return yield* Schema.decodeUnknownEffect(LogicalResolverValueSchema)(
+    decoded,
+  ).pipe(
     Effect.mapError(
       () =>
         new RpcError({
@@ -243,10 +245,9 @@ export const readEnsRecordSnapshot: (
         }),
     ),
   );
-  const discoverySelector = yield* Schema.decodeUnknownEffect(RecordSelector)({
-    _tag: "Text",
-    key: discoveryKey.key,
-  }).pipe(
+  const discoverySelector = yield* Schema.decodeUnknownEffect(
+    RecordSelectorSchema,
+  )({ type: "text", key: discoveryKey.key }).pipe(
     Effect.mapError(
       () =>
         new RpcError({

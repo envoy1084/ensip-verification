@@ -10,14 +10,14 @@ import { encodeUtf8 } from "./encoding.js";
 export const deriveRecordMetadata = (
   selector: RecordSelector,
 ): RecordMetadata => {
-  switch (selector["_tag"]) {
-    case "Text":
+  switch (selector.type) {
+    case "text":
       return { recordType: "text", recordKey: selector.key };
-    case "Address":
-      return { recordType: "addr", recordKey: selector.coinType.toString(10) };
-    case "Contenthash":
+    case "addr":
+      return { recordType: "addr", recordKey: selector.key };
+    case "contenthash":
       return { recordType: "contenthash", recordKey: "" };
-    case "Data":
+    case "data":
       return { recordType: "data", recordKey: selector.key };
   }
 };
@@ -25,7 +25,7 @@ export const deriveRecordMetadata = (
 export const deriveLogicalResolverValueBytes = Effect.fn(
   "deriveLogicalResolverValueBytes",
 )(function* (resolverValue: LogicalResolverValue) {
-  if (resolverValue["_tag"] === "Text") {
+  if (resolverValue.type === "text") {
     return yield* encodeUtf8(resolverValue.value);
   }
 

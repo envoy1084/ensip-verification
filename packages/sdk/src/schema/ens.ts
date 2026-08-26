@@ -2,8 +2,8 @@ import { Schema } from "effect";
 
 import { EthereumAddress } from "./encoding.js";
 import type { EnsNameIdentity } from "./name.js";
-import { LogicalResolverValue, RecordSelector } from "./records.js";
-import type { RecordSelector as RecordSelectorType } from "./records.js";
+import { LogicalResolverValueSchema, RecordSelectorSchema } from "./records.js";
+import type { RecordSelector } from "./records.js";
 
 const EthereumMainnetChainId = Schema.Literal(1);
 
@@ -31,9 +31,9 @@ export const EnsSnapshot = Schema.Struct({
 export type EnsSnapshot = typeof EnsSnapshot.Type;
 
 export const ResolvedEnsRecord = Schema.Struct({
-  selector: RecordSelector,
+  selector: RecordSelectorSchema,
   resolver: EthereumAddress,
-  value: Schema.NullOr(LogicalResolverValue),
+  value: Schema.NullOr(LogicalResolverValueSchema),
 });
 
 export type ResolvedEnsRecord = typeof ResolvedEnsRecord.Type;
@@ -48,13 +48,13 @@ export type EnsRecordSnapshot = typeof EnsRecordSnapshot.Type;
 
 export interface ReadRecordInput {
   readonly name: EnsNameIdentity;
-  readonly selector: RecordSelectorType;
+  readonly selector: RecordSelector;
   readonly blockNumber: bigint;
 }
 
 export interface ReadRecordSnapshotInput {
   readonly name: EnsNameIdentity;
-  readonly selector: RecordSelectorType;
+  readonly selector: RecordSelector;
   readonly blockNumber: bigint;
 }
 

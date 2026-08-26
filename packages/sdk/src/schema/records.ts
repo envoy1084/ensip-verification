@@ -1,29 +1,38 @@
 import { Schema } from "effect";
 
-import { Uint256, UnicodeScalarString } from "./encoding.js";
+import { Uint256Decimal, UnicodeScalarString } from "./encoding.js";
 
-export const TextRecordSelector = Schema.TaggedStruct("Text", {
+export type RecordSelector =
+  | { readonly type: "text"; readonly key: string }
+  | { readonly type: "addr"; readonly key: string }
+  | { readonly type: "contenthash" }
+  | { readonly type: "data"; readonly key: string };
+
+export const TextRecordSelector = Schema.Struct({
+  type: Schema.Literal("text"),
   key: UnicodeScalarString,
 });
 
-export const AddressRecordSelector = Schema.TaggedStruct("Address", {
-  coinType: Uint256,
+export const AddressRecordSelector = Schema.Struct({
+  type: Schema.Literal("addr"),
+  key: Uint256Decimal,
 });
 
-export const ContenthashRecordSelector = Schema.TaggedStruct("Contenthash", {});
+export const ContenthashRecordSelector = Schema.Struct({
+  type: Schema.Literal("contenthash"),
+});
 
-export const DataRecordSelector = Schema.TaggedStruct("Data", {
+export const DataRecordSelector = Schema.Struct({
+  type: Schema.Literal("data"),
   key: UnicodeScalarString,
 });
 
-export const RecordSelector = Schema.Union([
+export const RecordSelectorSchema = Schema.Union([
   TextRecordSelector,
   AddressRecordSelector,
   ContenthashRecordSelector,
   DataRecordSelector,
 ]);
-
-export type RecordSelector = typeof RecordSelector.Type;
 
 export const RecordType = Schema.Literals([
   "text",
@@ -39,27 +48,35 @@ export interface RecordMetadata {
   readonly recordKey: string;
 }
 
-export const TextResolverValue = Schema.TaggedStruct("Text", {
+export type LogicalResolverValue =
+  | { readonly type: "text"; readonly value: string }
+  | { readonly type: "addr"; readonly value: Uint8Array }
+  | { readonly type: "contenthash"; readonly value: Uint8Array }
+  | { readonly type: "data"; readonly value: Uint8Array };
+
+export const TextResolverValue = Schema.Struct({
+  type: Schema.Literal("text"),
   value: UnicodeScalarString,
 });
 
-export const AddressResolverValue = Schema.TaggedStruct("Address", {
+export const AddressResolverValue = Schema.Struct({
+  type: Schema.Literal("addr"),
   value: Schema.Uint8Array,
 });
 
-export const ContenthashResolverValue = Schema.TaggedStruct("Contenthash", {
+export const ContenthashResolverValue = Schema.Struct({
+  type: Schema.Literal("contenthash"),
   value: Schema.Uint8Array,
 });
 
-export const DataResolverValue = Schema.TaggedStruct("Data", {
+export const DataResolverValue = Schema.Struct({
+  type: Schema.Literal("data"),
   value: Schema.Uint8Array,
 });
 
-export const LogicalResolverValue = Schema.Union([
+export const LogicalResolverValueSchema = Schema.Union([
   TextResolverValue,
   AddressResolverValue,
   ContenthashResolverValue,
   DataResolverValue,
 ]);
-
-export type LogicalResolverValue = typeof LogicalResolverValue.Type;

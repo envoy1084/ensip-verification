@@ -6,7 +6,7 @@ import { encodeFunctionResult, type Hex, type PublicClient } from "viem";
 import { resolverTextAbi } from "../src/data/abi.js";
 import { EnsService } from "../src/ens/service.js";
 import { prepareEnsName } from "../src/protocol/name.js";
-import { RecordSelector } from "../src/schema/records.js";
+import { RecordSelectorSchema } from "../src/schema/records.js";
 
 const resolverAddress = "0x0000000000000000000000000000000000000123";
 const blockHash = `0x${"ab".repeat(32)}` as Hex;
@@ -43,8 +43,8 @@ describe("EnsService", () => {
     return Effect.gen(function* () {
       const service = yield* EnsService;
       const name = yield* prepareEnsName("example.eth");
-      const selector = yield* Schema.decodeUnknownEffect(RecordSelector)({
-        _tag: "Text",
+      const selector = yield* Schema.decodeUnknownEffect(RecordSelectorSchema)({
+        type: "text",
         key: "url",
       });
       const result = yield* service.readRecordSnapshot({
@@ -54,12 +54,12 @@ describe("EnsService", () => {
       });
 
       assert.strictEqual(result.snapshot.blockHash, blockHash);
-      assert.strictEqual(result.record.value?.["_tag"], "Text");
+      assert.strictEqual(result.record.value?.type, "text");
       assert.strictEqual(
         String(result.record.value?.value),
         "https://example.com/profile",
       );
-      assert.strictEqual(result.discovery.value?.["_tag"], "Text");
+      assert.strictEqual(result.discovery.value?.type, "text");
       assert.strictEqual(
         String(result.discovery.value?.value),
         "ensrv1 a=1 m=https-origin.v1",

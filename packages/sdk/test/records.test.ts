@@ -6,21 +6,26 @@ import {
   deriveLogicalResolverValueBytes,
   deriveRecordMetadata,
 } from "../src/protocol/records.js";
-import { LogicalResolverValue, RecordSelector } from "../src/schema/records.js";
+import {
+  LogicalResolverValueSchema,
+  RecordSelectorSchema,
+} from "../src/schema/records.js";
 
 describe("record selectors and discovery", () => {
   it.effect("derives exact record metadata", () =>
     Effect.gen(function* () {
-      const text = yield* Schema.decodeUnknownEffect(RecordSelector)({
-        _tag: "Text",
+      const text = yield* Schema.decodeUnknownEffect(RecordSelectorSchema)({
+        type: "text",
         key: "avatar",
       });
-      const address = yield* Schema.decodeUnknownEffect(RecordSelector)({
-        _tag: "Address",
-        coinType: "60",
+      const address = yield* Schema.decodeUnknownEffect(RecordSelectorSchema)({
+        type: "addr",
+        key: "60",
       });
-      const contenthash = yield* Schema.decodeUnknownEffect(RecordSelector)({
-        _tag: "Contenthash",
+      const contenthash = yield* Schema.decodeUnknownEffect(
+        RecordSelectorSchema,
+      )({
+        type: "contenthash",
       });
 
       assert.deepStrictEqual(deriveRecordMetadata(text), {
@@ -42,17 +47,17 @@ describe("record selectors and discovery", () => {
     Effect.gen(function* () {
       const cases = [
         [
-          { _tag: "Text", key: "agent-endpoint[mcp]" },
+          { type: "text", key: "agent-endpoint[mcp]" },
           "verification[text][agent-endpoint[mcp]]",
         ],
-        [{ _tag: "Address", coinType: "60" }, "verification[addr][60]"],
-        [{ _tag: "Contenthash" }, "verification[contenthash]"],
-        [{ _tag: "Data", key: "0x1234" }, "verification[data][0x1234]"],
+        [{ type: "addr", key: "60" }, "verification[addr][60]"],
+        [{ type: "contenthash" }, "verification[contenthash]"],
+        [{ type: "data", key: "0x1234" }, "verification[data][0x1234]"],
       ] as const;
 
       for (const [input, expected] of cases) {
         const selector =
-          yield* Schema.decodeUnknownEffect(RecordSelector)(input);
+          yield* Schema.decodeUnknownEffect(RecordSelectorSchema)(input);
         assert.strictEqual((yield* deriveDiscoveryKey(selector)).key, expected);
       }
     }),
@@ -60,8 +65,8 @@ describe("record selectors and discovery", () => {
 
   it.effect("supports an explicit interim discovery-key byte limit", () =>
     Effect.gen(function* () {
-      const selector = yield* Schema.decodeUnknownEffect(RecordSelector)({
-        _tag: "Text",
+      const selector = yield* Schema.decodeUnknownEffect(RecordSelectorSchema)({
+        type: "text",
         key: "💫",
       });
       assert.strictEqual((yield* deriveDiscoveryKey(selector)).utf8Bytes, 24);
@@ -77,14 +82,14 @@ describe("record selectors and discovery", () => {
     () =>
       Effect.gen(function* () {
         yield* Effect.flip(
-          Schema.decodeUnknownEffect(RecordSelector)({
-            _tag: "Address",
-            coinType: "060",
+          Schema.decodeUnknownEffect(RecordSelectorSchema)({
+            type: "addr",
+            key: "060",
           }),
         );
         yield* Effect.flip(
-          Schema.decodeUnknownEffect(RecordSelector)({
-            _tag: "Text",
+          Schema.decodeUnknownEffect(RecordSelectorSchema)({
+            type: "text",
             key: "\udfff",
           }),
         );
@@ -94,8 +99,8 @@ describe("record selectors and discovery", () => {
   it.effect("derives strict UTF-8 bytes for text resolver values", () =>
     Effect.gen(function* () {
       const resolverValue = yield* Schema.decodeUnknownEffect(
-        LogicalResolverValue,
-      )({ _tag: "Text", value: "hello 💫" });
+        LogicalResolverValueSchema,
+      )({ type: "text", value: "hello 💫" });
 
       assert.deepStrictEqual(
         [...(yield* deriveLogicalResolverValueBytes(resolverValue))],
@@ -108,11 +113,11 @@ describe("record selectors and discovery", () => {
     "preserves exact binary resolver bytes for every binary record",
     () =>
       Effect.gen(function* () {
-        for (const tag of ["Address", "Contenthash", "Data"] as const) {
+        for (const type of ["addr", "contenthash", "data"] as const) {
           const input = new Uint8Array([0, 1, 255]);
           const resolverValue = yield* Schema.decodeUnknownEffect(
-            LogicalResolverValue,
-          )({ _tag: tag, value: input });
+            LogicalResolverValueSchema,
+          )({ type, value: input });
           const bytes = yield* deriveLogicalResolverValueBytes(resolverValue);
 
           assert.deepStrictEqual([...bytes], [0, 1, 255]);
@@ -124,14 +129,14 @@ describe("record selectors and discovery", () => {
   it.effect("rejects invalid text and non-byte binary resolver values", () =>
     Effect.gen(function* () {
       yield* Effect.flip(
-        Schema.decodeUnknownEffect(LogicalResolverValue)({
-          _tag: "Text",
+        Schema.decodeUnknownEffect(LogicalResolverValueSchema)({
+          type: "text",
           value: "\ud800",
         }),
       );
       yield* Effect.flip(
-        Schema.decodeUnknownEffect(LogicalResolverValue)({
-          _tag: "Address",
+        Schema.decodeUnknownEffect(LogicalResolverValueSchema)({
+          type: "addr",
           value: "0x1234",
         }),
       );

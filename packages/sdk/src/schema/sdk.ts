@@ -1,40 +1,13 @@
 import type { PublicClient } from "viem";
 
 import type { SdkErrorCode } from "../data/errors.js";
+import type { RecordSelector } from "./records.js";
 
 export interface RecordVerificationOptions {
   readonly publicClient: PublicClient;
 }
 
-interface TextRecordQuery {
-  readonly name: string;
-  readonly type: "text";
-  readonly key: string;
-}
-
-interface AddressRecordQuery {
-  readonly name: string;
-  readonly type: "addr";
-  readonly key: string;
-}
-
-interface ContenthashRecordQuery {
-  readonly name: string;
-  readonly type: "contenthash";
-  readonly key?: never;
-}
-
-interface DataRecordQuery {
-  readonly name: string;
-  readonly type: "data";
-  readonly key: string;
-}
-
-type RecordQuery =
-  | TextRecordQuery
-  | AddressRecordQuery
-  | ContenthashRecordQuery
-  | DataRecordQuery;
+type RecordQuery = RecordSelector & { readonly name: string };
 
 type VerificationOption<Verify extends boolean> = Verify extends true
   ? { readonly verify: true }

@@ -4,7 +4,6 @@ import { bytesToHex } from "viem";
 
 import { readEnsRecord, validateEnsPublicClient } from "./protocol/ens.js";
 import { prepareEnsName } from "./protocol/name.js";
-import { Uint256 } from "./schema/encoding.js";
 import {
   RpcError,
   ValidationError,
@@ -12,8 +11,8 @@ import {
 } from "./schema/errors.js";
 import {
   type LogicalResolverValue,
-  RecordSelector,
-  type RecordSelector as RecordSelectorType,
+  type RecordSelector,
+  RecordSelectorSchema,
 } from "./schema/records.js";
 import {
   type GetRecordInput,
@@ -24,46 +23,15 @@ import {
 const decodeRecordSelector = Effect.fn("decodeRecordSelector")(function* (
   input: GetRecordInput<boolean>,
 ) {
-  let selector: unknown;
-
-  switch (input.type) {
-    case "text":
-      selector = { _tag: "Text", key: input.key };
-      break;
-    case "addr": {
-      const coinType = yield* Schema.decodeUnknownEffect(Uint256)(
-        input.key,
-      ).pipe(
-        Effect.mapError(
-          () =>
-            new ValidationError({
-              code: "INVALID_RECORD_INPUT",
-              message: "addr key must be a canonical uint256 decimal",
-            }),
-        ),
-      );
-      selector = { _tag: "Address", coinType };
-      break;
-    }
-    case "contenthash":
-      selector = { _tag: "Contenthash" };
-      break;
-    case "data":
-      selector = { _tag: "Data", key: input.key };
-      break;
-    default:
-      return yield* new ValidationError({
-        code: "INVALID_RECORD_INPUT",
-        message: "unsupported ENS record type",
-      });
-  }
-
-  return yield* Schema.decodeUnknownEffect(RecordSelector)(selector).pipe(
+  return yield* Schema.decodeUnknownEffect(RecordSelectorSchema)(input).pipe(
     Effect.mapError(
       () =>
         new ValidationError({
           code: "INVALID_RECORD_INPUT",
-          message: "record key is invalid",
+          message:
+            input.type === "addr"
+              ? "addr key must be a canonical uint256 decimal"
+              : "record selector is invalid",
         }),
     ),
   );
@@ -73,7 +41,7 @@ const toPublicRecordValue = (
   value: LogicalResolverValue | null,
 ): string | null => {
   if (value === null) return null;
-  return value["_tag"] === "Text" ? value.value : bytesToHex(value.value);
+  return value.type === "text" ? value.value : bytesToHex(value.value);
 };
 
 export class RecordVerification {
@@ -91,7 +59,7 @@ export class RecordVerification {
     const program = Effect.gen(function* () {
       yield* validateEnsPublicClient(publicClient);
       const name = yield* prepareEnsName(input.name);
-      const selector: RecordSelectorType = yield* decodeRecordSelector(input);
+      const selector: RecordSelector = yield* decodeRecordSelector(input);
 
       if (input.verify === true) {
         return yield* new VerificationError({

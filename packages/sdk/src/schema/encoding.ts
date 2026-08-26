@@ -5,12 +5,25 @@ import { bytesToHex, hexToBytes, type Hex } from "viem";
 const UINT32_MAX = 4_294_967_295n;
 const UINT64_MAX = 18_446_744_073_709_551_615n;
 const UINT256_MAX = (1n << 256n) - 1n;
+const UINT256_MAX_DECIMAL = UINT256_MAX.toString(10);
 
 export const CanonicalUnsignedDecimal = Schema.String.check(
   Schema.isPattern(/^(?:0|[1-9][0-9]*)$/, {
     expected: "a canonical unsigned decimal",
   }),
 );
+
+export const Uint256Decimal = CanonicalUnsignedDecimal.check(
+  Schema.makeFilter(
+    (value) =>
+      value.length < UINT256_MAX_DECIMAL.length ||
+      (value.length === UINT256_MAX_DECIMAL.length &&
+        value <= UINT256_MAX_DECIMAL) ||
+      "decimal value must fit in uint256",
+  ),
+);
+
+export type Uint256Decimal = typeof Uint256Decimal.Type;
 
 const bigintFromCanonicalDecimal = <S extends Schema.Codec<bigint, bigint>>(
   target: S,
