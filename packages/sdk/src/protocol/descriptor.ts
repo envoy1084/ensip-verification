@@ -1,10 +1,10 @@
 import { Effect, Schema } from "effect";
 
 import { DESCRIPTOR_MAX_BYTES } from "../data/limits.js";
+import { descriptorMethodPolicies } from "../methods/registry.js";
 import {
   AbsoluteProofUri,
   type Descriptor,
-  type DescriptorMethodPolicy,
   type DescriptorRegistry,
   MethodIdentifier,
   AuthorityVersion,
@@ -13,14 +13,7 @@ import { ValidationError } from "../schema/errors.js";
 
 export const v0DescriptorRegistry: DescriptorRegistry = {
   authorityVersions: new Set([1n]),
-  methods: new Map<string, DescriptorMethodPolicy>([
-    ["https-origin.v1", { proofUri: "forbidden" }],
-    ["dns-txt.v1", { proofUri: "forbidden" }],
-    [
-      "account-signature.eip155.v1",
-      { proofUri: "required", schemes: new Set(["https"]) },
-    ],
-  ]),
+  methods: descriptorMethodPolicies,
 };
 
 export const parseDescriptor = Effect.fn("parseDescriptor")(function* (

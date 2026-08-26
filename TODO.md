@@ -120,12 +120,14 @@ and the draft `account-signature.eip155.v1` method.
 
 ## 7. Extension Registries
 
-- [ ] Define the verification-method interface around applicability, target
+- [x] Define the verification-method interface around applicability, target
       derivation, evidence retrieval, proof validation, and freshness.
-- [ ] Implement an immutable exact-ID method registry.
-- [ ] Reject duplicate registrations during registry construction.
-- [ ] Reject unknown authority and method identifiers without fallback.
-- [ ] Give each method only its required runtime capabilities; use Effect
+- [x] Implement an immutable exact-ID method registry.
+- [x] Prevent duplicate method IDs by declaring the registry as one frozen
+      object literal.
+- [x] Reject unknown method identifiers without fallback.
+- [ ] Define the authority registry and reject unknown authority identifiers.
+- [x] Give each method only its required runtime capabilities; use Effect
       services or Layers where they improve dependency injection, not by
       default.
 - [ ] Verify that adding a new authority version or method does not require
@@ -133,17 +135,17 @@ and the draft `account-signature.eip155.v1` method.
 
 ## 8. `https-origin.v1`
 
-- [ ] Implement exact WHATWG HTTPS URL acceptance.
-- [ ] Implement canonical origin target serialization.
-- [ ] Implement deterministic well-known proof URL derivation.
+- [x] Implement exact WHATWG HTTPS URL acceptance.
+- [x] Implement canonical origin target serialization.
+- [x] Implement deterministic well-known proof URL derivation.
 - [x] Define the security-hardened Effect HTTP client service.
 - [x] Implement credentialless GET, WebPKI validation, redirect rejection, and
       status and media-type checks.
-- [ ] Decode the returned proof body as strict UTF-8 in the method workflow.
+- [x] Decode the returned proof body as strict UTF-8 in the method workflow.
 - [x] Enforce compressed-input, decoded-body, header, and deadline limits while
       streaming.
 - [x] Enforce globally reachable pre-connect and connected-peer address policy.
-- [ ] Require the method proof to be exactly an empty object.
+- [x] Require the method proof to be exactly an empty object.
 - [ ] Implement authenticated HTTP freshness and cache bounds.
 - [ ] Add URL, IDN, port, IPv4, IPv6, redirect, SSRF, content-coding, timeout,
       streaming-limit, and end-to-end tests.
