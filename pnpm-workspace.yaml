@@ -32,5 +32,6 @@ catalog:
   "tsdown": "0.22.3"
   "turbo": "2.10.4"
   "@types/node": "26.0.1"
+  "ipaddr.js": "2.5.0"
   "vitest": "4.1.11"
   "viem": "2.55.19"

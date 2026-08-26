@@ -45,7 +45,7 @@ and the draft `account-signature.eip155.v1` method.
 - [ ] Define the minimal protocol-result projection.
 - [ ] Add injectable test implementations only for runtime boundaries that need
       deterministic behavior: HTTP, DNSSEC, clock, and chain state.
-- [ ] Ensure Node-only implementations are isolated from browser-safe exports.
+- [x] Ensure Node-only implementations are isolated from browser-safe exports.
 
 ## 3. Encodings, Records, and Descriptors
 
@@ -136,12 +136,13 @@ and the draft `account-signature.eip155.v1` method.
 - [ ] Implement exact WHATWG HTTPS URL acceptance.
 - [ ] Implement canonical origin target serialization.
 - [ ] Implement deterministic well-known proof URL derivation.
-- [ ] Define the security-hardened Effect HTTP client service.
-- [ ] Implement credentialless GET, WebPKI validation, redirect rejection,
-      status and media-type checks, and strict UTF-8 decoding.
-- [ ] Enforce compressed-input, decoded-body, header, and deadline limits while
+- [x] Define the security-hardened Effect HTTP client service.
+- [x] Implement credentialless GET, WebPKI validation, redirect rejection, and
+      status and media-type checks.
+- [ ] Decode the returned proof body as strict UTF-8 in the method workflow.
+- [x] Enforce compressed-input, decoded-body, header, and deadline limits while
       streaming.
-- [ ] Enforce globally reachable pre-connect and connected-peer address policy.
+- [x] Enforce globally reachable pre-connect and connected-peer address policy.
 - [ ] Require the method proof to be exactly an empty object.
 - [ ] Implement authenticated HTTP freshness and cache bounds.
 - [ ] Add URL, IDN, port, IPv4, IPv6, redirect, SSRF, content-coding, timeout,

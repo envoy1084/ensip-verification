@@ -22,10 +22,12 @@
   },
   "dependencies": {
     "effect": "catalog:",
+    "ipaddr.js": "catalog:",
     "viem": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
     "klarity": "0.2.0",
     "oxlint": "catalog:",
     "publint": "catalog:",
