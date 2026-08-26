@@ -3,11 +3,11 @@ import { Effect, Schema } from "effect";
 
 import {
   AuthorityVersion,
-  CoinType,
   decodeStrictUtf8,
   encodeUtf8,
   HexBytes,
   Uint64,
+  Uint256,
   utf8ByteLength,
 } from "../src/index.js";
 
@@ -22,10 +22,7 @@ describe("protocol encodings", () => {
         yield* Schema.decodeUnknownEffect(Uint64)("18446744073709551615"),
         18_446_744_073_709_551_615n,
       );
-      assert.strictEqual(
-        yield* Schema.decodeUnknownEffect(CoinType)("60"),
-        60n,
-      );
+      assert.strictEqual(yield* Schema.decodeUnknownEffect(Uint256)("60"), 60n);
     }),
   );
 
@@ -73,7 +70,7 @@ describe("protocol encodings", () => {
       assert.strictEqual(yield* utf8ByteLength("a💫"), 5);
       assert.deepStrictEqual([...(yield* encodeUtf8("é"))], [0xc3, 0xa9]);
       const error = yield* Effect.flip(encodeUtf8("\ud800"));
-      assert.strictEqual(error.reason, "invalid_unicode_scalar");
+      assert.strictEqual(error.code, "INVALID_UNICODE_SCALAR");
     }),
   );
 
@@ -86,7 +83,7 @@ describe("protocol encodings", () => {
       const error = yield* Effect.flip(
         decodeStrictUtf8(new Uint8Array([0xc0, 0xaf])),
       );
-      assert.strictEqual(error.reason, "invalid_utf8");
+      assert.strictEqual(error.code, "INVALID_UTF8");
     }),
   );
 });

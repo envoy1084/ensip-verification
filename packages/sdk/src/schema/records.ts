@@ -1,21 +1,19 @@
 import { Schema } from "effect";
 
-import { CoinType, UnicodeScalarString } from "./encoding.js";
-
-const RecordKey = UnicodeScalarString.pipe(Schema.brand("RecordKey"));
+import { Uint256, UnicodeScalarString } from "./encoding.js";
 
 export const TextRecordSelector = Schema.TaggedStruct("Text", {
-  key: RecordKey,
+  key: UnicodeScalarString,
 });
 
 export const AddressRecordSelector = Schema.TaggedStruct("Address", {
-  coinType: CoinType,
+  coinType: Uint256,
 });
 
 export const ContenthashRecordSelector = Schema.TaggedStruct("Contenthash", {});
 
 export const DataRecordSelector = Schema.TaggedStruct("Data", {
-  key: RecordKey,
+  key: UnicodeScalarString,
 });
 
 export const RecordSelector = Schema.Union([
@@ -41,10 +39,8 @@ export interface RecordMetadata {
   readonly recordKey: string;
 }
 
-const ResolverText = UnicodeScalarString.pipe(Schema.brand("ResolverText"));
-
 export const TextResolverValue = Schema.TaggedStruct("Text", {
-  value: ResolverText,
+  value: UnicodeScalarString,
 });
 
 export const AddressResolverValue = Schema.TaggedStruct("Address", {

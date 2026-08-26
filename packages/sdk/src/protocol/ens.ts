@@ -126,7 +126,7 @@ const decodeRecordValue = Effect.fn("decodeRecordValue")(function* (
     },
     catch: (cause) =>
       new EnsReadError({
-        reason: "malformed_response",
+        code: "MALFORMED_RESPONSE",
         message: "resolver returned malformed record data",
         cause,
       }),
@@ -138,7 +138,7 @@ const decodeRecordValue = Effect.fn("decodeRecordValue")(function* (
     Effect.mapError(
       (cause) =>
         new EnsReadError({
-          reason: "malformed_response",
+          code: "MALFORMED_RESPONSE",
           message: "resolver returned an invalid logical value",
           cause,
         }),
@@ -154,7 +154,7 @@ const readEnsSnapshot = Effect.fn("readEnsSnapshot")(function* (
     try: () => publicClient.getBlock({ blockNumber }),
     catch: (cause) =>
       new EnsReadError({
-        reason: "block_unavailable",
+        code: "BLOCK_UNAVAILABLE",
         message: `unable to read Ethereum block ${blockNumber}`,
         cause,
       }),
@@ -169,7 +169,7 @@ const readEnsSnapshot = Effect.fn("readEnsSnapshot")(function* (
     Effect.mapError(
       (cause) =>
         new EnsReadError({
-          reason: "malformed_response",
+          code: "MALFORMED_RESPONSE",
           message: "Ethereum block response is malformed",
           cause,
         }),
@@ -185,6 +185,7 @@ export const validateEnsPublicClient: (
   const chainId = publicClient.chain?.id;
   if (chainId !== ETHEREUM_MAINNET_CHAIN_ID) {
     return yield* new UnsupportedEnsChainError({
+      code: "UNSUPPORTED_ENS_CHAIN",
       ...(chainId === undefined ? {} : { chainId }),
       message: "EnsService requires an Ethereum mainnet PublicClient",
     });
@@ -212,7 +213,7 @@ export const readEnsRecord: (
       }),
     catch: (cause) =>
       new EnsReadError({
-        reason: "resolution_failed",
+        code: "RESOLUTION_FAILED",
         message: `unable to resolve ${name.normalizedName}`,
         cause,
       }),
@@ -241,7 +242,7 @@ export const readEnsRecordSnapshot: (
     Effect.mapError(
       (cause) =>
         new EnsReadError({
-          reason: "malformed_response",
+          code: "MALFORMED_RESPONSE",
           message: "unable to derive the discovery key",
           cause,
         }),
@@ -254,7 +255,7 @@ export const readEnsRecordSnapshot: (
     Effect.mapError(
       (cause) =>
         new EnsReadError({
-          reason: "malformed_response",
+          code: "MALFORMED_RESPONSE",
           message: "derived discovery selector is invalid",
           cause,
         }),

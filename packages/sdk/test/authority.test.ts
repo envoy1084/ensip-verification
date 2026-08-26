@@ -135,7 +135,7 @@ describe("Authority Algorithm 1", () => {
         resolveEnsAuthorityV1(publicClient, { name, snapshot }),
       );
 
-      assert.strictEqual(error.reason, "unsupported_name");
+      assert.strictEqual(error.code, "UNSUPPORTED_NAME");
       assert.isFalse(contractRead);
     }),
   );
@@ -152,7 +152,7 @@ describe("Authority Algorithm 1", () => {
         resolveEnsAuthorityV1(publicClient, { name, snapshot }),
       );
 
-      assert.strictEqual(error.reason, "name_expired");
+      assert.strictEqual(error.code, "NAME_EXPIRED");
     }),
   );
 });

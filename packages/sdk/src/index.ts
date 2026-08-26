@@ -12,5 +12,4 @@ export * from "./schema/descriptor.js";
 export * from "./schema/encoding.js";
 export * from "./schema/ens.js";
 export * from "./schema/name.js";
-export * from "./schema/protocol.js";
 export * from "./schema/records.js";

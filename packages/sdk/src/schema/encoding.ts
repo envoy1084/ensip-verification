@@ -22,38 +22,43 @@ const bigintFromCanonicalDecimal = <S extends Schema.Codec<bigint, bigint>>(
     }),
   );
 
-export const AuthorityVersion = bigintFromCanonicalDecimal(
+export const Uint32 = bigintFromCanonicalDecimal(
   Schema.BigInt.check(
-    Schema.isBetweenBigInt(
-      { minimum: 1n, maximum: UINT32_MAX },
-      { expected: "a uint32 greater than zero" },
-    ),
-  ).pipe(Schema.brand("AuthorityVersion")),
+    Schema.isBetweenBigInt({ minimum: 0n, maximum: UINT32_MAX }),
+  ),
 );
 
-export type AuthorityVersion = typeof AuthorityVersion.Type;
+export type Uint32 = typeof Uint32.Type;
 
 export const Uint64 = bigintFromCanonicalDecimal(
   Schema.BigInt.check(
     Schema.isBetweenBigInt({ minimum: 0n, maximum: UINT64_MAX }),
-  ).pipe(Schema.brand("Uint64")),
+  ),
 );
 
 export type Uint64 = typeof Uint64.Type;
 
-export const CoinType = bigintFromCanonicalDecimal(
+export const Uint256 = bigintFromCanonicalDecimal(
   Schema.BigInt.check(
     Schema.isBetweenBigInt({ minimum: 0n, maximum: UINT256_MAX }),
-  ).pipe(Schema.brand("CoinType")),
+  ),
 );
 
-export type CoinType = typeof CoinType.Type;
+export type Uint256 = typeof Uint256.Type;
+
+export const EthereumAddress = Schema.String.check(
+  Schema.isPattern(/^0x[0-9A-Fa-f]{40}$/, {
+    expected: "a 20-byte Ethereum address",
+  }),
+);
+
+export type EthereumAddress = typeof EthereumAddress.Type;
 
 export const LowercaseHex = Schema.String.check(
   Schema.isPattern(/^0x(?:[0-9a-f]{2})*$/, {
     expected: "0x-prefixed, even-length lowercase hexadecimal",
   }),
-).pipe(Schema.brand("LowercaseHex"));
+);
 
 export type LowercaseHex = typeof LowercaseHex.Type;
 
@@ -96,10 +101,10 @@ export const UnicodeScalarString = Schema.String.check(
 export class TextEncodingError extends Schema.TaggedError<TextEncodingError>()(
   "TextEncodingError",
   {
-    reason: Schema.Literals([
-      "invalid_unicode_scalar",
-      "invalid_utf8",
-      "byte_limit_exceeded",
+    code: Schema.Literals([
+      "INVALID_UNICODE_SCALAR",
+      "INVALID_UTF8",
+      "BYTE_LIMIT_EXCEEDED",
     ]),
     message: Schema.String,
   },

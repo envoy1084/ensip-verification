@@ -1,18 +1,11 @@
 import { Schema } from "effect";
 
+import { EthereumAddress } from "./encoding.js";
 import type { EnsNameIdentity } from "./name.js";
 import { LogicalResolverValue, RecordSelector } from "./records.js";
 import type { RecordSelector as RecordSelectorType } from "./records.js";
 
 const EthereumMainnetChainId = Schema.Literal(1);
-
-export const EthereumAddress = Schema.String.check(
-  Schema.isPattern(/^0x[0-9A-Fa-f]{40}$/, {
-    expected: "a 20-byte Ethereum address",
-  }),
-);
-
-export type EthereumAddress = typeof EthereumAddress.Type;
 
 const EnsBlockNumber = Schema.BigInt.check(
   Schema.isGreaterThanOrEqualToBigInt(0n),
@@ -80,6 +73,7 @@ export interface ResolveEnsAuthorityV1Input {
 export class UnsupportedEnsChainError extends Schema.TaggedError<UnsupportedEnsChainError>()(
   "UnsupportedEnsChainError",
   {
+    code: Schema.Literal("UNSUPPORTED_ENS_CHAIN"),
     chainId: Schema.optionalKey(Schema.Number),
     message: Schema.String,
   },
@@ -88,10 +82,10 @@ export class UnsupportedEnsChainError extends Schema.TaggedError<UnsupportedEnsC
 export class EnsReadError extends Schema.TaggedError<EnsReadError>()(
   "EnsReadError",
   {
-    reason: Schema.Literals([
-      "block_unavailable",
-      "resolution_failed",
-      "malformed_response",
+    code: Schema.Literals([
+      "BLOCK_UNAVAILABLE",
+      "RESOLUTION_FAILED",
+      "MALFORMED_RESPONSE",
     ]),
     message: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
@@ -101,12 +95,12 @@ export class EnsReadError extends Schema.TaggedError<EnsReadError>()(
 export class EnsAuthorityError extends Schema.TaggedError<EnsAuthorityError>()(
   "EnsAuthorityError",
   {
-    reason: Schema.Literals([
-      "unsupported_name",
-      "owner_not_found",
-      "name_expired",
-      "authority_read_failed",
-      "invalid_authority_state",
+    code: Schema.Literals([
+      "UNSUPPORTED_NAME",
+      "OWNER_NOT_FOUND",
+      "NAME_EXPIRED",
+      "AUTHORITY_READ_FAILED",
+      "INVALID_AUTHORITY_STATE",
     ]),
     message: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),

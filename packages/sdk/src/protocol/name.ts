@@ -2,13 +2,7 @@ import { Effect, Predicate } from "effect";
 
 import { namehash, normalize, packetToBytes } from "viem/ens";
 
-import {
-  DnsEncodedEnsName,
-  EnsNode,
-  type EnsNameIdentity,
-  InvalidEnsNameError,
-  NormalizedEnsName,
-} from "../schema/name.js";
+import { type EnsNameIdentity, InvalidEnsNameError } from "../schema/name.js";
 
 export const prepareEnsName = Effect.fn("prepareEnsName")(function* (
   input: string,
@@ -17,14 +11,14 @@ export const prepareEnsName = Effect.fn("prepareEnsName")(function* (
     try: () => normalize(input),
     catch: (cause) =>
       new InvalidEnsNameError({
+        code: "INVALID_ENS_NAME",
         message: Predicate.isError(cause) ? cause.message : "invalid ENS name",
       }),
   });
 
-  const normalizedName = NormalizedEnsName.make(normalized);
   return {
-    normalizedName,
-    node: EnsNode.make(namehash(normalizedName)),
-    dnsEncodedName: DnsEncodedEnsName.make(packetToBytes(normalizedName)),
+    normalizedName: normalized,
+    node: namehash(normalized),
+    dnsEncodedName: packetToBytes(normalized),
   };
 });

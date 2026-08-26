@@ -4,8 +4,17 @@ import {
   METHOD_IDENTIFIER_MAX_BYTES,
   PROOF_URI_MAX_BYTES,
 } from "../protocol/limits.js";
-import { AuthorityVersion } from "./encoding.js";
-import { ProtocolVersion } from "./protocol.js";
+import { Uint32 } from "./encoding.js";
+
+export const ProtocolVersion = Schema.Literal("ensrv1");
+
+export type ProtocolVersion = typeof ProtocolVersion.Type;
+
+export const AuthorityVersion = Uint32.check(
+  Schema.isGreaterThanBigInt(0n, { expected: "a positive uint32" }),
+);
+
+export type AuthorityVersion = typeof AuthorityVersion.Type;
 
 export const MethodIdentifier = Schema.String.check(
   Schema.isPattern(
@@ -13,7 +22,7 @@ export const MethodIdentifier = Schema.String.check(
     { expected: "a method identifier" },
   ),
   Schema.isMaxLength(METHOD_IDENTIFIER_MAX_BYTES),
-).pipe(Schema.brand("MethodIdentifier"));
+);
 
 export type MethodIdentifier = typeof MethodIdentifier.Type;
 
@@ -49,7 +58,7 @@ export const AbsoluteProofUri = Schema.String.check(
   Schema.isMinLength(1),
   Schema.isMaxLength(PROOF_URI_MAX_BYTES),
   Schema.makeFilter((value) => proofUriValidationError(value)),
-).pipe(Schema.brand("AbsoluteProofUri"));
+);
 
 export type AbsoluteProofUri = typeof AbsoluteProofUri.Type;
 
@@ -75,16 +84,16 @@ export interface DescriptorRegistry {
 export class DescriptorParseError extends Schema.TaggedError<DescriptorParseError>()(
   "DescriptorParseError",
   {
-    reason: Schema.Literals([
-      "invalid_encoding",
-      "invalid_structure",
-      "invalid_field",
-      "duplicate_field",
-      "missing_field",
-      "unsupported_authority",
-      "unsupported_method",
-      "invalid_uri",
-      "uri_policy",
+    code: Schema.Literals([
+      "INVALID_ENCODING",
+      "INVALID_STRUCTURE",
+      "INVALID_FIELD",
+      "DUPLICATE_FIELD",
+      "MISSING_FIELD",
+      "UNSUPPORTED_AUTHORITY",
+      "UNSUPPORTED_METHOD",
+      "INVALID_URI",
+      "URI_POLICY",
     ]),
     message: Schema.String,
   },

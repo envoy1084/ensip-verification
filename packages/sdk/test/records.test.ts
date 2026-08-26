@@ -69,7 +69,7 @@ describe("record selectors and discovery", () => {
       const error = yield* Effect.flip(
         deriveDiscoveryKey(selector, { maximumBytes: 23 }),
       );
-      assert.strictEqual(error.reason, "byte_limit_exceeded");
+      assert.strictEqual(error.code, "BYTE_LIMIT_EXCEEDED");
     }),
   );
 

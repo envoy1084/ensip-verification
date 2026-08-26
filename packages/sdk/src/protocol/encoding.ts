@@ -20,14 +20,14 @@ const findUnicodeScalarError = (
       const next = value.charCodeAt(index + 1);
       if (!(next >= 0xdc00 && next <= 0xdfff)) {
         return new TextEncodingError({
-          reason: "invalid_unicode_scalar",
+          code: "INVALID_UNICODE_SCALAR",
           message: "string contains an unpaired high surrogate",
         });
       }
       index += 1;
     } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
       return new TextEncodingError({
-        reason: "invalid_unicode_scalar",
+        code: "INVALID_UNICODE_SCALAR",
         message: "string contains an unpaired low surrogate",
       });
     }
@@ -55,7 +55,7 @@ export const decodeStrictUtf8 = Effect.fn("decodeStrictUtf8")(function* (
     try: () => textDecoder.decode(bytes),
     catch: () =>
       new TextEncodingError({
-        reason: "invalid_utf8",
+        code: "INVALID_UTF8",
         message: "input is not valid UTF-8",
       }),
   });
@@ -78,7 +78,7 @@ export const enforceUtf8ByteLimit = Effect.fn("enforceUtf8ByteLimit")(
     const actualBytes = yield* utf8ByteLength(value);
     if (actualBytes > maximumBytes) {
       return yield* new TextEncodingError({
-        reason: "byte_limit_exceeded",
+        code: "BYTE_LIMIT_EXCEEDED",
         message: `UTF-8 input is ${actualBytes} bytes; maximum is ${maximumBytes}`,
       });
     }

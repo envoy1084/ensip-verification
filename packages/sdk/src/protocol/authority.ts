@@ -34,7 +34,7 @@ export const resolveEnsAuthorityV1: (
   const labels = name.normalizedName.split(".");
   if (labels.at(-1) === "reverse") {
     return yield* new EnsAuthorityError({
-      reason: "unsupported_name",
+      code: "UNSUPPORTED_NAME",
       message: "reverse names do not have a supported verification authority",
     });
   }
@@ -50,7 +50,7 @@ export const resolveEnsAuthorityV1: (
       }),
     catch: (cause) =>
       new EnsAuthorityError({
-        reason: "authority_read_failed",
+        code: "AUTHORITY_READ_FAILED",
         message: "unable to read the ENS Registry owner",
         cause,
       }),
@@ -71,7 +71,7 @@ export const resolveEnsAuthorityV1: (
         }),
       catch: (cause) =>
         new EnsAuthorityError({
-          reason: "authority_read_failed",
+          code: "AUTHORITY_READ_FAILED",
           message: "unable to read Name Wrapper state",
           cause,
         }),
@@ -79,7 +79,7 @@ export const resolveEnsAuthorityV1: (
 
     if (isAddressEqual(wrappedOwner, zeroAddress)) {
       return yield* new EnsAuthorityError({
-        reason: "owner_not_found",
+        code: "OWNER_NOT_FOUND",
         message: "wrapped ENS name has no owner",
       });
     }
@@ -97,7 +97,7 @@ export const resolveEnsAuthorityV1: (
           }),
         catch: (cause) =>
           new EnsAuthorityError({
-            reason: "authority_read_failed",
+            code: "AUTHORITY_READ_FAILED",
             message: "unable to read .eth registration expiry",
             cause,
           }),
@@ -105,7 +105,7 @@ export const resolveEnsAuthorityV1: (
 
       if (snapshot.blockTimestamp >= registrarExpiry) {
         return yield* new EnsAuthorityError({
-          reason: "name_expired",
+          code: "NAME_EXPIRED",
           message: ".eth registration is expired at the ENS snapshot",
         });
       }
@@ -121,7 +121,7 @@ export const resolveEnsAuthorityV1: (
           }),
         catch: (cause) =>
           new EnsAuthorityError({
-            reason: "authority_read_failed",
+            code: "AUTHORITY_READ_FAILED",
             message: "unable to read .eth registrar owner",
             cause,
           }),
@@ -129,7 +129,7 @@ export const resolveEnsAuthorityV1: (
 
       if (!isAddressEqual(registrarOwner, ENS_NAME_WRAPPER_ADDRESS)) {
         return yield* new EnsAuthorityError({
-          reason: "invalid_authority_state",
+          code: "INVALID_AUTHORITY_STATE",
           message: "wrapped .eth name is not owned by the Name Wrapper",
         });
       }
@@ -143,7 +143,7 @@ export const resolveEnsAuthorityV1: (
     if ((fuses & PARENT_CANNOT_CONTROL) !== 0) {
       if (snapshot.blockTimestamp >= wrapperExpiry) {
         return yield* new EnsAuthorityError({
-          reason: "name_expired",
+          code: "NAME_EXPIRED",
           message: "wrapped ENS name is expired at the ENS snapshot",
         });
       }
@@ -170,7 +170,7 @@ export const resolveEnsAuthorityV1: (
         }),
       catch: (cause) =>
         new EnsAuthorityError({
-          reason: "authority_read_failed",
+          code: "AUTHORITY_READ_FAILED",
           message: "unable to read .eth registration expiry",
           cause,
         }),
@@ -178,7 +178,7 @@ export const resolveEnsAuthorityV1: (
 
     if (snapshot.blockTimestamp >= registrarExpiry) {
       return yield* new EnsAuthorityError({
-        reason: "name_expired",
+        code: "NAME_EXPIRED",
         message: ".eth registration is expired at the ENS snapshot",
       });
     }
@@ -194,7 +194,7 @@ export const resolveEnsAuthorityV1: (
         }),
       catch: (cause) =>
         new EnsAuthorityError({
-          reason: "authority_read_failed",
+          code: "AUTHORITY_READ_FAILED",
           message: "unable to read .eth registrar owner",
           cause,
         }),
@@ -202,7 +202,7 @@ export const resolveEnsAuthorityV1: (
 
     if (isAddressEqual(registrant, zeroAddress)) {
       return yield* new EnsAuthorityError({
-        reason: "owner_not_found",
+        code: "OWNER_NOT_FOUND",
         message: ".eth registration has no owner",
       });
     }
@@ -215,7 +215,7 @@ export const resolveEnsAuthorityV1: (
 
   if (isAddressEqual(registryOwner, zeroAddress)) {
     return yield* new EnsAuthorityError({
-      reason: "owner_not_found",
+      code: "OWNER_NOT_FOUND",
       message: "ENS name has no Registry owner",
     });
   }

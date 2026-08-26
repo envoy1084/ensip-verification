@@ -34,49 +34,49 @@ describe("verification descriptors", () => {
   );
 
   it.effect.each([
-    ["ensrv1  a=1 m=https-origin.v1", "invalid_structure"],
-    [" ensrv1 a=1 m=https-origin.v1", "invalid_structure"],
-    ["ensrv1 a=1 m=https-origin.v1 ", "invalid_structure"],
-    ["ensrv1\ta=1 m=https-origin.v1", "invalid_structure"],
-    ["ensrv1 a=1", "invalid_structure"],
-    ["ensrv1 a=1 m=https-origin.v1 x=no", "invalid_field"],
-    ["ensrv1 a=1 a=1 m=https-origin.v1", "duplicate_field"],
-    ["ensrv1 a=01 m=https-origin.v1", "invalid_field"],
-    ["ensrv1 a=4294967296 m=https-origin.v1", "invalid_field"],
-    ["ensrv1 a=2 m=https-origin.v1", "unsupported_authority"],
-    ["ensrv1 a=1 m=unknown.v1", "unsupported_method"],
-  ] as const)("rejects malformed descriptor %#", ([input, reason]) =>
+    ["ensrv1  a=1 m=https-origin.v1", "INVALID_STRUCTURE"],
+    [" ensrv1 a=1 m=https-origin.v1", "INVALID_STRUCTURE"],
+    ["ensrv1 a=1 m=https-origin.v1 ", "INVALID_STRUCTURE"],
+    ["ensrv1\ta=1 m=https-origin.v1", "INVALID_STRUCTURE"],
+    ["ensrv1 a=1", "INVALID_STRUCTURE"],
+    ["ensrv1 a=1 m=https-origin.v1 x=no", "INVALID_FIELD"],
+    ["ensrv1 a=1 a=1 m=https-origin.v1", "DUPLICATE_FIELD"],
+    ["ensrv1 a=01 m=https-origin.v1", "INVALID_FIELD"],
+    ["ensrv1 a=4294967296 m=https-origin.v1", "INVALID_FIELD"],
+    ["ensrv1 a=2 m=https-origin.v1", "UNSUPPORTED_AUTHORITY"],
+    ["ensrv1 a=1 m=unknown.v1", "UNSUPPORTED_METHOD"],
+  ] as const)("rejects malformed descriptor %#", ([input, code]) =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(parseDescriptor(input));
-      assert.strictEqual(error.reason, reason);
+      assert.strictEqual(error.code, code);
     }),
   );
 
   it.effect.each([
-    ["ensrv1 a=1 m=https-origin.v1 u=https://proof.example", "uri_policy"],
-    ["ensrv1 a=1 m=dns-txt.v1 u=https://proof.example", "uri_policy"],
-    ["ensrv1 a=1 m=account-signature.eip155.v1", "uri_policy"],
+    ["ensrv1 a=1 m=https-origin.v1 u=https://proof.example", "URI_POLICY"],
+    ["ensrv1 a=1 m=dns-txt.v1 u=https://proof.example", "URI_POLICY"],
+    ["ensrv1 a=1 m=account-signature.eip155.v1", "URI_POLICY"],
     [
       "ensrv1 a=1 m=account-signature.eip155.v1 u=http://proof.example",
-      "uri_policy",
+      "URI_POLICY",
     ],
-    ["ensrv1 a=1 m=account-signature.eip155.v1 u=/relative", "invalid_uri"],
+    ["ensrv1 a=1 m=account-signature.eip155.v1 u=/relative", "INVALID_URI"],
     [
       "ensrv1 a=1 m=account-signature.eip155.v1 u=https://user@proof.example",
-      "invalid_uri",
+      "INVALID_URI",
     ],
     [
       "ensrv1 a=1 m=account-signature.eip155.v1 u=https://proof.example/#fragment",
-      "invalid_uri",
+      "INVALID_URI",
     ],
     [
       "ensrv1 a=1 m=account-signature.eip155.v1 u=https://proof.example/%zz",
-      "invalid_uri",
+      "INVALID_URI",
     ],
-  ] as const)("enforces proof-URI rules %#", ([input, reason]) =>
+  ] as const)("enforces proof-URI rules %#", ([input, code]) =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(parseDescriptor(input));
-      assert.strictEqual(error.reason, reason);
+      assert.strictEqual(error.code, code);
     }),
   );
 
@@ -84,15 +84,15 @@ describe("verification descriptors", () => {
     Effect.gen(function* () {
       const oversizedDescriptor = `ensrv1 a=1 m=https-origin.v1 ${"x".repeat(2_049)}`;
       assert.strictEqual(
-        (yield* Effect.flip(parseDescriptor(oversizedDescriptor))).reason,
-        "invalid_encoding",
+        (yield* Effect.flip(parseDescriptor(oversizedDescriptor))).code,
+        "INVALID_ENCODING",
       );
 
       const longMethod = `${"a".repeat(62)}.v1`;
       assert.strictEqual(
         (yield* Effect.flip(parseDescriptor(`ensrv1 a=1 m=${longMethod}`)))
-          .reason,
-        "invalid_field",
+          .code,
+        "INVALID_FIELD",
       );
 
       const longUri = `https:${"a".repeat(1_019)}`;
@@ -101,8 +101,8 @@ describe("verification descriptors", () => {
           parseDescriptor(
             `ensrv1 a=1 m=account-signature.eip155.v1 u=${longUri}`,
           ),
-        )).reason,
-        "invalid_uri",
+        )).code,
+        "INVALID_URI",
       );
     }),
   );

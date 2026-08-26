@@ -10,7 +10,7 @@ export const NormalizedEnsName = Schema.String.check(
       return "ENS name is invalid under ENSIP-15";
     }
   }),
-).pipe(Schema.brand("NormalizedEnsName"));
+);
 
 export type NormalizedEnsName = typeof NormalizedEnsName.Type;
 
@@ -18,13 +18,11 @@ export const EnsNode = Schema.String.check(
   Schema.isPattern(/^0x[0-9a-f]{64}$/, {
     expected: "a lowercase 32-byte ENS node",
   }),
-).pipe(Schema.brand("EnsNode"));
+);
 
 export type EnsNode = typeof EnsNode.Type;
 
-export const DnsEncodedEnsName = Schema.Uint8Array.pipe(
-  Schema.brand("DnsEncodedEnsName"),
-);
+export const DnsEncodedEnsName = Schema.Uint8Array;
 
 export type DnsEncodedEnsName = typeof DnsEncodedEnsName.Type;
 
@@ -38,5 +36,8 @@ export type EnsNameIdentity = typeof EnsNameIdentity.Type;
 
 export class InvalidEnsNameError extends Schema.TaggedError<InvalidEnsNameError>()(
   "InvalidEnsNameError",
-  { message: Schema.String },
+  {
+    code: Schema.Literal("INVALID_ENS_NAME"),
+    message: Schema.String,
+  },
 ) {}
