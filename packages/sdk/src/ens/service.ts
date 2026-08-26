@@ -31,7 +31,7 @@ export class EnsService extends Context.Service<
       input: ResolveEnsAuthorityV1Input,
     ) => Effect.Effect<EnsAuthority, RpcError | VerificationError>;
   }
->()("@ens-record-verification/sdk/EnsService") {
+>()("@thenamespace/record-verification/EnsService") {
   static readonly layer = (publicClient: PublicClient) =>
     Layer.effect(
       EnsService,

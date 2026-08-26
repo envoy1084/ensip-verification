@@ -1,5 +1,5 @@
 {
-  "name": "@ens-record-verification/sdk",
+  "name": "@thenamespace/record-verification",
   "version": "0.0.0",
   "private": true,
   "description": "Experimental SDK for ENS record verification.",
