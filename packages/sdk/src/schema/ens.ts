@@ -65,6 +65,18 @@ export interface ReadRecordSnapshotInput {
   readonly blockNumber: bigint;
 }
 
+export const EnsAuthority = Schema.Struct({
+  authority: EthereumAddress,
+  authorityValidUntil: Schema.optionalKey(EnsBlockTimestamp),
+});
+
+export type EnsAuthority = typeof EnsAuthority.Type;
+
+export interface ResolveEnsAuthorityV1Input {
+  readonly name: EnsNameIdentity;
+  readonly snapshot: EnsSnapshot;
+}
+
 export class UnsupportedEnsChainError extends Schema.TaggedError<UnsupportedEnsChainError>()(
   "UnsupportedEnsChainError",
   {
@@ -80,6 +92,21 @@ export class EnsReadError extends Schema.TaggedError<EnsReadError>()(
       "block_unavailable",
       "resolution_failed",
       "malformed_response",
+    ]),
+    message: Schema.String,
+    cause: Schema.optionalKey(Schema.Defect()),
+  },
+) {}
+
+export class EnsAuthorityError extends Schema.TaggedError<EnsAuthorityError>()(
+  "EnsAuthorityError",
+  {
+    reason: Schema.Literals([
+      "unsupported_name",
+      "owner_not_found",
+      "name_expired",
+      "authority_read_failed",
+      "invalid_authority_state",
     ]),
     message: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),

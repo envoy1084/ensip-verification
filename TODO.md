@@ -76,10 +76,10 @@ and the draft `account-signature.eip155.v1` method.
       block.
 - [x] Resolve the target record and discovery record from one ENS snapshot.
 - [ ] Define the authority-algorithm interface and immutable registry.
-- [ ] Implement Ethereum mainnet Authority Algorithm 1.
-- [ ] Handle wrapped and unwrapped `.eth` second-level names and exact expiry
+- [x] Implement Ethereum mainnet Authority Algorithm 1.
+- [x] Handle wrapped and unwrapped `.eth` second-level names and exact expiry
       boundaries.
-- [ ] Handle wrapped emancipated and parent-controlled subnames.
+- [x] Handle wrapped emancipated and parent-controlled subnames.
 - [ ] Reject reverse names, virtual names without an exact authority, zero
       owners, malformed returns, and unsupported authority versions.
 - [ ] Recheck block canonicality before returning a positive result.

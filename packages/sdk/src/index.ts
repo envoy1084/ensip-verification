@@ -1,3 +1,6 @@
+export * from "./protocol/abi.js";
+export * from "./protocol/authority.js";
+export * from "./protocol/contracts.js";
 export * from "./protocol/descriptor.js";
 export * from "./protocol/discovery.js";
 export * from "./protocol/encoding.js";
