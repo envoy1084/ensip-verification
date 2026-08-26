@@ -19,3 +19,19 @@ export const universalResolverResolveAbi = parseAbi([
   "error UnsupportedResolverProfile(bytes4 selector)",
   "function resolve(bytes name, bytes data) view returns (bytes data, address resolver)",
 ]);
+
+export const resolverTextAbi = parseAbi([
+  "function text(bytes32 node, string key) view returns (string)",
+]);
+
+export const resolverAddressAbi = parseAbi([
+  "function addr(bytes32 node, uint256 coinType) view returns (bytes)",
+]);
+
+export const resolverContenthashAbi = parseAbi([
+  "function contenthash(bytes32 node) view returns (bytes)",
+]);
+
+export const resolverDataAbi = parseAbi([
+  "function data(bytes32 node, string key) view returns (bytes)",
+]);

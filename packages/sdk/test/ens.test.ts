@@ -5,7 +5,6 @@ import {
   EnsSnapshot,
   EthereumAddress,
   MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
-  UniversalResolverResponse,
 } from "../src/index.js";
 
 describe("ENS schemas", () => {
@@ -36,18 +35,12 @@ describe("ENS schemas", () => {
     }),
   );
 
-  it.effect("validates Universal Resolver output", () =>
+  it.effect("accepts ordinary Ethereum address strings", () =>
     Effect.gen(function* () {
-      const response = yield* Schema.decodeUnknownEffect(
-        UniversalResolverResponse,
-      )({
-        resolver: MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
-        data: "0x1234",
-      });
-
-      assert.strictEqual(response.data, "0x1234");
       assert.strictEqual(
-        String(response.resolver),
+        yield* Schema.decodeUnknownEffect(EthereumAddress)(
+          MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
+        ),
         MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
       );
 

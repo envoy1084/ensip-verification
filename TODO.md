@@ -66,7 +66,7 @@ and the draft `account-signature.eip155.v1` method.
 - [x] Implement DNS wire-name encoding for Universal Resolver calls.
 - [x] Define ENS snapshot, resolution, and expected read-failure schemas.
 - [x] Add the fixed mainnet Universal Resolver address and strict `resolve` ABI.
-- [ ] Implement small ENS read functions over the caller-provided Viem
+- [x] Implement a focused internal `EnsService` over the caller-provided Viem
       `PublicClient`; do not add a generic Ethereum RPC service abstraction.
 - [ ] Implement block selection with number, hash, timestamp, and canonicality
       checks.
@@ -74,7 +74,7 @@ and the draft `account-signature.eip155.v1` method.
       Resolver reads with Viem and strict ABI return decoding.
 - [ ] Implement bounded EIP-3668 CCIP Read handling pinned to the evaluation
       block.
-- [ ] Resolve the target record and discovery record from one ENS snapshot.
+- [x] Resolve the target record and discovery record from one ENS snapshot.
 - [ ] Define the authority-algorithm interface and immutable registry.
 - [ ] Implement Ethereum mainnet Authority Algorithm 1.
 - [ ] Handle wrapped and unwrapped `.eth` second-level names and exact expiry
