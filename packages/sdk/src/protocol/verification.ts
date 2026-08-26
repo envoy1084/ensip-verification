@@ -1,6 +1,10 @@
 import { Effect } from "effect";
 
-import { ClaimError } from "../schema/claims.js";
+import {
+  type RpcError,
+  ValidationError,
+  type VerificationError,
+} from "../schema/errors.js";
 import type {
   CommonVerification,
   VerifyCommonProofInput,
@@ -17,7 +21,7 @@ import { validateAuthoritySignature } from "./signatures.js";
 export const validateEmptyMethodProof = Effect.fn("validateEmptyMethodProof")(
   function* (proof: Record<string, unknown>) {
     if (Object.keys(proof).length !== 0) {
-      return yield* new ClaimError({
+      return yield* new ValidationError({
         code: "INVALID_METHOD_PROOF",
         message: "selected method requires an empty proof object",
       });
@@ -27,7 +31,10 @@ export const validateEmptyMethodProof = Effect.fn("validateEmptyMethodProof")(
 
 export const verifyCommonProof = Effect.fn("verifyCommonProof")(function* (
   input: VerifyCommonProofInput,
-): Effect.fn.Return<CommonVerification, ClaimError> {
+): Effect.fn.Return<
+  CommonVerification,
+  RpcError | ValidationError | VerificationError
+> {
   const envelope = yield* parseProofEnvelope(input.envelopeBytes);
   yield* input.validateProof(envelope.proof);
 

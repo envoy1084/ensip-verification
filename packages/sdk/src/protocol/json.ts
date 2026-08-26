@@ -6,7 +6,8 @@ import {
   JSON_MAX_VALUES,
   PROOF_ENVELOPE_MAX_BYTES,
 } from "../data/limits.js";
-import { ClaimError, ProofEnvelope } from "../schema/claims.js";
+import { ProofEnvelope } from "../schema/claims.js";
+import { ValidationError } from "../schema/errors.js";
 import { isUnicodeScalarSequence } from "./encoding.js";
 
 export interface StrictJsonLimits {
@@ -26,13 +27,13 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
   const maximumStringBytes = limits.maximumStringBytes ?? JSON_MAX_STRING_BYTES;
 
   if (bytes.byteLength > maximumBytes) {
-    return yield* new ClaimError({
+    return yield* new ValidationError({
       code: "ENVELOPE_TOO_LARGE",
       message: `JSON input exceeds ${maximumBytes} bytes`,
     });
   }
   if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return yield* new ClaimError({
+    return yield* new ValidationError({
       code: "INVALID_JSON",
       message: "JSON input must not begin with a byte-order mark",
     });
@@ -40,11 +41,10 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
 
   const text = yield* Effect.try({
     try: () => new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-    catch: (cause) =>
-      new ClaimError({
+    catch: () =>
+      new ValidationError({
         code: "INVALID_JSON",
         message: "JSON input is not valid UTF-8",
-        cause,
       }),
   });
 
@@ -75,15 +75,14 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
             let value: string;
             try {
               value = JSON.parse(text.slice(start, position)) as string;
-            } catch (cause) {
-              throw new ClaimError({
+            } catch {
+              throw new ValidationError({
                 code: "INVALID_JSON",
                 message: "JSON contains an invalid string escape",
-                cause,
               });
             }
             if (!isUnicodeScalarSequence(value)) {
-              throw new ClaimError({
+              throw new ValidationError({
                 code: "INVALID_JSON",
                 message: "JSON string contains an invalid Unicode scalar",
               });
@@ -91,7 +90,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
             if (
               new TextEncoder().encode(value).byteLength > maximumStringBytes
             ) {
-              throw new ClaimError({
+              throw new ValidationError({
                 code: "INVALID_JSON",
                 message: `JSON string exceeds ${maximumStringBytes} bytes`,
               });
@@ -99,7 +98,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
             return value;
           }
           if (codeUnit < 0x20) {
-            throw new ClaimError({
+            throw new ValidationError({
               code: "INVALID_JSON",
               message: "JSON string contains an unescaped control character",
             });
@@ -111,7 +110,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
               if (
                 !/^[0-9A-Fa-f]{4}$/.test(text.slice(position + 1, position + 5))
               ) {
-                throw new ClaimError({
+                throw new ValidationError({
                   code: "INVALID_JSON",
                   message: "JSON string contains an invalid Unicode escape",
                 });
@@ -122,7 +121,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
             if (
               !['"', "\\", "/", "b", "f", "n", "r", "t"].includes(escape ?? "")
             ) {
-              throw new ClaimError({
+              throw new ValidationError({
                 code: "INVALID_JSON",
                 message: "JSON string contains an invalid escape",
               });
@@ -131,7 +130,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
           position += 1;
         }
 
-        throw new ClaimError({
+        throw new ValidationError({
           code: "INVALID_JSON",
           message: "JSON string is not terminated",
         });
@@ -139,14 +138,14 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
 
       const parseValue = (depth: number): unknown => {
         if (depth > maximumDepth) {
-          throw new ClaimError({
+          throw new ValidationError({
             code: "INVALID_JSON",
             message: `JSON nesting exceeds ${maximumDepth}`,
           });
         }
         valueCount += 1;
         if (valueCount > maximumValues) {
-          throw new ClaimError({
+          throw new ValidationError({
             code: "INVALID_JSON",
             message: `JSON contains more than ${maximumValues} values`,
           });
@@ -171,14 +170,14 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
 
           while (position < text.length) {
             if (text[position] !== '"') {
-              throw new ClaimError({
+              throw new ValidationError({
                 code: "INVALID_JSON",
                 message: "JSON object member name must be a string",
               });
             }
             const name = parseString();
             if (memberNames.has(name)) {
-              throw new ClaimError({
+              throw new ValidationError({
                 code: "DUPLICATE_JSON_MEMBER",
                 message: `duplicate JSON member: ${name}`,
               });
@@ -186,7 +185,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
             memberNames.add(name);
             skipWhitespace();
             if (text[position] !== ":") {
-              throw new ClaimError({
+              throw new ValidationError({
                 code: "INVALID_JSON",
                 message: "JSON object member is missing a colon",
               });
@@ -199,7 +198,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
               return object;
             }
             if (text[position] !== ",") {
-              throw new ClaimError({
+              throw new ValidationError({
                 code: "INVALID_JSON",
                 message: "JSON object members must be comma-separated",
               });
@@ -225,7 +224,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
               return array;
             }
             if (text[position] !== ",") {
-              throw new ClaimError({
+              throw new ValidationError({
                 code: "INVALID_JSON",
                 message: "JSON array values must be comma-separated",
               });
@@ -255,7 +254,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
           position += number.length;
           const value = Number(number);
           if (!Number.isFinite(value)) {
-            throw new ClaimError({
+            throw new ValidationError({
               code: "INVALID_JSON",
               message: "JSON number is outside the finite numeric range",
             });
@@ -263,7 +262,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
           return value;
         }
 
-        throw new ClaimError({
+        throw new ValidationError({
           code: "INVALID_JSON",
           message: `unexpected JSON token at character ${position}`,
         });
@@ -273,7 +272,7 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
       const value = parseValue(0);
       skipWhitespace();
       if (position !== text.length) {
-        throw new ClaimError({
+        throw new ValidationError({
           code: "INVALID_JSON",
           message: "JSON input contains trailing data",
         });
@@ -281,12 +280,11 @@ export const parseStrictJson = Effect.fn("parseStrictJson")(function* (
       return value;
     },
     catch: (cause) =>
-      cause instanceof ClaimError
+      cause instanceof ValidationError
         ? cause
-        : new ClaimError({
+        : new ValidationError({
             code: "INVALID_JSON",
             message: "unable to parse JSON input",
-            cause,
           }),
   });
 });
@@ -298,11 +296,10 @@ export const parseProofEnvelope = Effect.fn("parseProofEnvelope")(function* (
   const json = yield* parseStrictJson(bytes, limits);
   return yield* Schema.decodeUnknownEffect(ProofEnvelope)(json).pipe(
     Effect.mapError(
-      (cause) =>
-        new ClaimError({
+      () =>
+        new ValidationError({
           code: "INVALID_ENVELOPE",
           message: "proof envelope does not match the closed common schema",
-          cause,
         }),
     ),
   );

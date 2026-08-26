@@ -31,11 +31,14 @@ and the draft `account-signature.eip155.v1` method.
 - [x] Keep schemas, types, and schema errors in focused `schema/` modules.
 - [x] Keep protocol constants and Effect-based derivation helpers in focused
       `protocol/` modules, with one clear responsibility per file.
+- [x] Keep static ABIs, contract addresses, limits, and cryptographic constants
+      in focused `data/` modules.
 - [x] Reuse Viem for hexadecimal conversion, ENS normalization, namehash, and
       DNS packet encoding instead of maintaining local equivalents.
 - [x] Keep ordinary public and internal values unbranded; use schemas for
       validation and reserve brands for invariants that genuinely require them.
-- [ ] Keep expected protocol failures typed with Effect schemas, but avoid
+- [x] Keep expected protocol failures typed with the shared `ValidationError`,
+      `VerificationError`, and `RpcError` schemas, while avoiding
       wrapping straightforward Viem calls and non-failing checks in needless
       services or abstractions.
 - [ ] Define stable detailed-result and failure-category models.

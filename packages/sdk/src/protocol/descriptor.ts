@@ -5,11 +5,11 @@ import {
   AbsoluteProofUri,
   type Descriptor,
   type DescriptorMethodPolicy,
-  DescriptorParseError,
   type DescriptorRegistry,
   MethodIdentifier,
   AuthorityVersion,
 } from "../schema/descriptor.js";
+import { ValidationError } from "../schema/errors.js";
 
 export const v0DescriptorRegistry: DescriptorRegistry = {
   authorityVersions: new Set([1n]),
@@ -26,13 +26,13 @@ export const v0DescriptorRegistry: DescriptorRegistry = {
 export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   input: string,
   registry: DescriptorRegistry = v0DescriptorRegistry,
-): Effect.fn.Return<Descriptor, DescriptorParseError> {
+): Effect.fn.Return<Descriptor, ValidationError> {
   if (
     input.length === 0 ||
     input.length > DESCRIPTOR_MAX_BYTES ||
     Array.from(input).some((character) => character.charCodeAt(0) > 0x7f)
   ) {
-    return yield* new DescriptorParseError({
+    return yield* new ValidationError({
       code: "INVALID_ENCODING",
       message: "descriptor must contain 1-2048 ASCII bytes",
     });
@@ -44,14 +44,14 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
     tokens.length < 3 ||
     tokens.length > 4
   ) {
-    return yield* new DescriptorParseError({
+    return yield* new ValidationError({
       code: "INVALID_STRUCTURE",
       message:
         "descriptor must contain a version and two or three single-space fields",
     });
   }
   if (tokens[0] !== "ensrv1") {
-    return yield* new DescriptorParseError({
+    return yield* new ValidationError({
       code: "INVALID_STRUCTURE",
       message: "unsupported common protocol version",
     });
@@ -61,20 +61,20 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   for (const token of tokens.slice(1)) {
     const separator = token.indexOf("=");
     if (separator <= 0 || separator === token.length - 1) {
-      return yield* new DescriptorParseError({
+      return yield* new ValidationError({
         code: "INVALID_FIELD",
         message: "descriptor field must have a non-empty name and value",
       });
     }
     const name = token.slice(0, separator);
     if (name !== "a" && name !== "m" && name !== "u") {
-      return yield* new DescriptorParseError({
+      return yield* new ValidationError({
         code: "INVALID_FIELD",
         message: `unknown descriptor field: ${name}`,
       });
     }
     if (fields.has(name)) {
-      return yield* new DescriptorParseError({
+      return yield* new ValidationError({
         code: "DUPLICATE_FIELD",
         message: `duplicate descriptor field: ${name}`,
       });
@@ -85,7 +85,7 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   const authorityInput = fields.get("a");
   const methodInput = fields.get("m");
   if (authorityInput === undefined || methodInput === undefined) {
-    return yield* new DescriptorParseError({
+    return yield* new ValidationError({
       code: "MISSING_FIELD",
       message: "descriptor requires exactly one a field and one m field",
     });
@@ -96,7 +96,7 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   ).pipe(
     Effect.mapError(
       () =>
-        new DescriptorParseError({
+        new ValidationError({
           code: "INVALID_FIELD",
           message: "invalid authority version",
         }),
@@ -107,7 +107,7 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   ).pipe(
     Effect.mapError(
       () =>
-        new DescriptorParseError({
+        new ValidationError({
           code: "INVALID_FIELD",
           message: "invalid method identifier",
         }),
@@ -115,14 +115,14 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   );
 
   if (!registry.authorityVersions.has(authorityVersion)) {
-    return yield* new DescriptorParseError({
+    return yield* new ValidationError({
       code: "UNSUPPORTED_AUTHORITY",
       message: `unsupported authority version: ${authorityVersion}`,
     });
   }
   const methodPolicy = registry.methods.get(method);
   if (methodPolicy === undefined) {
-    return yield* new DescriptorParseError({
+    return yield* new ValidationError({
       code: "UNSUPPORTED_METHOD",
       message: `unsupported method: ${method}`,
     });
@@ -136,7 +136,7 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
     ).pipe(
       Effect.mapError(
         () =>
-          new DescriptorParseError({
+          new ValidationError({
             code: "INVALID_URI",
             message: "invalid absolute proof URI",
           }),
@@ -145,13 +145,13 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   }
 
   if (methodPolicy.proofUri === "forbidden" && proofUri !== undefined) {
-    return yield* new DescriptorParseError({
+    return yield* new ValidationError({
       code: "URI_POLICY",
       message: `method ${method} forbids u`,
     });
   }
   if (methodPolicy.proofUri === "required" && proofUri === undefined) {
-    return yield* new DescriptorParseError({
+    return yield* new ValidationError({
       code: "URI_POLICY",
       message: `method ${method} requires u`,
     });
@@ -159,7 +159,7 @@ export const parseDescriptor = Effect.fn("parseDescriptor")(function* (
   if (proofUri !== undefined && methodPolicy.schemes !== undefined) {
     const scheme = proofUri.slice(0, proofUri.indexOf(":"));
     if (!methodPolicy.schemes.has(scheme)) {
-      return yield* new DescriptorParseError({
+      return yield* new ValidationError({
         code: "URI_POLICY",
         message: `method ${method} does not permit the ${scheme}: scheme`,
       });

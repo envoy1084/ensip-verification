@@ -18,18 +18,17 @@ import {
   ENS_NAME_WRAPPER_ADDRESS,
   ENS_REGISTRY_ADDRESS,
 } from "../data/contracts.js";
+import { PARENT_CANNOT_CONTROL } from "../data/ens.js";
 import {
   type EnsAuthority,
-  EnsAuthorityError,
   type ResolveEnsAuthorityV1Input,
 } from "../schema/ens.js";
-
-export const PARENT_CANNOT_CONTROL = 1 << 16;
+import { RpcError, VerificationError } from "../schema/errors.js";
 
 export const resolveEnsAuthorityV1: (
   publicClient: PublicClient,
   input: ResolveEnsAuthorityV1Input,
-) => Effect.Effect<EnsAuthority, EnsAuthorityError> = Effect.fn(
+) => Effect.Effect<EnsAuthority, RpcError | VerificationError> = Effect.fn(
   "resolveEnsAuthorityV1",
 )(function* (
   publicClient: PublicClient,
@@ -37,7 +36,7 @@ export const resolveEnsAuthorityV1: (
 ) {
   const labels = name.normalizedName.split(".");
   if (labels.at(-1) === "reverse") {
-    return yield* new EnsAuthorityError({
+    return yield* new VerificationError({
       code: "UNSUPPORTED_NAME",
       message: "reverse names do not have a supported verification authority",
     });
@@ -52,11 +51,10 @@ export const resolveEnsAuthorityV1: (
         args: [name.node as `0x${string}`],
         blockNumber: snapshot.blockNumber,
       }),
-    catch: (cause) =>
-      new EnsAuthorityError({
+    catch: () =>
+      new RpcError({
         code: "AUTHORITY_READ_FAILED",
         message: "unable to read the ENS Registry owner",
-        cause,
       }),
   });
 
@@ -73,16 +71,15 @@ export const resolveEnsAuthorityV1: (
           args: [BigInt(name.node)],
           blockNumber: snapshot.blockNumber,
         }),
-      catch: (cause) =>
-        new EnsAuthorityError({
+      catch: () =>
+        new RpcError({
           code: "AUTHORITY_READ_FAILED",
           message: "unable to read Name Wrapper state",
-          cause,
         }),
     });
 
     if (isAddressEqual(wrappedOwner, zeroAddress)) {
-      return yield* new EnsAuthorityError({
+      return yield* new VerificationError({
         code: "OWNER_NOT_FOUND",
         message: "wrapped ENS name has no owner",
       });
@@ -99,16 +96,15 @@ export const resolveEnsAuthorityV1: (
             args: [tokenId],
             blockNumber: snapshot.blockNumber,
           }),
-        catch: (cause) =>
-          new EnsAuthorityError({
+        catch: () =>
+          new RpcError({
             code: "AUTHORITY_READ_FAILED",
             message: "unable to read .eth registration expiry",
-            cause,
           }),
       });
 
       if (snapshot.blockTimestamp >= registrarExpiry) {
-        return yield* new EnsAuthorityError({
+        return yield* new VerificationError({
           code: "NAME_EXPIRED",
           message: ".eth registration is expired at the ENS snapshot",
         });
@@ -123,16 +119,15 @@ export const resolveEnsAuthorityV1: (
             args: [tokenId],
             blockNumber: snapshot.blockNumber,
           }),
-        catch: (cause) =>
-          new EnsAuthorityError({
+        catch: () =>
+          new RpcError({
             code: "AUTHORITY_READ_FAILED",
             message: "unable to read .eth registrar owner",
-            cause,
           }),
       });
 
       if (!isAddressEqual(registrarOwner, ENS_NAME_WRAPPER_ADDRESS)) {
-        return yield* new EnsAuthorityError({
+        return yield* new VerificationError({
           code: "INVALID_AUTHORITY_STATE",
           message: "wrapped .eth name is not owned by the Name Wrapper",
         });
@@ -146,7 +141,7 @@ export const resolveEnsAuthorityV1: (
 
     if ((fuses & PARENT_CANNOT_CONTROL) !== 0) {
       if (snapshot.blockTimestamp >= wrapperExpiry) {
-        return yield* new EnsAuthorityError({
+        return yield* new VerificationError({
           code: "NAME_EXPIRED",
           message: "wrapped ENS name is expired at the ENS snapshot",
         });
@@ -172,16 +167,15 @@ export const resolveEnsAuthorityV1: (
           args: [tokenId],
           blockNumber: snapshot.blockNumber,
         }),
-      catch: (cause) =>
-        new EnsAuthorityError({
+      catch: () =>
+        new RpcError({
           code: "AUTHORITY_READ_FAILED",
           message: "unable to read .eth registration expiry",
-          cause,
         }),
     });
 
     if (snapshot.blockTimestamp >= registrarExpiry) {
-      return yield* new EnsAuthorityError({
+      return yield* new VerificationError({
         code: "NAME_EXPIRED",
         message: ".eth registration is expired at the ENS snapshot",
       });
@@ -196,16 +190,15 @@ export const resolveEnsAuthorityV1: (
           args: [tokenId],
           blockNumber: snapshot.blockNumber,
         }),
-      catch: (cause) =>
-        new EnsAuthorityError({
+      catch: () =>
+        new RpcError({
           code: "AUTHORITY_READ_FAILED",
           message: "unable to read .eth registrar owner",
-          cause,
         }),
     });
 
     if (isAddressEqual(registrant, zeroAddress)) {
-      return yield* new EnsAuthorityError({
+      return yield* new VerificationError({
         code: "OWNER_NOT_FOUND",
         message: ".eth registration has no owner",
       });
@@ -218,7 +211,7 @@ export const resolveEnsAuthorityV1: (
   }
 
   if (isAddressEqual(registryOwner, zeroAddress)) {
-    return yield* new EnsAuthorityError({
+    return yield* new VerificationError({
       code: "OWNER_NOT_FOUND",
       message: "ENS name has no Registry owner",
     });

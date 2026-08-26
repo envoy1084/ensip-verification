@@ -5,7 +5,11 @@ import { bytesToHex } from "viem";
 import { readEnsRecord, validateEnsPublicClient } from "./protocol/ens.js";
 import { prepareEnsName } from "./protocol/name.js";
 import { Uint256 } from "./schema/encoding.js";
-import { EnsReadError } from "./schema/ens.js";
+import {
+  RpcError,
+  ValidationError,
+  VerificationError,
+} from "./schema/errors.js";
 import {
   type LogicalResolverValue,
   RecordSelector,
@@ -14,9 +18,7 @@ import {
 import {
   type GetRecordInput,
   type GetRecordResult,
-  InvalidRecordInputError,
   type RecordVerificationOptions,
-  VerificationNotImplementedError,
 } from "./schema/sdk.js";
 
 const decodeRecordSelector = Effect.fn("decodeRecordSelector")(function* (
@@ -34,7 +36,7 @@ const decodeRecordSelector = Effect.fn("decodeRecordSelector")(function* (
       ).pipe(
         Effect.mapError(
           () =>
-            new InvalidRecordInputError({
+            new ValidationError({
               code: "INVALID_RECORD_INPUT",
               message: "addr key must be a canonical uint256 decimal",
             }),
@@ -50,7 +52,7 @@ const decodeRecordSelector = Effect.fn("decodeRecordSelector")(function* (
       selector = { _tag: "Data", key: input.key };
       break;
     default:
-      return yield* new InvalidRecordInputError({
+      return yield* new ValidationError({
         code: "INVALID_RECORD_INPUT",
         message: "unsupported ENS record type",
       });
@@ -59,7 +61,7 @@ const decodeRecordSelector = Effect.fn("decodeRecordSelector")(function* (
   return yield* Schema.decodeUnknownEffect(RecordSelector)(selector).pipe(
     Effect.mapError(
       () =>
-        new InvalidRecordInputError({
+        new ValidationError({
           code: "INVALID_RECORD_INPUT",
           message: "record key is invalid",
         }),
@@ -92,7 +94,7 @@ export class RecordVerification {
       const selector: RecordSelectorType = yield* decodeRecordSelector(input);
 
       if (input.verify === true) {
-        return yield* new VerificationNotImplementedError({
+        return yield* new VerificationError({
           code: "VERIFICATION_NOT_IMPLEMENTED",
           message: "record verification is not implemented yet",
         });
@@ -100,11 +102,10 @@ export class RecordVerification {
 
       const blockNumber = yield* Effect.tryPromise({
         try: () => publicClient.getBlockNumber(),
-        catch: (cause) =>
-          new EnsReadError({
+        catch: () =>
+          new RpcError({
             code: "BLOCK_UNAVAILABLE",
             message: "unable to select an Ethereum block",
-            cause,
           }),
       });
       const record = yield* readEnsRecord(publicClient, {

@@ -6,3 +6,5 @@ export const JSON_MAX_DEPTH = 32;
 export const JSON_MAX_VALUES = 4_096;
 export const JSON_MAX_STRING_BYTES = 64 * 1_024;
 export const AUTHORITY_SIGNATURE_MAX_BYTES = 8_192;
+export const CLAIM_FUTURE_SKEW_SECONDS = 300n;
+export const POSITIVE_CACHE_MAX_SECONDS = 300n;

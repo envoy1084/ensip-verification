@@ -8,10 +8,8 @@ import {
   ENS_NAME_WRAPPER_ADDRESS,
   ENS_REGISTRY_ADDRESS,
 } from "../src/data/contracts.js";
-import {
-  PARENT_CANNOT_CONTROL,
-  resolveEnsAuthorityV1,
-} from "../src/protocol/authority.js";
+import { PARENT_CANNOT_CONTROL } from "../src/data/ens.js";
+import { resolveEnsAuthorityV1 } from "../src/protocol/authority.js";
 import { prepareEnsName } from "../src/protocol/name.js";
 
 const owner = "0x0000000000000000000000000000000000000001";

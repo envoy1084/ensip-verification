@@ -2,15 +2,16 @@ import { Effect, Predicate } from "effect";
 
 import { namehash, normalize, packetToBytes } from "viem/ens";
 
-import { type EnsNameIdentity, InvalidEnsNameError } from "../schema/name.js";
+import { ValidationError } from "../schema/errors.js";
+import type { EnsNameIdentity } from "../schema/name.js";
 
 export const prepareEnsName = Effect.fn("prepareEnsName")(function* (
   input: string,
-): Effect.fn.Return<EnsNameIdentity, InvalidEnsNameError> {
+): Effect.fn.Return<EnsNameIdentity, ValidationError> {
   const normalized = yield* Effect.try({
     try: () => normalize(input),
     catch: (cause) =>
-      new InvalidEnsNameError({
+      new ValidationError({
         code: "INVALID_ENS_NAME",
         message: Predicate.isError(cause) ? cause.message : "invalid ENS name",
       }),

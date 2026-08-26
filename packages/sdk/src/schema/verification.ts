@@ -2,9 +2,10 @@ import { type Effect, Schema } from "effect";
 
 import type { PublicClient } from "viem";
 
-import type { ClaimError, ProofEnvelope } from "./claims.js";
+import type { ProofEnvelope } from "./claims.js";
 import type { Descriptor } from "./descriptor.js";
 import type { EnsAuthority, EnsSnapshot } from "./ens.js";
+import type { ValidationError, VerificationError } from "./errors.js";
 import type { EnsNameIdentity } from "./name.js";
 import type { LogicalResolverValue, RecordSelector } from "./records.js";
 
@@ -27,7 +28,7 @@ export type VerificationLifetime = typeof VerificationLifetime.Type;
 
 export type MethodProofValidator = (
   proof: ProofEnvelope["proof"],
-) => Effect.Effect<void, ClaimError>;
+) => Effect.Effect<void, ValidationError | VerificationError>;
 
 export interface VerifyCommonProofInput {
   readonly publicClient: PublicClient;

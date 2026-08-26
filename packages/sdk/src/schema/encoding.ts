@@ -113,15 +113,3 @@ export const UnicodeScalarString = Schema.String.check(
       "string must contain only Unicode scalar values",
   ),
 );
-
-export class TextEncodingError extends Schema.TaggedError<TextEncodingError>()(
-  "TextEncodingError",
-  {
-    code: Schema.Literals([
-      "INVALID_UNICODE_SCALAR",
-      "INVALID_UTF8",
-      "BYTE_LIMIT_EXCEEDED",
-    ]),
-    message: Schema.String,
-  },
-) {}

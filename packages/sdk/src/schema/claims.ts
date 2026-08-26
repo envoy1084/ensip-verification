@@ -80,23 +80,3 @@ export interface ValidateAuthoritySignatureInput {
   readonly digest: Hex;
   readonly blockNumber: bigint;
 }
-
-export class ClaimError extends Schema.TaggedError<ClaimError>()("ClaimError", {
-  code: Schema.Literals([
-    "INVALID_CLAIM",
-    "CLAIM_MISMATCH",
-    "INVALID_ENVELOPE",
-    "ENVELOPE_TOO_LARGE",
-    "INVALID_JSON",
-    "DUPLICATE_JSON_MEMBER",
-    "INVALID_AUTHORITY_SIGNATURE",
-    "AUTHORITY_SIGNATURE_READ_FAILED",
-    "INVALID_CLAIM_TIME",
-    "CLAIM_EXPIRED",
-    "CLAIM_LIFETIME_EXCEEDED",
-    "EFFECTIVE_VALIDITY_EXPIRED",
-    "INVALID_METHOD_PROOF",
-  ]),
-  message: Schema.String,
-  cause: Schema.optionalKey(Schema.Defect()),
-}) {}

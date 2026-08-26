@@ -2,7 +2,8 @@ import { Effect } from "effect";
 
 import { bytesToHex } from "viem";
 
-import { type LowercaseHex, TextEncodingError } from "../schema/encoding.js";
+import type { LowercaseHex } from "../schema/encoding.js";
+import { ValidationError } from "../schema/errors.js";
 
 export const encodeCanonicalDecimal = (value: bigint): string =>
   value.toString(10);
@@ -10,23 +11,21 @@ export const encodeCanonicalDecimal = (value: bigint): string =>
 export const encodeLowercaseHex = (bytes: Uint8Array): LowercaseHex =>
   bytesToHex(bytes) as LowercaseHex;
 
-const findUnicodeScalarError = (
-  value: string,
-): TextEncodingError | undefined => {
+const findUnicodeScalarError = (value: string): ValidationError | undefined => {
   for (let index = 0; index < value.length; index += 1) {
     const codeUnit = value.charCodeAt(index);
 
     if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
       const next = value.charCodeAt(index + 1);
       if (!(next >= 0xdc00 && next <= 0xdfff)) {
-        return new TextEncodingError({
+        return new ValidationError({
           code: "INVALID_UNICODE_SCALAR",
           message: "string contains an unpaired high surrogate",
         });
       }
       index += 1;
     } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
-      return new TextEncodingError({
+      return new ValidationError({
         code: "INVALID_UNICODE_SCALAR",
         message: "string contains an unpaired low surrogate",
       });
@@ -54,7 +53,7 @@ export const decodeStrictUtf8 = Effect.fn("decodeStrictUtf8")(function* (
   return yield* Effect.try({
     try: () => textDecoder.decode(bytes),
     catch: () =>
-      new TextEncodingError({
+      new ValidationError({
         code: "INVALID_UTF8",
         message: "input is not valid UTF-8",
       }),
@@ -77,7 +76,7 @@ export const enforceUtf8ByteLimit = Effect.fn("enforceUtf8ByteLimit")(
 
     const actualBytes = yield* utf8ByteLength(value);
     if (actualBytes > maximumBytes) {
-      return yield* new TextEncodingError({
+      return yield* new ValidationError({
         code: "BYTE_LIMIT_EXCEEDED",
         message: `UTF-8 input is ${actualBytes} bytes; maximum is ${maximumBytes}`,
       });

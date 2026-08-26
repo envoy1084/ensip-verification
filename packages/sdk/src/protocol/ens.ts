@@ -21,14 +21,13 @@ import {
   MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
 } from "../data/contracts.js";
 import {
-  EnsReadError,
   type EnsRecordSnapshot,
   EnsSnapshot,
   type ReadRecordInput,
   type ReadRecordSnapshotInput,
   type ResolvedEnsRecord,
-  UnsupportedEnsChainError,
 } from "../schema/ens.js";
+import { RpcError } from "../schema/errors.js";
 import type { EnsNameIdentity } from "../schema/name.js";
 import {
   LogicalResolverValue,
@@ -124,11 +123,10 @@ const decodeRecordValue = Effect.fn("decodeRecordValue")(function* (
           };
       }
     },
-    catch: (cause) =>
-      new EnsReadError({
+    catch: () =>
+      new RpcError({
         code: "MALFORMED_RESPONSE",
         message: "resolver returned malformed record data",
-        cause,
       }),
   });
 
@@ -136,11 +134,10 @@ const decodeRecordValue = Effect.fn("decodeRecordValue")(function* (
 
   return yield* Schema.decodeUnknownEffect(LogicalResolverValue)(decoded).pipe(
     Effect.mapError(
-      (cause) =>
-        new EnsReadError({
+      () =>
+        new RpcError({
           code: "MALFORMED_RESPONSE",
           message: "resolver returned an invalid logical value",
-          cause,
         }),
     ),
   );
@@ -152,11 +149,10 @@ const readEnsSnapshot = Effect.fn("readEnsSnapshot")(function* (
 ) {
   const block = yield* Effect.tryPromise({
     try: () => publicClient.getBlock({ blockNumber }),
-    catch: (cause) =>
-      new EnsReadError({
+    catch: () =>
+      new RpcError({
         code: "BLOCK_UNAVAILABLE",
         message: `unable to read Ethereum block ${blockNumber}`,
-        cause,
       }),
   });
 
@@ -167,11 +163,10 @@ const readEnsSnapshot = Effect.fn("readEnsSnapshot")(function* (
     blockTimestamp: block.timestamp,
   }).pipe(
     Effect.mapError(
-      (cause) =>
-        new EnsReadError({
+      () =>
+        new RpcError({
           code: "MALFORMED_RESPONSE",
           message: "Ethereum block response is malformed",
-          cause,
         }),
     ),
   );
@@ -179,54 +174,55 @@ const readEnsSnapshot = Effect.fn("readEnsSnapshot")(function* (
 
 export const validateEnsPublicClient: (
   publicClient: PublicClient,
-) => Effect.Effect<void, UnsupportedEnsChainError> = Effect.fn(
-  "validateEnsPublicClient",
-)(function* (publicClient: PublicClient) {
-  const chainId = publicClient.chain?.id;
-  if (chainId !== ETHEREUM_MAINNET_CHAIN_ID) {
-    return yield* new UnsupportedEnsChainError({
-      code: "UNSUPPORTED_ENS_CHAIN",
-      ...(chainId === undefined ? {} : { chainId }),
-      message: "EnsService requires an Ethereum mainnet PublicClient",
-    });
-  }
-});
+) => Effect.Effect<void, RpcError> = Effect.fn("validateEnsPublicClient")(
+  function* (publicClient: PublicClient) {
+    const chainId = publicClient.chain?.id;
+    if (chainId !== ETHEREUM_MAINNET_CHAIN_ID) {
+      return yield* new RpcError({
+        code: "UNSUPPORTED_ENS_CHAIN",
+        message:
+          chainId === undefined
+            ? "PublicClient must be configured for Ethereum mainnet"
+            : `PublicClient chain ${chainId} is not Ethereum mainnet`,
+      });
+    }
+  },
+);
 
 export const readEnsRecord: (
   publicClient: PublicClient,
   input: ReadRecordInput,
-) => Effect.Effect<ResolvedEnsRecord, EnsReadError> = Effect.fn(
-  "readEnsRecord",
-)(function* (
-  publicClient: PublicClient,
-  { name, selector, blockNumber }: ReadRecordInput,
-) {
-  const recordCall = encodeRecordCall(name, selector);
-  const [response, resolver] = yield* Effect.tryPromise({
-    try: () =>
-      publicClient.readContract({
-        address: MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
-        abi: universalResolverResolveAbi,
-        functionName: "resolve",
-        args: [bytesToHex(name.dnsEncodedName), recordCall],
-        blockNumber,
-      }),
-    catch: (cause) =>
-      new EnsReadError({
-        code: "RESOLUTION_FAILED",
-        message: `unable to resolve ${name.normalizedName}`,
-        cause,
-      }),
-  });
+) => Effect.Effect<ResolvedEnsRecord, RpcError> = Effect.fn("readEnsRecord")(
+  function* (
+    publicClient: PublicClient,
+    { name, selector, blockNumber }: ReadRecordInput,
+  ) {
+    const recordCall = encodeRecordCall(name, selector);
+    const [response, resolver] = yield* Effect.tryPromise({
+      try: () =>
+        publicClient.readContract({
+          address: MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
+          abi: universalResolverResolveAbi,
+          functionName: "resolve",
+          args: [bytesToHex(name.dnsEncodedName), recordCall],
+          blockNumber,
+        }),
+      catch: () =>
+        new RpcError({
+          code: "RESOLUTION_FAILED",
+          message: `unable to resolve ${name.normalizedName}`,
+        }),
+    });
 
-  const value = yield* decodeRecordValue(selector, response);
-  return { selector, resolver, value } satisfies ResolvedEnsRecord;
-});
+    const value = yield* decodeRecordValue(selector, response);
+    return { selector, resolver, value } satisfies ResolvedEnsRecord;
+  },
+);
 
 export const readEnsRecordSnapshot: (
   publicClient: PublicClient,
   input: ReadRecordSnapshotInput,
-) => Effect.Effect<EnsRecordSnapshot, EnsReadError> = Effect.fn(
+) => Effect.Effect<EnsRecordSnapshot, RpcError> = Effect.fn(
   "readEnsRecordSnapshot",
 )(function* (
   publicClient: PublicClient,
@@ -240,11 +236,10 @@ export const readEnsRecordSnapshot: (
   });
   const discoveryKey = yield* deriveDiscoveryKey(selector).pipe(
     Effect.mapError(
-      (cause) =>
-        new EnsReadError({
+      () =>
+        new RpcError({
           code: "MALFORMED_RESPONSE",
           message: "unable to derive the discovery key",
-          cause,
         }),
     ),
   );
@@ -253,11 +248,10 @@ export const readEnsRecordSnapshot: (
     key: discoveryKey.key,
   }).pipe(
     Effect.mapError(
-      (cause) =>
-        new EnsReadError({
+      () =>
+        new RpcError({
           code: "MALFORMED_RESPONSE",
           message: "derived discovery selector is invalid",
-          cause,
         }),
     ),
   );

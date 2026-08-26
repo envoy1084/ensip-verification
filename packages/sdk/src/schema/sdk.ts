@@ -1,6 +1,6 @@
-import { Schema } from "effect";
-
 import type { PublicClient } from "viem";
+
+import type { SdkErrorCode } from "../data/errors.js";
 
 export interface RecordVerificationOptions {
   readonly publicClient: PublicClient;
@@ -53,14 +53,7 @@ export interface GetRecordData<Verify extends boolean = false> {
 }
 
 export interface RecordVerificationError {
-  readonly code:
-    | "INVALID_RECORD_INPUT"
-    | "INVALID_ENS_NAME"
-    | "UNSUPPORTED_ENS_CHAIN"
-    | "BLOCK_UNAVAILABLE"
-    | "RESOLUTION_FAILED"
-    | "MALFORMED_RESPONSE"
-    | "VERIFICATION_NOT_IMPLEMENTED";
+  readonly code: SdkErrorCode;
   readonly message: string;
 }
 
@@ -73,19 +66,3 @@ export type GetRecordResult<Verify extends boolean = false> =
       readonly success: false;
       readonly error: RecordVerificationError;
     };
-
-export class InvalidRecordInputError extends Schema.TaggedError<InvalidRecordInputError>()(
-  "InvalidRecordInputError",
-  {
-    code: Schema.Literal("INVALID_RECORD_INPUT"),
-    message: Schema.String,
-  },
-) {}
-
-export class VerificationNotImplementedError extends Schema.TaggedError<VerificationNotImplementedError>()(
-  "VerificationNotImplementedError",
-  {
-    code: Schema.Literal("VERIFICATION_NOT_IMPLEMENTED"),
-    message: Schema.String,
-  },
-) {}

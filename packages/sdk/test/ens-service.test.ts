@@ -83,8 +83,8 @@ describe("EnsService", () => {
         }).pipe(Effect.provide(EnsService.layer(publicClient))),
       );
 
-      assert.strictEqual(error["_tag"], "UnsupportedEnsChainError");
-      assert.strictEqual(error.chainId, 11155111);
+      assert.strictEqual(error["_tag"], "RpcError");
+      assert.strictEqual(error.code, "UNSUPPORTED_ENS_CHAIN");
     });
   });
 });

@@ -10,27 +10,26 @@ import {
 } from "../protocol/ens.js";
 import type {
   EnsAuthority,
-  EnsAuthorityError,
-  EnsReadError,
   EnsRecordSnapshot,
   ReadRecordInput,
   ReadRecordSnapshotInput,
   ResolveEnsAuthorityV1Input,
   ResolvedEnsRecord,
 } from "../schema/ens.js";
+import type { RpcError, VerificationError } from "../schema/errors.js";
 
 export class EnsService extends Context.Service<
   EnsService,
   {
     readonly readRecord: (
       input: ReadRecordInput,
-    ) => Effect.Effect<ResolvedEnsRecord, EnsReadError>;
+    ) => Effect.Effect<ResolvedEnsRecord, RpcError>;
     readonly readRecordSnapshot: (
       input: ReadRecordSnapshotInput,
-    ) => Effect.Effect<EnsRecordSnapshot, EnsReadError>;
+    ) => Effect.Effect<EnsRecordSnapshot, RpcError>;
     readonly resolveAuthorityV1: (
       input: ResolveEnsAuthorityV1Input,
-    ) => Effect.Effect<EnsAuthority, EnsAuthorityError>;
+    ) => Effect.Effect<EnsAuthority, RpcError | VerificationError>;
   }
 >()("@ens-record-verification/sdk/EnsService") {
   static readonly layer = (publicClient: PublicClient) =>

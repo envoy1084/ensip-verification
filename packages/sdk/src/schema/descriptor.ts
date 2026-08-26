@@ -80,21 +80,3 @@ export interface DescriptorRegistry {
   readonly authorityVersions: ReadonlySet<bigint>;
   readonly methods: ReadonlyMap<string, DescriptorMethodPolicy>;
 }
-
-export class DescriptorParseError extends Schema.TaggedError<DescriptorParseError>()(
-  "DescriptorParseError",
-  {
-    code: Schema.Literals([
-      "INVALID_ENCODING",
-      "INVALID_STRUCTURE",
-      "INVALID_FIELD",
-      "DUPLICATE_FIELD",
-      "MISSING_FIELD",
-      "UNSUPPORTED_AUTHORITY",
-      "UNSUPPORTED_METHOD",
-      "INVALID_URI",
-      "URI_POLICY",
-    ]),
-    message: Schema.String,
-  },
-) {}

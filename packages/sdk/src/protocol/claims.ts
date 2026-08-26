@@ -2,7 +2,6 @@ import { Effect, Schema } from "effect";
 
 import {
   encodeAbiParameters,
-  hashDomain,
   hashTypedData,
   keccak256,
   toBytes,
@@ -11,55 +10,22 @@ import {
 } from "viem";
 
 import {
-  ClaimError,
+  ENS_RECORD_VERIFICATION_DOMAIN,
+  ENS_RECORD_VERIFICATION_DOMAIN_SEPARATOR,
+  ENS_RECORD_VERIFICATION_TYPES,
+  PROOF_KEY_TYPEHASH,
+} from "../data/claims.js";
+import {
   CommonClaim,
   type CommonClaim as CommonClaimType,
   type DeriveCommonClaimInput,
   type ProofKeyInput,
 } from "../schema/claims.js";
+import { ValidationError, VerificationError } from "../schema/errors.js";
 import {
   deriveLogicalResolverValueBytes,
   deriveRecordMetadata,
 } from "./records.js";
-
-export const ENS_RECORD_VERIFICATION_DOMAIN = {
-  name: "ENS Record Verification",
-  version: "1",
-  chainId: 1n,
-} as const;
-
-export const ENS_RECORD_VERIFICATION_TYPES = {
-  ENSRecordVerification: [
-    { name: "name", type: "string" },
-    { name: "node", type: "bytes32" },
-    { name: "recordType", type: "string" },
-    { name: "recordKey", type: "string" },
-    { name: "valueHash", type: "bytes32" },
-    { name: "authorityVersion", type: "uint32" },
-    { name: "authority", type: "address" },
-    { name: "method", type: "string" },
-    { name: "target", type: "string" },
-    { name: "issuedAt", type: "uint64" },
-    { name: "validUntil", type: "uint64" },
-  ],
-} as const;
-
-export const ENS_RECORD_VERIFICATION_DOMAIN_SEPARATOR = hashDomain({
-  domain: ENS_RECORD_VERIFICATION_DOMAIN,
-  types: {
-    EIP712Domain: [
-      { name: "name", type: "string" },
-      { name: "version", type: "string" },
-      { name: "chainId", type: "uint256" },
-    ],
-  },
-});
-
-export const PROOF_KEY_TYPEHASH = keccak256(
-  toBytes(
-    "ENSRecordVerificationProofKey(bytes32 domainSeparator,uint32 authorityVersion,address authority,bytes32 node,bytes32 recordTypeHash,bytes32 recordKeyHash,bytes32 methodHash)",
-  ),
-);
 
 export const deriveResolverValueHash = Effect.fn("deriveResolverValueHash")(
   function* (value: DeriveCommonClaimInput["value"]) {
@@ -73,11 +39,10 @@ export const deriveCommonClaim = Effect.fn("deriveCommonClaim")(function* (
   const { recordType, recordKey } = deriveRecordMetadata(input.selector);
   const valueHash = yield* deriveResolverValueHash(input.value).pipe(
     Effect.mapError(
-      (cause) =>
-        new ClaimError({
+      () =>
+        new ValidationError({
           code: "INVALID_CLAIM",
           message: "unable to hash the live resolver value",
-          cause,
         }),
     ),
   );
@@ -96,11 +61,10 @@ export const deriveCommonClaim = Effect.fn("deriveCommonClaim")(function* (
     validUntil: input.validUntil,
   }).pipe(
     Effect.mapError(
-      (cause) =>
-        new ClaimError({
+      () =>
+        new ValidationError({
           code: "INVALID_CLAIM",
           message: "unable to derive a valid common claim",
-          cause,
         }),
     ),
   );
@@ -162,7 +126,7 @@ export const compareCommonClaim = Effect.fn("compareCommonClaim")(function* (
     "target",
   ] as const) {
     if (claim[field] !== expected[field]) {
-      return yield* new ClaimError({
+      return yield* new VerificationError({
         code: "CLAIM_MISMATCH",
         message: `claim ${field} does not match live ENS state`,
       });

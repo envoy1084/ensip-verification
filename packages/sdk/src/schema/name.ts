@@ -33,11 +33,3 @@ export const EnsNameIdentity = Schema.Struct({
 });
 
 export type EnsNameIdentity = typeof EnsNameIdentity.Type;
-
-export class InvalidEnsNameError extends Schema.TaggedError<InvalidEnsNameError>()(
-  "InvalidEnsNameError",
-  {
-    code: Schema.Literal("INVALID_ENS_NAME"),
-    message: Schema.String,
-  },
-) {}
