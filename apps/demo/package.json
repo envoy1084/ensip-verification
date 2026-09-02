@@ -1,0 +1,41 @@
+{
+  "name": "@repo/demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vite dev --port 3000",
+    "generate-routes": "tsr generate",
+    "build": "vite build",
+    "lint": "oxlint --deny-warnings .",
+    "preview": "vite preview",
+    "typecheck": "tsr generate && tsc --noEmit"
+  },
+  "dependencies": {
+    "@rainbow-me/rainbowkit": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@thenamespace/uikit": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "viem": "catalog:",
+    "wagmi": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@tanstack/router-cli": "catalog:",
+    "@tanstack/router-plugin": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "6.0.3",
+    "klarity": "0.2.0",
+    "oxlint": "catalog:",
+    "tailwindcss": "4.3.3",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}
