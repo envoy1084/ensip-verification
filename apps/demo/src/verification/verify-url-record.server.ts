@@ -1,4 +1,7 @@
-import { RecordVerification } from "@thenamespace/record-verification";
+import {
+  RecordVerification,
+  type CreateDnsTxtRecordInput,
+} from "@thenamespace/record-verification";
 import { createPublicClient, http } from "viem";
 import { mainnet } from "viem/chains";
 
@@ -24,4 +27,24 @@ export function verifyUrlRecord(name: string) {
     key: "url",
     verify: true,
   });
+}
+
+export function prepareUrlDnsVerification(name: string) {
+  if (recordVerification === null) {
+    throw new Error("VITE_PUBLIC_RPC_URL is not configured.");
+  }
+
+  return recordVerification.prepareDnsTxtVerification({
+    name,
+    type: "text",
+    key: "url",
+  });
+}
+
+export function createUrlDnsRecord(input: CreateDnsTxtRecordInput) {
+  if (recordVerification === null) {
+    throw new Error("VITE_PUBLIC_RPC_URL is not configured.");
+  }
+
+  return recordVerification.createDnsTxtRecord(input);
 }

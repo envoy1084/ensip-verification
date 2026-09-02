@@ -26,6 +26,15 @@ Omit `verify` to read the record without proof verification. Expected failures
 are returned as `{ success: false, error }`; invalid mainnet client
 configuration is rejected during construction.
 
+To publish a DNS proof, call `prepareDnsTxtVerification` after configuring the
+record's `dns-txt.v1` discovery descriptor. Sign the returned `typedData` with
+the returned ENS `authority`, then pass the preparation and signature to
+`createDnsTxtRecord`. The result contains the exact DNS TXT owner and value to
+publish. `zoneFileValue` contains the quoted and escaped representation needed
+by zone-file-style inputs such as Cloudflare's. An empty discovery record may
+be prepared before it is configured; `descriptorConfigured` indicates whether
+the caller still needs to set it.
+
 DNS TXT verification validates RRSIG, DNSKEY, and DS records locally against
 the bundled IANA root trust anchors. The v0 implementation accepts direct TXT
 answers only, rejects aliases, and does not cache DNS evidence.

@@ -1,14 +1,9 @@
-import { useCallback } from "react";
-
-import { useMutation } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-
 import { Button } from "@thenamespace/uikit/button";
 import { Chip } from "@thenamespace/uikit/chip";
 import { Globe02Icon, HugeiconsIcon } from "@thenamespace/uikit/icons";
 import { Spinner } from "@thenamespace/uikit/spinner";
 
-import { verifyUrlRecord } from "../verification/verify-url-record.functions";
+import { useUrlDnsVerification } from "../verification/use-url-dns-verification";
 
 interface UrlRecordVerificationProps {
   isError: boolean;
@@ -24,23 +19,7 @@ export function UrlRecordVerification({
   value,
 }: UrlRecordVerificationProps) {
   const hasValue = value !== null && value.length > 0;
-  const verifyOnServer = useServerFn(verifyUrlRecord);
-  const verification = useMutation({
-    mutationFn: () => verifyOnServer({ data: { name } }),
-  });
-  const { mutate } = verification;
-  const handleVerify = useCallback(() => mutate(), [mutate]);
-  const isVerified =
-    verification.data?.success === true &&
-    verification.data.data.verification.verified &&
-    verification.data.data.value === value;
-  const verificationError = verification.isError
-    ? verification.error.message
-    : verification.data?.success === false
-      ? verification.data.error.message
-      : verification.data?.success === true && !isVerified
-        ? "The current URL value could not be verified."
-        : null;
+  const verification = useUrlDnsVerification(name);
 
   return (
     <section className="mt-12" aria-labelledby="url-record-heading">
@@ -98,7 +77,7 @@ export function UrlRecordVerification({
             </div>
           </div>
 
-          {isVerified ? (
+          {verification.isVerified ? (
             <Chip color="success" size="lg" variant="soft">
               Verified
             </Chip>
@@ -108,22 +87,56 @@ export function UrlRecordVerification({
               isDisabled={
                 isLoading || isError || !hasValue || verification.isPending
               }
-              onPress={handleVerify}
+              onPress={verification.verify}
             >
-              {verification.isPending ? "Verifying…" : "Verify"}
+              {verification.actionLabel}
             </Button>
           )}
         </div>
 
-        {verificationError ? (
+        {verification.dnsRecord ? (
+          <div className="border-border bg-[#f5fbfe] border-t px-5 py-5 sm:px-6">
+            <p className="font-semibold">Publish this DNS TXT record</p>
+            <p className="text-muted mt-1 text-sm">
+              Add it at the DNS provider for the URL hostname. The value below
+              uses quoted DNS character-string syntax, including the escaping
+              required by Cloudflare. Then check again after DNSSEC has
+              propagated.
+            </p>
+
+            <DnsRecordField
+              label="Record name"
+              value={verification.dnsRecord.name}
+            />
+            <DnsRecordField
+              label="TXT value"
+              value={verification.dnsRecord.zoneFileValue}
+            />
+          </div>
+        ) : null}
+
+        {verification.error ? (
           <p
             className="border-border bg-danger/5 text-danger border-t px-5 py-3 text-sm sm:px-6"
             role="alert"
           >
-            {verificationError}
+            {verification.error}
           </p>
         ) : null}
       </div>
     </section>
+  );
+}
+
+function DnsRecordField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mt-4">
+      <p className="text-muted text-xs font-semibold tracking-wide uppercase">
+        {label}
+      </p>
+      <code className="border-border bg-surface mt-1 block max-h-40 overflow-auto rounded-md border px-3 py-2 text-xs break-all whitespace-pre-wrap">
+        {value}
+      </code>
+    </div>
   );
 }

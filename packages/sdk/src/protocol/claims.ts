@@ -47,7 +47,7 @@ export const deriveCommonClaim = Effect.fn("deriveCommonClaim")(function* (
     ),
   );
 
-  return yield* Schema.decodeUnknownEffect(CommonClaim)({
+  const claim = {
     name: input.name.normalizedName,
     node: input.name.node,
     recordType,
@@ -59,7 +59,10 @@ export const deriveCommonClaim = Effect.fn("deriveCommonClaim")(function* (
     target: input.target,
     issuedAt: input.issuedAt,
     validUntil: input.validUntil,
-  }).pipe(
+  };
+
+  return yield* Schema.encodeUnknownEffect(CommonClaim)(claim).pipe(
+    Effect.flatMap(Schema.decodeEffect(CommonClaim)),
     Effect.mapError(
       () =>
         new ValidationError({

@@ -3,6 +3,10 @@ import { Clock, Effect, Schema } from "effect";
 import { Ensforge } from "@ensforge/sdk";
 import { bytesToHex } from "viem";
 
+import {
+  createDnsTxtRecord,
+  prepareDnsTxtVerification,
+} from "./dns-txt-setup.js";
 import { NodeDnsServiceLayer } from "./dns/node.js";
 import { NodeHttpServiceLayer } from "./http/node.js";
 import { verifyRegisteredMethod } from "./methods/registry.js";
@@ -23,6 +27,10 @@ import {
 import {
   type GetRecordInput,
   type GetRecordResult,
+  type CreateDnsTxtRecordInput,
+  type CreateDnsTxtRecordResult,
+  type PrepareDnsTxtVerificationInput,
+  type PrepareDnsTxtVerificationResult,
   type RecordVerificationOptions,
 } from "./schema/sdk.js";
 
@@ -57,6 +65,38 @@ export class RecordVerification {
   constructor({ publicClient }: RecordVerificationOptions) {
     this.#publicClient = publicClient;
     this.#ensforge = new Ensforge({ network: "mainnet", publicClient });
+  }
+
+  prepareDnsTxtVerification(
+    input: PrepareDnsTxtVerificationInput,
+  ): Promise<PrepareDnsTxtVerificationResult> {
+    return Effect.runPromise(
+      prepareDnsTxtVerification(this.#ensforge, this.#publicClient, input).pipe(
+        Effect.match({
+          onFailure: (error) => ({
+            success: false as const,
+            error: { code: error.code, message: error.message },
+          }),
+          onSuccess: (data) => ({ success: true as const, data }),
+        }),
+      ),
+    );
+  }
+
+  createDnsTxtRecord(
+    input: CreateDnsTxtRecordInput,
+  ): Promise<CreateDnsTxtRecordResult> {
+    return Effect.runPromise(
+      createDnsTxtRecord(this.#publicClient, input).pipe(
+        Effect.match({
+          onFailure: (error) => ({
+            success: false as const,
+            error: { code: error.code, message: error.message },
+          }),
+          onSuccess: (data) => ({ success: true as const, data }),
+        }),
+      ),
+    );
   }
 
   getRecord(input: GetRecordInput<true>): Promise<GetRecordResult<true>>;
