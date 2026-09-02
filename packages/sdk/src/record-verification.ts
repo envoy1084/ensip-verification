@@ -1,14 +1,19 @@
-import { Effect, Schema } from "effect";
+import { Clock, Effect, Schema } from "effect";
 
+import { Ensforge } from "@ensforge/sdk";
 import { bytesToHex } from "viem";
 
-import { readEnsRecord, validateEnsPublicClient } from "./protocol/ens.js";
-import { prepareEnsName } from "./protocol/name.js";
+import { NodeHttpServiceLayer } from "./http/node.js";
+import { verifyRegisteredMethod } from "./methods/registry.js";
+import { resolveEnsAuthorityV1 } from "./protocol/authority.js";
+import { parseDescriptor } from "./protocol/descriptor.js";
 import {
-  RpcError,
-  ValidationError,
-  VerificationError,
-} from "./schema/errors.js";
+  ensureEnsSnapshotCanonical,
+  readEnsRecord,
+  readEnsRecordSnapshot,
+} from "./protocol/ens.js";
+import { prepareEnsName } from "./protocol/name.js";
+import { ValidationError, VerificationError } from "./schema/errors.js";
 import {
   type LogicalResolverValue,
   type RecordSelector,
@@ -46,9 +51,11 @@ const toPublicRecordValue = (
 
 export class RecordVerification {
   readonly #publicClient: RecordVerificationOptions["publicClient"];
+  readonly #ensforge: Ensforge;
 
   constructor({ publicClient }: RecordVerificationOptions) {
     this.#publicClient = publicClient;
+    this.#ensforge = new Ensforge({ network: "mainnet", publicClient });
   }
 
   getRecord(input: GetRecordInput<true>): Promise<GetRecordResult<true>>;
@@ -56,40 +63,72 @@ export class RecordVerification {
   getRecord(input: GetRecordInput<boolean>): Promise<GetRecordResult<boolean>>;
   getRecord(input: GetRecordInput<boolean>): Promise<GetRecordResult<boolean>> {
     const publicClient = this.#publicClient;
+    const ensforge = this.#ensforge;
     const program = Effect.gen(function* () {
-      yield* validateEnsPublicClient(publicClient);
       const name = yield* prepareEnsName(input.name);
       const selector: RecordSelector = yield* decodeRecordSelector(input);
 
-      if (input.verify === true) {
+      if (input.verify !== true) {
+        const record = yield* readEnsRecord(ensforge, name, selector);
+        return {
+          value: toPublicRecordValue(record.value),
+          verification: null,
+        };
+      }
+
+      const checkedAt = BigInt(
+        Math.floor((yield* Clock.currentTimeMillis) / 1_000),
+      );
+      const resolved = yield* readEnsRecordSnapshot(ensforge, publicClient, {
+        name,
+        selector,
+      });
+      if (resolved.record.value === null) {
         return yield* new VerificationError({
-          code: "VERIFICATION_NOT_IMPLEMENTED",
-          message: "record verification is not implemented yet",
+          code: "METHOD_NOT_APPLICABLE",
+          message: "the target ENS record is empty",
+        });
+      }
+      if (
+        resolved.discovery.value === null ||
+        resolved.discovery.value.type !== "text" ||
+        resolved.discovery.value.value.length === 0
+      ) {
+        return yield* new VerificationError({
+          code: "METHOD_NOT_APPLICABLE",
+          message: "the verification descriptor is not configured",
         });
       }
 
-      const blockNumber = yield* Effect.tryPromise({
-        try: () => publicClient.getBlockNumber(),
-        catch: () =>
-          new RpcError({
-            code: "BLOCK_UNAVAILABLE",
-            message: "unable to select an Ethereum block",
-          }),
+      const descriptor = yield* parseDescriptor(resolved.discovery.value.value);
+      const authority = yield* resolveEnsAuthorityV1(ensforge, {
+        name,
+        snapshot: resolved.snapshot,
       });
-      const record = yield* readEnsRecord(publicClient, {
+      yield* verifyRegisteredMethod({
+        publicClient,
         name,
         selector,
-        blockNumber,
+        value: resolved.record.value,
+        descriptor,
+        authority,
+        snapshot: resolved.snapshot,
+        checkedAt,
       });
+      yield* ensureEnsSnapshotCanonical(publicClient, resolved.snapshot);
 
       return {
-        value: toPublicRecordValue(record.value),
-        verification: null,
+        value: toPublicRecordValue(resolved.record.value),
+        verification: {
+          verified: true as const,
+          verificationType: "control" as const,
+        },
       };
     });
 
     return Effect.runPromise(
       program.pipe(
+        Effect.provide(NodeHttpServiceLayer),
         Effect.match({
           onFailure: (error) => ({
             success: false as const,

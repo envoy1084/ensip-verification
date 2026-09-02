@@ -24,15 +24,14 @@ and the draft `account-signature.eip155.v1` method.
 
 ## 2. SDK Foundations
 
-- [x] Add Effect-compatible unit-test infrastructure and a package `test`
-      script.
+- [ ] Restore SDK test infrastructure when the v0 protocol behavior is frozen.
 - [x] Establish feature-focused source folders and a deliberate root export
       facade.
 - [x] Keep schemas, types, and schema errors in focused `schema/` modules.
 - [x] Keep protocol constants and Effect-based derivation helpers in focused
       `protocol/` modules, with one clear responsibility per file.
-- [x] Keep static ABIs, contract addresses, limits, and cryptographic constants
-      in focused `data/` modules.
+- [x] Keep protocol limits and cryptographic constants in focused `data/`
+      modules; obtain ENS deployments and ABIs from ENSForge.
 - [x] Reuse Viem for hexadecimal conversion, ENS normalization, namehash, and
       DNS packet encoding instead of maintaining local equivalents.
 - [x] Keep ordinary public and internal values unbranded; use schemas for
@@ -42,7 +41,7 @@ and the draft `account-signature.eip155.v1` method.
       wrapping straightforward Viem calls and non-failing checks in needless
       services or abstractions.
 - [ ] Define stable detailed-result and failure-category models.
-- [ ] Define the minimal protocol-result projection.
+- [x] Define the minimal protocol-result projection.
 - [ ] Add injectable test implementations only for runtime boundaries that need
       deterministic behavior: HTTP, DNSSEC, clock, and chain state.
 - [x] Ensure Node-only implementations are isolated from browser-safe exports.
@@ -60,31 +59,28 @@ and the draft `account-signature.eip155.v1` method.
 - [x] Implement the closed `ensrv1` descriptor parser.
 - [x] Implement canonical descriptor serialization.
 - [x] Implement exact authority-version, method-ID, and proof-URI validation.
-- [x] Add positive, negative, duplicate-field, order, limit, and boundary tests.
+- [ ] Add positive, negative, duplicate-field, order, limit, and boundary tests.
 
 ## 4. ENS Snapshot and Authority
 
 - [x] Implement ENSIP-15 normalization and namehash derivation.
-- [x] Implement DNS wire-name encoding for Universal Resolver calls.
+- [x] Delegate DNS wire-name encoding for Universal Resolver calls to ENSForge.
 - [x] Define ENS snapshot, resolution, and expected read-failure schemas.
-- [x] Add the fixed mainnet Universal Resolver address and strict `resolve` ABI.
-- [x] Implement a focused internal `EnsService` over the caller-provided Viem
-      `PublicClient`; do not add a generic Ethereum RPC service abstraction.
-- [ ] Implement block selection with number, hash, timestamp, and canonicality
+- [x] Use ENSForge as the only ENS state-read implementation, including
+      deployments, ABIs, protocol routing, Universal Resolver, and CCIP Read.
+- [x] Implement block selection with number, hash, timestamp, and canonicality
       checks.
-- [ ] Implement focused owner, wrapper-state, resolver, and pinned Universal
-      Resolver reads with Viem and strict ABI return decoding.
-- [ ] Implement bounded EIP-3668 CCIP Read handling pinned to the evaluation
-      block.
+- [x] Read records, owners, expiries, and wrapper state through ENSForge at the
+      selected block.
 - [x] Resolve the target record and discovery record from one ENS snapshot.
 - [ ] Define the authority-algorithm interface and immutable registry.
 - [x] Implement Ethereum mainnet Authority Algorithm 1.
 - [x] Handle wrapped and unwrapped `.eth` second-level names and exact expiry
       boundaries.
 - [x] Handle wrapped emancipated and parent-controlled subnames.
-- [ ] Reject reverse names, virtual names without an exact authority, zero
+- [x] Reject reverse names, virtual names without an exact authority, zero
       owners, malformed returns, and unsupported authority versions.
-- [ ] Recheck block canonicality before returning a positive result.
+- [x] Recheck block canonicality before returning a positive result.
 - [ ] Add tests for protocol behavior around snapshots, CCIP Read, reorgs,
       ownership, fuses, and expiry; do not duplicate Viem's own primitive tests.
 
@@ -106,7 +102,7 @@ and the draft `account-signature.eip155.v1` method.
 
 ## 6. Lifecycle and Results
 
-- [ ] Implement one verifier-controlled `checkedAt` time per attempt.
+- [x] Implement one verifier-controlled `checkedAt` time per attempt.
 - [x] Implement future-skew, issuance, exclusive-expiry, and maximum-lifetime
       checks.
 - [x] Calculate `effectiveValidUntil` from claim, authority, and method bounds.
@@ -184,23 +180,22 @@ and the draft `account-signature.eip155.v1` method.
 
 ## 11. Verifier Orchestration
 
-- [ ] Implement the ordered common verification procedure as an Effect workflow.
-- [ ] Prevent proof retrieval before descriptor and method validation complete.
-- [ ] Preserve one ENS snapshot across records, authority, code, and ERC-1271
+- [x] Implement the ordered common verification procedure as an Effect workflow.
+- [x] Prevent proof retrieval before descriptor and method validation complete.
+- [x] Preserve one ENS snapshot across records, authority, code, and ERC-1271
       calls.
 - [ ] Dispatch exact authority and method versions through their registries.
-- [ ] Revalidate time, ENS canonicality, target-chain state, and method
-      freshness immediately before a positive result.
+- [x] Revalidate time and ENS canonicality immediately before a positive
+      `https-origin.v1` result; target-chain revalidation remains method-specific.
 - [x] Expose `new RecordVerification({ publicClient })` as the Promise-based
       public boundary while keeping protocol workflows as Effects internally.
 - [x] Expose one `getRecord({ name, type, key, verify? })` method and make its
       verification field conditional on the literal `verify` flag.
-- [ ] Run proof verification only when `verify` is true; until the verifier is
-      complete, return `VERIFICATION_NOT_IMPLEMENTED` without performing a
-      partial verification.
+- [x] Run proof verification only when `verify` is true.
 - [x] Translate expected typed Effect failures to `{ error }` at the public
       boundary without hiding defects or invalid construction.
-- [ ] Expose a minimal protocol-result projection.
+- [x] Expose the minimal `{ verified: true, verificationType: "control" }`
+      protocol-result projection.
 - [ ] Add safe spans and structured diagnostics without logging proof bodies,
       signatures, credentials, or sensitive transport data.
 - [ ] Add cancellation and total-deadline tests across RPC, CCIP Read, HTTP,
@@ -232,11 +227,11 @@ and the draft `account-signature.eip155.v1` method.
       of the public export surface.
 - [ ] Add explicit runtime configuration for caller-provided ENS and
       target-chain clients, DNSSEC, HTTP, finality, limits, and timeouts.
-- [ ] Set package runtime metadata to the supported Node versions and do not
+- [x] Set package runtime metadata to the supported Node versions and do not
       advertise browser conformance.
 - [ ] Finalize package name, version, license, repository metadata, keywords,
       and supported Node versions.
-- [ ] Review production dependency necessity, versions, tree shaking, and
+- [x] Review production dependency necessity, versions, tree shaking, and
       browser bundling.
 - [ ] Remove `private` only when every launch gate passes.
 - [ ] Run formatting, lint, typecheck, unit tests, integration tests, build,

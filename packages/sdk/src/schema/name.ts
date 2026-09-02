@@ -22,14 +22,9 @@ export const EnsNode = Schema.String.check(
 
 export type EnsNode = typeof EnsNode.Type;
 
-export const DnsEncodedEnsName = Schema.Uint8Array;
-
-export type DnsEncodedEnsName = typeof DnsEncodedEnsName.Type;
-
 export const EnsNameIdentity = Schema.Struct({
   normalizedName: NormalizedEnsName,
   node: EnsNode,
-  dnsEncodedName: DnsEncodedEnsName,
 });
 
 export type EnsNameIdentity = typeof EnsNameIdentity.Type;

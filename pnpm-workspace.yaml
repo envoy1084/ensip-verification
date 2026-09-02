@@ -34,4 +34,4 @@ catalog:
   "@types/node": "26.0.1"
   "ipaddr.js": "2.5.0"
   "vitest": "4.1.11"
-  "viem": "2.55.19"
+  "viem": "2.56.1"

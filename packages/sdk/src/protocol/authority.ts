@@ -1,24 +1,8 @@
 import { Effect } from "effect";
 
-import {
-  isAddressEqual,
-  keccak256,
-  type PublicClient,
-  toBytes,
-  zeroAddress,
-} from "viem";
+import type { Ensforge } from "@ensforge/sdk";
+import { isAddressEqual, zeroAddress } from "viem";
 
-import {
-  baseRegistrarAbi,
-  ensRegistryAbi,
-  nameWrapperAbi,
-} from "../data/abi.js";
-import {
-  ENS_BASE_REGISTRAR_ADDRESS,
-  ENS_NAME_WRAPPER_ADDRESS,
-  ENS_REGISTRY_ADDRESS,
-} from "../data/contracts.js";
-import { PARENT_CANNOT_CONTROL } from "../data/ens.js";
 import {
   type EnsAuthority,
   type ResolveEnsAuthorityV1Input,
@@ -26,12 +10,12 @@ import {
 import { RpcError, VerificationError } from "../schema/errors.js";
 
 export const resolveEnsAuthorityV1: (
-  publicClient: PublicClient,
+  ensforge: Ensforge,
   input: ResolveEnsAuthorityV1Input,
 ) => Effect.Effect<EnsAuthority, RpcError | VerificationError> = Effect.fn(
   "resolveEnsAuthorityV1",
 )(function* (
-  publicClient: PublicClient,
+  ensforge: Ensforge,
   { name, snapshot }: ResolveEnsAuthorityV1Input,
 ) {
   const labels = name.normalizedName.split(".");
@@ -42,180 +26,182 @@ export const resolveEnsAuthorityV1: (
     });
   }
 
-  const registryOwner = yield* Effect.tryPromise({
-    try: () =>
-      publicClient.readContract({
-        address: ENS_REGISTRY_ADDRESS,
-        abi: ensRegistryAbi,
-        functionName: "owner",
-        args: [name.node as `0x${string}`],
-        blockNumber: snapshot.blockNumber,
-      }),
-    catch: () =>
-      new RpcError({
-        code: "AUTHORITY_READ_FAILED",
-        message: "unable to read the ENS Registry owner",
-      }),
-  });
+  const owner = yield* ensforge.name.getOwner
+    .effect({
+      name: name.normalizedName,
+      blockNumber: snapshot.blockNumber,
+    })
+    .pipe(
+      Effect.mapError(
+        () =>
+          new RpcError({
+            code: "AUTHORITY_READ_FAILED",
+            message: "unable to read ENS ownership state",
+          }),
+      ),
+    );
 
-  const isEthSecondLevel = labels.length === 2 && labels[1] === "eth";
-  const isWrapped = isAddressEqual(registryOwner, ENS_NAME_WRAPPER_ADDRESS);
-
-  if (isWrapped) {
-    const [wrappedOwner, fuses, wrapperExpiry] = yield* Effect.tryPromise({
-      try: () =>
-        publicClient.readContract({
-          address: ENS_NAME_WRAPPER_ADDRESS,
-          abi: nameWrapperAbi,
-          functionName: "getData",
-          args: [BigInt(name.node)],
-          blockNumber: snapshot.blockNumber,
-        }),
-      catch: () =>
-        new RpcError({
-          code: "AUTHORITY_READ_FAILED",
-          message: "unable to read Name Wrapper state",
-        }),
+  if (owner === null) {
+    return yield* new VerificationError({
+      code: "OWNER_NOT_FOUND",
+      message: "ENS name has no owner",
     });
-
-    if (isAddressEqual(wrappedOwner, zeroAddress)) {
-      return yield* new VerificationError({
-        code: "OWNER_NOT_FOUND",
-        message: "wrapped ENS name has no owner",
-      });
-    }
-
-    if (isEthSecondLevel) {
-      const tokenId = BigInt(keccak256(toBytes(labels[0] ?? "")));
-      const registrarExpiry = yield* Effect.tryPromise({
-        try: () =>
-          publicClient.readContract({
-            address: ENS_BASE_REGISTRAR_ADDRESS,
-            abi: baseRegistrarAbi,
-            functionName: "nameExpires",
-            args: [tokenId],
-            blockNumber: snapshot.blockNumber,
-          }),
-        catch: () =>
+  }
+  if (owner.protocol !== "v1") {
+    return yield* new VerificationError({
+      code: "UNSUPPORTED_NAME",
+      message: "authority version 1 does not support ENS v2 names",
+    });
+  }
+  const wrapped = yield* ensforge.name.isWrapped
+    .effect({
+      name: name.normalizedName,
+      blockNumber: snapshot.blockNumber,
+    })
+    .pipe(
+      Effect.mapError(
+        () =>
           new RpcError({
             code: "AUTHORITY_READ_FAILED",
-            message: "unable to read .eth registration expiry",
+            message: "unable to read ENS wrapping state",
           }),
-      });
-
-      if (snapshot.blockTimestamp >= registrarExpiry) {
-        return yield* new VerificationError({
-          code: "NAME_EXPIRED",
-          message: ".eth registration is expired at the ENS snapshot",
-        });
-      }
-
-      const registrarOwner = yield* Effect.tryPromise({
-        try: () =>
-          publicClient.readContract({
-            address: ENS_BASE_REGISTRAR_ADDRESS,
-            abi: baseRegistrarAbi,
-            functionName: "ownerOf",
-            args: [tokenId],
-            blockNumber: snapshot.blockNumber,
-          }),
-        catch: () =>
-          new RpcError({
-            code: "AUTHORITY_READ_FAILED",
-            message: "unable to read .eth registrar owner",
-          }),
-      });
-
-      if (!isAddressEqual(registrarOwner, ENS_NAME_WRAPPER_ADDRESS)) {
-        return yield* new VerificationError({
-          code: "INVALID_AUTHORITY_STATE",
-          message: "wrapped .eth name is not owned by the Name Wrapper",
-        });
-      }
-
-      return {
-        authority: wrappedOwner,
-        authorityValidUntil: registrarExpiry,
-      };
-    }
-
-    if ((fuses & PARENT_CANNOT_CONTROL) !== 0) {
-      if (snapshot.blockTimestamp >= wrapperExpiry) {
-        return yield* new VerificationError({
-          code: "NAME_EXPIRED",
-          message: "wrapped ENS name is expired at the ENS snapshot",
-        });
-      }
-
-      return {
-        authority: wrappedOwner,
-        authorityValidUntil: wrapperExpiry,
-      };
-    }
-
-    return { authority: wrappedOwner };
+      ),
+    );
+  if (wrapped !== (owner.ownershipLevel === "nameWrapper")) {
+    return yield* new VerificationError({
+      code: "INVALID_AUTHORITY_STATE",
+      message: "ENS ownership and wrapping state are inconsistent",
+    });
   }
 
+  const isEthSecondLevel = labels.length === 2 && labels[1] === "eth";
   if (isEthSecondLevel) {
-    const tokenId = BigInt(keccak256(toBytes(labels[0] ?? "")));
-    const registrarExpiry = yield* Effect.tryPromise({
-      try: () =>
-        publicClient.readContract({
-          address: ENS_BASE_REGISTRAR_ADDRESS,
-          abi: baseRegistrarAbi,
-          functionName: "nameExpires",
-          args: [tokenId],
-          blockNumber: snapshot.blockNumber,
-        }),
-      catch: () =>
-        new RpcError({
-          code: "AUTHORITY_READ_FAILED",
-          message: "unable to read .eth registration expiry",
-        }),
-    });
-
-    if (snapshot.blockTimestamp >= registrarExpiry) {
+    const expiry = yield* ensforge.name.getExpiry
+      .effect({
+        name: name.normalizedName,
+        blockNumber: snapshot.blockNumber,
+      })
+      .pipe(
+        Effect.mapError(
+          () =>
+            new RpcError({
+              code: "AUTHORITY_READ_FAILED",
+              message: "unable to read .eth registration expiry",
+            }),
+        ),
+      );
+    if (
+      expiry === null ||
+      expiry.protocol !== "v1" ||
+      expiry.source !== "baseRegistrar"
+    ) {
+      return yield* new VerificationError({
+        code: "INVALID_AUTHORITY_STATE",
+        message: ".eth registration state is incomplete",
+      });
+    }
+    if (snapshot.blockTimestamp >= expiry.expiry) {
       return yield* new VerificationError({
         code: "NAME_EXPIRED",
         message: ".eth registration is expired at the ENS snapshot",
       });
     }
 
-    const registrant = yield* Effect.tryPromise({
-      try: () =>
-        publicClient.readContract({
-          address: ENS_BASE_REGISTRAR_ADDRESS,
-          abi: baseRegistrarAbi,
-          functionName: "ownerOf",
-          args: [tokenId],
-          blockNumber: snapshot.blockNumber,
-        }),
-      catch: () =>
-        new RpcError({
-          code: "AUTHORITY_READ_FAILED",
-          message: "unable to read .eth registrar owner",
-        }),
-    });
-
-    if (isAddressEqual(registrant, zeroAddress)) {
+    if (wrapped) {
+      if (owner.owner === null || isAddressEqual(owner.owner, zeroAddress)) {
+        return yield* new VerificationError({
+          code: "OWNER_NOT_FOUND",
+          message: "wrapped .eth name has no owner",
+        });
+      }
+      return {
+        authority: owner.owner,
+        authorityValidUntil: expiry.expiry,
+      };
+    }
+    if (
+      owner.registrant === null ||
+      isAddressEqual(owner.registrant, zeroAddress)
+    ) {
       return yield* new VerificationError({
         code: "OWNER_NOT_FOUND",
-        message: ".eth registration has no owner",
+        message: ".eth registration has no registrant",
       });
     }
-
     return {
-      authority: registrant,
-      authorityValidUntil: registrarExpiry,
+      authority: owner.registrant,
+      authorityValidUntil: expiry.expiry,
     };
   }
 
-  if (isAddressEqual(registryOwner, zeroAddress)) {
+  if (owner.owner === null || isAddressEqual(owner.owner, zeroAddress)) {
     return yield* new VerificationError({
       code: "OWNER_NOT_FOUND",
-      message: "ENS name has no Registry owner",
+      message: "ENS name has no owner",
+    });
+  }
+  if (!wrapped) {
+    return { authority: owner.owner };
+  }
+
+  const fuses = yield* ensforge.wrapping.getFuses
+    .effect({
+      name: name.normalizedName,
+      blockNumber: snapshot.blockNumber,
+    })
+    .pipe(
+      Effect.mapError(
+        () =>
+          new RpcError({
+            code: "AUTHORITY_READ_FAILED",
+            message: "unable to read Name Wrapper fuses",
+          }),
+      ),
+    );
+  if (fuses.protocol !== "v1" || !fuses.supported || !fuses.wrapped) {
+    return yield* new VerificationError({
+      code: "INVALID_AUTHORITY_STATE",
+      message: "wrapped ENS ownership state is inconsistent",
+    });
+  }
+  if (!fuses.active.includes("parentCannotControl")) {
+    return { authority: owner.owner };
+  }
+
+  const wrapperExpiry = yield* ensforge.wrapping.getWrapperExpiry
+    .effect({
+      name: name.normalizedName,
+      blockNumber: snapshot.blockNumber,
+    })
+    .pipe(
+      Effect.mapError(
+        () =>
+          new RpcError({
+            code: "AUTHORITY_READ_FAILED",
+            message: "unable to read Name Wrapper expiry",
+          }),
+      ),
+    );
+  if (
+    wrapperExpiry.protocol !== "v1" ||
+    !wrapperExpiry.supported ||
+    !wrapperExpiry.wrapped ||
+    wrapperExpiry.expiry === null
+  ) {
+    return yield* new VerificationError({
+      code: "INVALID_AUTHORITY_STATE",
+      message: "wrapped ENS expiry state is incomplete",
+    });
+  }
+  if (snapshot.blockTimestamp >= wrapperExpiry.expiry) {
+    return yield* new VerificationError({
+      code: "NAME_EXPIRED",
+      message: "wrapped ENS name is expired at the ENS snapshot",
     });
   }
 
-  return { authority: registryOwner };
+  return {
+    authority: owner.owner,
+    authorityValidUntil: wrapperExpiry.expiry,
+  };
 });

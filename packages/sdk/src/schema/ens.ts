@@ -32,7 +32,6 @@ export type EnsSnapshot = typeof EnsSnapshot.Type;
 
 export const ResolvedEnsRecord = Schema.Struct({
   selector: RecordSelectorSchema,
-  resolver: EthereumAddress,
   value: Schema.NullOr(LogicalResolverValueSchema),
 });
 
@@ -46,16 +45,9 @@ export const EnsRecordSnapshot = Schema.Struct({
 
 export type EnsRecordSnapshot = typeof EnsRecordSnapshot.Type;
 
-export interface ReadRecordInput {
-  readonly name: EnsNameIdentity;
-  readonly selector: RecordSelector;
-  readonly blockNumber: bigint;
-}
-
 export interface ReadRecordSnapshotInput {
   readonly name: EnsNameIdentity;
   readonly selector: RecordSelector;
-  readonly blockNumber: bigint;
 }
 
 export const EnsAuthority = Schema.Struct({

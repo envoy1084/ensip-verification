@@ -1,165 +1,113 @@
 import { Effect, Schema } from "effect";
 
-import {
-  bytesToHex,
-  decodeFunctionResult,
-  encodeFunctionData,
-  hexToBytes,
-  type Hex,
-  type PublicClient,
-} from "viem";
+import type { Ensforge } from "@ensforge/sdk";
+import { hexToBytes, type Hex, type PublicClient } from "viem";
 
-import {
-  resolverAddressAbi,
-  resolverContenthashAbi,
-  resolverDataAbi,
-  resolverTextAbi,
-  universalResolverResolveAbi,
-} from "../data/abi.js";
-import {
-  ETHEREUM_MAINNET_CHAIN_ID,
-  MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
-} from "../data/contracts.js";
 import {
   type EnsRecordSnapshot,
   EnsSnapshot,
-  type ReadRecordInput,
   type ReadRecordSnapshotInput,
   type ResolvedEnsRecord,
 } from "../schema/ens.js";
-import { RpcError } from "../schema/errors.js";
-import type { EnsNameIdentity } from "../schema/name.js";
-import {
-  LogicalResolverValueSchema,
-  type RecordSelector,
-  RecordSelectorSchema,
-} from "../schema/records.js";
+import { RpcError, VerificationError } from "../schema/errors.js";
+import type { RecordSelector } from "../schema/records.js";
 import { deriveDiscoveryKey } from "./discovery.js";
 
-const encodeRecordCall = (
-  name: EnsNameIdentity,
+const readSelectedRecord = (
   selector: RecordSelector,
-): Hex => {
-  const node = name.node as Hex;
-
+  result: {
+    readonly texts?: ReadonlyArray<{
+      readonly key: string;
+      readonly value: string | null;
+    }>;
+    readonly addresses?: ReadonlyArray<{ readonly raw: string | null }>;
+    readonly contentHash?: { readonly raw: string | null };
+    readonly data?: ReadonlyArray<{
+      readonly key: string;
+      readonly value: string | null;
+    }>;
+  },
+): ResolvedEnsRecord => {
   switch (selector.type) {
-    case "text":
-      return encodeFunctionData({
-        abi: resolverTextAbi,
-        functionName: "text",
-        args: [node, selector.key],
-      });
-    case "addr":
-      return encodeFunctionData({
-        abi: resolverAddressAbi,
-        functionName: "addr",
-        args: [node, BigInt(selector.key)],
-      });
-    case "contenthash":
-      return encodeFunctionData({
-        abi: resolverContenthashAbi,
-        functionName: "contenthash",
-        args: [node],
-      });
-    case "data":
-      return encodeFunctionData({
-        abi: resolverDataAbi,
-        functionName: "data",
-        args: [node, selector.key],
-      });
+    case "text": {
+      const value =
+        result.texts?.find((record) => record.key === selector.key)?.value ??
+        null;
+      return {
+        selector,
+        value: value === null ? null : { type: "text", value },
+      };
+    }
+    case "addr": {
+      const raw = result.addresses?.[0]?.raw ?? null;
+      return {
+        selector,
+        value:
+          raw === null ? null : { type: "addr", value: hexToBytes(raw as Hex) },
+      };
+    }
+    case "contenthash": {
+      const raw = result.contentHash?.raw ?? null;
+      return {
+        selector,
+        value:
+          raw === null
+            ? null
+            : { type: "contenthash", value: hexToBytes(raw as Hex) },
+      };
+    }
+    case "data": {
+      const raw =
+        result.data?.find((record) => record.key === selector.key)?.value ??
+        null;
+      return {
+        selector,
+        value:
+          raw === null ? null : { type: "data", value: hexToBytes(raw as Hex) },
+      };
+    }
   }
 };
 
-const decodeRecordValue = Effect.fn("decodeRecordValue")(function* (
+export const readEnsRecord = Effect.fn("readEnsRecord")(function* (
+  ensforge: Ensforge,
+  name: ReadRecordSnapshotInput["name"],
   selector: RecordSelector,
-  response: Hex,
 ) {
-  if (response === "0x") return null;
-
-  const decoded = yield* Effect.try({
-    try: () => {
-      switch (selector.type) {
-        case "text":
-          return {
-            type: "text" as const,
-            value: decodeFunctionResult({
-              abi: resolverTextAbi,
-              functionName: "text",
-              data: response,
-            }),
-          };
-        case "addr":
-          return {
-            type: "addr" as const,
-            value: hexToBytes(
-              decodeFunctionResult({
-                abi: resolverAddressAbi,
-                functionName: "addr",
-                data: response,
-              }),
-            ),
-          };
-        case "contenthash":
-          return {
-            type: "contenthash" as const,
-            value: hexToBytes(
-              decodeFunctionResult({
-                abi: resolverContenthashAbi,
-                functionName: "contenthash",
-                data: response,
-              }),
-            ),
-          };
-        case "data":
-          return {
-            type: "data" as const,
-            value: hexToBytes(
-              decodeFunctionResult({
-                abi: resolverDataAbi,
-                functionName: "data",
-                data: response,
-              }),
-            ),
-          };
-      }
-    },
-    catch: () =>
-      new RpcError({
-        code: "MALFORMED_RESPONSE",
-        message: "resolver returned malformed record data",
-      }),
-  });
-
-  if (decoded.value.length === 0) return null;
-
-  return yield* Schema.decodeUnknownEffect(LogicalResolverValueSchema)(
-    decoded,
-  ).pipe(
-    Effect.mapError(
-      () =>
-        new RpcError({
-          code: "MALFORMED_RESPONSE",
-          message: "resolver returned an invalid logical value",
-        }),
-    ),
-  );
+  const records = {
+    ...(selector.type === "text" ? { texts: [selector.key] } : {}),
+    ...(selector.type === "addr" ? { addresses: [BigInt(selector.key)] } : {}),
+    ...(selector.type === "contenthash" ? { contentHash: true as const } : {}),
+    ...(selector.type === "data" ? { data: [selector.key] } : {}),
+  };
+  const result = yield* ensforge.records.getRecords
+    .effect({ name: name.normalizedName, records })
+    .pipe(
+      Effect.mapError(
+        () =>
+          new RpcError({
+            code: "RESOLUTION_FAILED",
+            message: `unable to resolve ${name.normalizedName}`,
+          }),
+      ),
+    );
+  return readSelectedRecord(selector, result);
 });
 
 const readEnsSnapshot = Effect.fn("readEnsSnapshot")(function* (
   publicClient: PublicClient,
-  blockNumber: bigint,
 ) {
   const block = yield* Effect.tryPromise({
-    try: () => publicClient.getBlock({ blockNumber }),
+    try: () => publicClient.getBlock({ blockTag: "latest" }),
     catch: () =>
       new RpcError({
         code: "BLOCK_UNAVAILABLE",
-        message: `unable to read Ethereum block ${blockNumber}`,
+        message: "unable to select an Ethereum block",
       }),
   });
 
   return yield* Schema.decodeUnknownEffect(EnsSnapshot)({
-    chainId: ETHEREUM_MAINNET_CHAIN_ID,
+    chainId: 1,
     blockNumber: block.number,
     blockHash: block.hash,
     blockTimestamp: block.timestamp,
@@ -174,68 +122,18 @@ const readEnsSnapshot = Effect.fn("readEnsSnapshot")(function* (
   );
 });
 
-export const validateEnsPublicClient: (
-  publicClient: PublicClient,
-) => Effect.Effect<void, RpcError> = Effect.fn("validateEnsPublicClient")(
-  function* (publicClient: PublicClient) {
-    const chainId = publicClient.chain?.id;
-    if (chainId !== ETHEREUM_MAINNET_CHAIN_ID) {
-      return yield* new RpcError({
-        code: "UNSUPPORTED_ENS_CHAIN",
-        message:
-          chainId === undefined
-            ? "PublicClient must be configured for Ethereum mainnet"
-            : `PublicClient chain ${chainId} is not Ethereum mainnet`,
-      });
-    }
-  },
-);
-
-export const readEnsRecord: (
-  publicClient: PublicClient,
-  input: ReadRecordInput,
-) => Effect.Effect<ResolvedEnsRecord, RpcError> = Effect.fn("readEnsRecord")(
-  function* (
-    publicClient: PublicClient,
-    { name, selector, blockNumber }: ReadRecordInput,
-  ) {
-    const recordCall = encodeRecordCall(name, selector);
-    const [response, resolver] = yield* Effect.tryPromise({
-      try: () =>
-        publicClient.readContract({
-          address: MAINNET_UNIVERSAL_RESOLVER_ADDRESS,
-          abi: universalResolverResolveAbi,
-          functionName: "resolve",
-          args: [bytesToHex(name.dnsEncodedName), recordCall],
-          blockNumber,
-        }),
-      catch: () =>
-        new RpcError({
-          code: "RESOLUTION_FAILED",
-          message: `unable to resolve ${name.normalizedName}`,
-        }),
-    });
-
-    const value = yield* decodeRecordValue(selector, response);
-    return { selector, resolver, value } satisfies ResolvedEnsRecord;
-  },
-);
-
 export const readEnsRecordSnapshot: (
+  ensforge: Ensforge,
   publicClient: PublicClient,
   input: ReadRecordSnapshotInput,
 ) => Effect.Effect<EnsRecordSnapshot, RpcError> = Effect.fn(
   "readEnsRecordSnapshot",
 )(function* (
+  ensforge: Ensforge,
   publicClient: PublicClient,
-  { name, selector, blockNumber }: ReadRecordSnapshotInput,
+  { name, selector }: ReadRecordSnapshotInput,
 ) {
-  const snapshot = yield* readEnsSnapshot(publicClient, blockNumber);
-  const record = yield* readEnsRecord(publicClient, {
-    name,
-    selector,
-    blockNumber: snapshot.blockNumber,
-  });
+  const snapshot = yield* readEnsSnapshot(publicClient);
   const discoveryKey = yield* deriveDiscoveryKey(selector).pipe(
     Effect.mapError(
       () =>
@@ -245,22 +143,65 @@ export const readEnsRecordSnapshot: (
         }),
     ),
   );
-  const discoverySelector = yield* Schema.decodeUnknownEffect(
-    RecordSelectorSchema,
-  )({ type: "text", key: discoveryKey.key }).pipe(
-    Effect.mapError(
-      () =>
-        new RpcError({
-          code: "MALFORMED_RESPONSE",
-          message: "derived discovery selector is invalid",
-        }),
-    ),
-  );
-  const discovery = yield* readEnsRecord(publicClient, {
-    name,
+  const records = {
+    texts:
+      selector.type === "text"
+        ? [selector.key, discoveryKey.key]
+        : [discoveryKey.key],
+    ...(selector.type === "addr" ? { addresses: [BigInt(selector.key)] } : {}),
+    ...(selector.type === "contenthash" ? { contentHash: true as const } : {}),
+    ...(selector.type === "data" ? { data: [selector.key] } : {}),
+  };
+  const result = yield* ensforge.records.getRecords
+    .effect({
+      name: name.normalizedName,
+      records,
+      blockNumber: snapshot.blockNumber,
+    })
+    .pipe(
+      Effect.mapError(
+        () =>
+          new RpcError({
+            code: "RESOLUTION_FAILED",
+            message: `unable to resolve ${name.normalizedName}`,
+          }),
+      ),
+    );
+  const record = readSelectedRecord(selector, result);
+  const discoverySelector = { type: "text" as const, key: discoveryKey.key };
+  const discoveryValue =
+    result.texts?.find((entry) => entry.key === discoveryKey.key)?.value ??
+    null;
+  const discovery: ResolvedEnsRecord = {
     selector: discoverySelector,
-    blockNumber: snapshot.blockNumber,
-  });
+    value:
+      discoveryValue === null ? null : { type: "text", value: discoveryValue },
+  };
 
   return { snapshot, record, discovery } satisfies EnsRecordSnapshot;
+});
+
+export const ensureEnsSnapshotCanonical: (
+  publicClient: PublicClient,
+  snapshot: EnsRecordSnapshot["snapshot"],
+) => Effect.Effect<void, RpcError | VerificationError> = Effect.fn(
+  "ensureEnsSnapshotCanonical",
+)(function* (
+  publicClient: PublicClient,
+  snapshot: EnsRecordSnapshot["snapshot"],
+) {
+  const block = yield* Effect.tryPromise({
+    try: () => publicClient.getBlock({ blockNumber: snapshot.blockNumber }),
+    catch: () =>
+      new RpcError({
+        code: "BLOCK_UNAVAILABLE",
+        message: "unable to recheck the Ethereum snapshot",
+      }),
+  });
+  if (block.hash?.toLowerCase() !== snapshot.blockHash) {
+    return yield* new VerificationError({
+      code: "ENS_SNAPSHOT_CHANGED",
+      message: "the ENS evaluation block is no longer canonical",
+    });
+  }
 });

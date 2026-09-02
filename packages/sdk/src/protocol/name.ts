@@ -1,6 +1,6 @@
 import { Effect, Predicate } from "effect";
 
-import { namehash, normalize, packetToBytes } from "viem/ens";
+import { namehash, normalize } from "viem/ens";
 
 import { ValidationError } from "../schema/errors.js";
 import type { EnsNameIdentity } from "../schema/name.js";
@@ -20,6 +20,5 @@ export const prepareEnsName = Effect.fn("prepareEnsName")(function* (
   return {
     normalizedName: normalized,
     node: namehash(normalized),
-    dnsEncodedName: packetToBytes(normalized),
   };
 });

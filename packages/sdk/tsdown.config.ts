@@ -1,1 +1,1 @@
-export { default } from "klarity/tsdown/library";
+export { default } from "klarity/tsdown/node";
