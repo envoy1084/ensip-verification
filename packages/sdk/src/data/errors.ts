@@ -45,6 +45,8 @@ export const VERIFICATION_ERROR_CODES = [
   "HTTP_INVALID_RESPONSE",
   "HTTP_HEADERS_TOO_LARGE",
   "HTTP_BODY_TOO_LARGE",
+  "DNSSEC_VALIDATION_FAILED",
+  "DNS_RESPONSE_INVALID",
 ] as const;
 
 export const RPC_ERROR_CODES = [
@@ -57,6 +59,7 @@ export const RPC_ERROR_CODES = [
   "HTTP_DNS_FAILED",
   "HTTP_REQUEST_FAILED",
   "HTTP_TIMEOUT",
+  "DNS_QUERY_FAILED",
 ] as const;
 
 export type SdkErrorCode =

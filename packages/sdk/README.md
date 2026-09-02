@@ -1,8 +1,9 @@
 # ENS Record Verification SDK
 
 Promise-based Node.js SDK for reading ENS records and verifying
-`https-origin.v1` control proofs. ENS resolution, ownership, expiry, wrapper
-state, Universal Resolver routing, and CCIP Read are provided by ENSForge.
+`https-origin.v1` and `dns-txt.v1` control proofs. ENS resolution, ownership,
+expiry, wrapper state, Universal Resolver routing, and CCIP Read are provided
+by ENSForge.
 
 ```ts
 import { RecordVerification } from "@thenamespace/record-verification";
@@ -24,6 +25,10 @@ const result = await verification.getRecord({
 Omit `verify` to read the record without proof verification. Expected failures
 are returned as `{ success: false, error }`; invalid mainnet client
 configuration is rejected during construction.
+
+DNS TXT verification validates RRSIG, DNSKEY, and DS records locally against
+the bundled IANA root trust anchors. The v0 implementation accepts direct TXT
+answers only, rejects aliases, and does not cache DNS evidence.
 
 The package is currently private while the protocol and public API are under
 development.

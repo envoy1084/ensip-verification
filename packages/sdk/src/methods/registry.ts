@@ -1,9 +1,10 @@
 import { Effect } from "effect";
 
-import { HTTPS_ORIGIN_METHOD_ID } from "../data/methods.js";
+import { DNS_TXT_METHOD_ID, HTTPS_ORIGIN_METHOD_ID } from "../data/methods.js";
 import type { DescriptorMethodPolicy } from "../schema/descriptor.js";
 import { VerificationError } from "../schema/errors.js";
 import type { MethodVerificationInput } from "../schema/methods.js";
+import { dnsTxtDescriptorPolicy, dnsTxtMethod } from "./dns-txt.js";
 import {
   httpsOriginDescriptorPolicy,
   httpsOriginMethod,
@@ -11,6 +12,7 @@ import {
 
 export const methodRegistry = Object.freeze({
   [HTTPS_ORIGIN_METHOD_ID]: httpsOriginMethod,
+  [DNS_TXT_METHOD_ID]: dnsTxtMethod,
 });
 
 export type RegisteredMethodId = keyof typeof methodRegistry;
@@ -18,9 +20,9 @@ export type RegisteredMethodId = keyof typeof methodRegistry;
 export const descriptorMethodPolicies: ReadonlyMap<
   string,
   DescriptorMethodPolicy
-> = new Map([
+> = new Map<string, DescriptorMethodPolicy>([
   [HTTPS_ORIGIN_METHOD_ID, httpsOriginDescriptorPolicy],
-  ["dns-txt.v1", { proofUri: "forbidden" as const }],
+  [DNS_TXT_METHOD_ID, dnsTxtDescriptorPolicy],
   [
     "account-signature.eip155.v1",
     { proofUri: "required" as const, schemes: new Set(["https"]) },

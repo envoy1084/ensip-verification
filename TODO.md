@@ -148,18 +148,20 @@ and the draft `account-signature.eip155.v1` method.
 
 ## 9. `dns-txt.v1`
 
-- [ ] Implement canonical hostname target derivation and reject IP hosts.
-- [ ] Implement lowercase unpadded base32 proof-key encoding.
-- [ ] Implement proof-owner derivation and DNS wire-length validation.
-- [ ] Define the Effect DNSSEC resolver service.
-- [ ] Validate the complete chain to configured IANA root trust anchors.
-- [ ] Implement bounded Secure CNAME and DNAME handling.
-- [ ] Require exactly one terminal TXT RDATA and concatenate only its character
+- [x] Implement canonical hostname target derivation and reject IP hosts.
+- [x] Implement lowercase unpadded base32 proof-key encoding.
+- [x] Implement proof-owner derivation and DNS wire-length validation.
+- [x] Define the Effect DNSSEC resolver service.
+- [x] Validate the complete chain to configured IANA root trust anchors.
+- [x] Reject CNAME and DNAME answers in v0; bounded Secure alias following is
+      an optional future extension.
+- [x] Require exactly one terminal TXT RDATA and concatenate only its character
       strings.
-- [ ] Enforce the 2,048-byte proof-envelope limit.
-- [ ] Require the method proof to be exactly an empty object.
-- [ ] Calculate authenticated DNS freshness from TTL age and every required
-      RRSIG bound.
+- [x] Enforce the 2,048-byte proof-envelope limit.
+- [x] Require the method proof to be exactly an empty object.
+- [x] Disable DNS evidence caching in v0 by setting its cache bound to
+      `checkedAt`; expose complete authenticated chain freshness before
+      enabling DNS result reuse.
 - [ ] Add signed-zone, rollover, alias, loop, multiple-TXT, expiry, insecure,
       bogus, indeterminate, and end-to-end tests.
 

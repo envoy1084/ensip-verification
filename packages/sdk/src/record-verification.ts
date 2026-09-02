@@ -3,6 +3,7 @@ import { Clock, Effect, Schema } from "effect";
 import { Ensforge } from "@ensforge/sdk";
 import { bytesToHex } from "viem";
 
+import { NodeDnsServiceLayer } from "./dns/node.js";
 import { NodeHttpServiceLayer } from "./http/node.js";
 import { verifyRegisteredMethod } from "./methods/registry.js";
 import { resolveEnsAuthorityV1 } from "./protocol/authority.js";
@@ -129,6 +130,7 @@ export class RecordVerification {
     return Effect.runPromise(
       program.pipe(
         Effect.provide(NodeHttpServiceLayer),
+        Effect.provide(NodeDnsServiceLayer),
         Effect.match({
           onFailure: (error) => ({
             success: false as const,

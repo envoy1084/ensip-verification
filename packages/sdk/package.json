@@ -20,6 +20,9 @@
   },
   "dependencies": {
     "@ensforge/sdk": "0.2.0",
+    "@leichtgewicht/dns-packet": "catalog:",
+    "@relaycorp/dnssec": "catalog:",
+    "@scure/base": "catalog:",
     "effect": "catalog:",
     "ipaddr.js": "catalog:",
     "viem": "catalog:"
@@ -33,6 +36,6 @@
     "typescript": "catalog:"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.3"
   }
 }

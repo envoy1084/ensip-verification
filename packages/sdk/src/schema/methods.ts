@@ -47,7 +47,16 @@ export interface HttpsOriginVerificationData {
   readonly proofUrl: string;
 }
 
+export interface DnsTxtVerificationData {
+  readonly proofOwner: string;
+}
+
 export type HttpsOriginVerificationResult = MethodVerificationResult<
   "https-origin.v1",
   HttpsOriginVerificationData
+>;
+
+export type DnsTxtVerificationResult = MethodVerificationResult<
+  "dns-txt.v1",
+  DnsTxtVerificationData
 >;

@@ -12,6 +12,7 @@ import {
 import { HttpService } from "../http/service.js";
 import { deriveProofKey } from "../protocol/claims.js";
 import { deriveRecordMetadata } from "../protocol/records.js";
+import { parseHttpsRecordUrl } from "../protocol/url.js";
 import {
   validateEmptyMethodProof,
   verifyCommonProof,
@@ -29,40 +30,7 @@ export const httpsOriginDescriptorPolicy = Object.freeze({
 
 export const deriveHttpsOriginTarget = Effect.fn("deriveHttpsOriginTarget")(
   function* (value: string) {
-    if (
-      value.length === 0 ||
-      Array.from(value).some((character) => character.charCodeAt(0) <= 0x20)
-    ) {
-      return yield* new VerificationError({
-        code: "INVALID_METHOD_TARGET",
-        message:
-          "HTTPS origin value must be nonempty and contain no ASCII whitespace or controls",
-      });
-    }
-
-    const url = yield* Effect.try({
-      try: () => new URL(value),
-      catch: () =>
-        new VerificationError({
-          code: "INVALID_METHOD_TARGET",
-          message: "HTTPS origin value is not an absolute WHATWG URL",
-        }),
-    });
-
-    if (
-      url.protocol !== "https:" ||
-      url.host === "" ||
-      url.username !== "" ||
-      url.password !== "" ||
-      url.hostname.endsWith(".") ||
-      url.origin === "null"
-    ) {
-      return yield* new VerificationError({
-        code: "INVALID_METHOD_TARGET",
-        message: "HTTPS origin value does not satisfy the method URL policy",
-      });
-    }
-
+    const url = yield* parseHttpsRecordUrl(value);
     return url.origin;
   },
 );
