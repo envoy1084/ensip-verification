@@ -1,2 +1,56 @@
 @import "tailwindcss";
 @import "@thenamespace/uikit/styles.css";
+
+@layer base {
+  [data-theme="ens"] {
+    color-scheme: light;
+
+    --white: #ffffff;
+    --black: #000000;
+    --snow: #f6f6f6;
+    --eclipse: #191919;
+
+    --radius: 0.25rem;
+    --field-radius: 0.25rem;
+    --field-border-width: 1px;
+
+    --background: #ffffff;
+    --foreground: var(--eclipse);
+    --surface: #ffffff;
+    --surface-foreground: var(--foreground);
+    --overlay: #ffffff;
+    --overlay-foreground: var(--foreground);
+    --muted: #737373;
+    --default: #f6f6f6;
+    --default-foreground: var(--eclipse);
+
+    --accent: #0080bc;
+    --accent-foreground: #f6f6f6;
+    --success: #007c23;
+    --success-foreground: #f6f6f6;
+    --warning: #fccf57;
+    --warning-foreground: var(--eclipse);
+    --danger: #c82e1f;
+    --danger-foreground: #f6f6f6;
+
+    --field-background: #ffffff;
+    --field-foreground: var(--eclipse);
+    --field-placeholder: #a1a1a1;
+    --field-border: #e1e1e0;
+
+    --border: #e5e5e5;
+    --separator: #e5e5e5;
+    --focus: var(--accent);
+    --link: var(--accent);
+
+    --surface-shadow: 0 2px 6px rgb(0 0 0 / 6%);
+    --overlay-shadow: 0 4px 16px rgb(1 26 37 / 10%);
+    --field-shadow: 0 1px 4px rgb(0 0 0 / 8%);
+  }
+}
+
+@layer components {
+  [data-theme="ens"] .button {
+    border-radius: 0.25rem;
+  }
+}

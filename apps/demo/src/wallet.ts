@@ -1,4 +1,4 @@
-import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { getDefaultConfig, lightTheme } from "@rainbow-me/rainbowkit";
 import { mainnet } from "wagmi/chains";
 
 const walletConnectProjectId =
@@ -10,3 +10,23 @@ export const wagmiConfig = getDefaultConfig({
   chains: [mainnet],
   ssr: false,
 });
+
+const rainbowKitLightTheme = lightTheme({
+  accentColor: "#0080bc",
+  accentColorForeground: "#f6f6f6",
+  borderRadius: "small",
+  fontStack: "system",
+  overlayBlur: "small",
+});
+
+export const rainbowKitTheme = {
+  ...rainbowKitLightTheme,
+  radii: {
+    ...rainbowKitLightTheme.radii,
+    actionButton: "4px",
+    connectButton: "4px",
+    menuButton: "4px",
+    modal: "8px",
+    modalMobile: "8px",
+  },
+};
