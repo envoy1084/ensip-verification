@@ -1,5 +1,7 @@
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 
+import { AppNavbar } from "../components/app-navbar";
+
 import "../styles.css";
 
 export const Route = createRootRoute({
@@ -7,5 +9,10 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  return <Outlet />;
+  return (
+    <div className="bg-background text-foreground min-h-screen">
+      <AppNavbar />
+      <Outlet />
+    </div>
+  );
 }
