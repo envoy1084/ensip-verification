@@ -1,28 +1,57 @@
+import { useMemo } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { useAvatar, useExpiry, useOwner } from "@ensforge/react";
+import { useEnsforge, useReadBatchSettled } from "@ensforge/react";
 import { Avatar } from "@thenamespace/uikit/avatar";
 import { Spinner } from "@thenamespace/uikit/spinner";
 
 import { CalendarDate } from "../components/time-display";
+import { UrlRecordVerification } from "../components/url-record-verification";
 import { getEnsNameDetails } from "../data/ens-subgraph";
 
 export const Route = createFileRoute("/$name")({ component: Name });
 
 function Name() {
   const { name } = Route.useParams();
-  const owner = useOwner({ name });
-  const expiry = useExpiry({ name });
-  const avatar = useAvatar({ name });
+  const sdk = useEnsforge();
+  const requests = useMemo(
+    () => ({
+      avatar: sdk.records.getAvatar.request({ name }),
+      expiry: sdk.name.getExpiry.request({ name }),
+      owner: sdk.name.getOwner.request({ name }),
+      url: sdk.records.getText.request({ key: "url", name }),
+    }),
+    [name, sdk],
+  );
+  const records = useReadBatchSettled({ requests });
   const details = useQuery({
     queryFn: ({ signal }) => getEnsNameDetails(name, signal),
     queryKey: ["ens-name-details", name],
     staleTime: 60_000,
   });
-  const isLoading = owner.isInitial || expiry.isInitial || avatar.isInitial;
-  const avatarSource =
-    avatar.data?.status === "resolved" ? avatar.data.uri : null;
+  const isLoading = records.isInitial;
+  const owner =
+    records.data?.owner.status === "success" ? records.data.owner.value : null;
+  const expiry =
+    records.data?.expiry.status === "success"
+      ? records.data.expiry.value
+      : null;
+  const avatar =
+    records.data?.avatar.status === "success"
+      ? records.data.avatar.value
+      : null;
+  const url =
+    records.data?.url.status === "success"
+      ? records.data.url.value.value
+      : null;
+  const avatarSource = avatar?.status === "resolved" ? avatar.uri : null;
+  const profileError =
+    records.isFailure ||
+    records.data?.owner.status === "failure" ||
+    records.data?.expiry.status === "failure";
+  const urlError = records.isFailure || records.data?.url.status === "failure";
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-[#fafafa] pb-20">
@@ -32,7 +61,7 @@ function Name() {
           className="size-full object-cover object-center"
           src="/header.svg"
         />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-[#fafafa]" />
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-linear-to-b from-transparent to-[#fafafa]" />
       </div>
 
       <section className="relative mx-auto -mt-12 w-[90%] max-w-5xl">
@@ -47,7 +76,7 @@ function Name() {
           </div>
         ) : null}
 
-        {owner.isFailure || expiry.isFailure ? (
+        {profileError ? (
           <div className="border-danger/20 bg-surface mt-6 rounded-lg border p-6">
             <p className="font-semibold">Name details are unavailable.</p>
             <p className="text-muted mt-1 text-sm">
@@ -56,14 +85,12 @@ function Name() {
           </div>
         ) : null}
 
-        {!isLoading && !owner.isFailure && !expiry.isFailure ? (
+        {!isLoading && !profileError ? (
           <>
             <dl className="text-muted mt-5 flex flex-wrap gap-x-8 gap-y-3 text-sm">
               <NameFact
                 label="Owner"
-                value={
-                  owner.data?.owner ? shortAddress(owner.data.owner) : "Unowned"
-                }
+                value={owner?.owner ? shortAddress(owner.owner) : "Unowned"}
               />
               <div className="flex items-baseline gap-2">
                 <dt>Registered</dt>
@@ -78,9 +105,7 @@ function Name() {
                 <dt>Expires</dt>
                 <dd className="text-foreground font-semibold">
                   <CalendarDate
-                    timestampSeconds={
-                      expiry.data ? Number(expiry.data.expiry) : null
-                    }
+                    timestampSeconds={expiry ? Number(expiry.expiry) : null}
                   />
                 </dd>
               </div>
@@ -108,6 +133,12 @@ function Name() {
                 </h2>
               </div>
             </article>
+
+            <UrlRecordVerification
+              isError={urlError}
+              isLoading={isLoading}
+              value={url}
+            />
           </>
         ) : null}
       </section>
