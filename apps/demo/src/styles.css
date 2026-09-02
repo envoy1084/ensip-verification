@@ -1,5 +1,12 @@
+@import "@fontsource-variable/manrope";
+@import "@fontsource/instrument-serif/latin-400-italic.css";
 @import "tailwindcss";
 @import "@thenamespace/uikit/styles.css";
+
+@theme {
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-midnight: #093c52;
+}
 
 @layer base {
   [data-theme="ens"] {
@@ -47,10 +54,25 @@
     --overlay-shadow: 0 4px 16px rgb(1 26 37 / 10%);
     --field-shadow: 0 1px 4px rgb(0 0 0 / 8%);
   }
+
+  body {
+    font-family: var(--font-sans);
+  }
 }
 
 @layer components {
   [data-theme="ens"] .button {
     border-radius: 0.25rem;
+  }
+
+  .font-display {
+    font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  }
+
+  .hero-field {
+    background-color: #fafafa;
+    background-image: url("/bg.svg");
+    background-repeat: repeat;
+    background-size: 48px 48px;
   }
 }

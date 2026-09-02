@@ -18,7 +18,7 @@ export function AppNavbar() {
             to="/"
           >
             <img alt="" className="h-6 w-auto" src="/ens-logo.svg" />
-            <span>Record Verification</span>
+            <span className="font-semibold">Record Verification</span>
           </Link>
         </Navbar.Brand>
         <Navbar.Spacer />

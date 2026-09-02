@@ -128,6 +128,15 @@ importers:
 
   apps/demo:
     dependencies:
+      '@ensforge/react':
+        specifier: 0.2.0
+        version: 0.2.0(bufferutil@4.1.0)(effect@4.0.0-rc.112)(react@19.2.7)(scheduler@0.27.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))(zod@3.25.76)
+      '@fontsource-variable/manrope':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/instrument-serif':
+        specifier: 5.3.0
+        version: 5.3.0
       '@rainbow-me/rainbowkit':
         specifier: 'catalog:'
         version: 2.2.11(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@6.0.3)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))
@@ -140,6 +149,9 @@ importers:
       '@thenamespace/uikit':
         specifier: 'catalog:'
         version: 0.3.0(@floating-ui/dom@1.7.6)(@heroui/react@3.2.2(@react-spectrum/provider@3.11.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(tailwindcss@4.3.3))(@heroui/styles@3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.3.3))(@internationalized/date@3.12.2)(@react-aria/utils@3.34.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@react-stately/data@3.16.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@react-types/shared@3.36.0(react@19.2.7))(@tiptap/extensions@3.27.4(@tiptap/core@3.27.4(@tiptap/pm@3.27.4))(@tiptap/pm@3.27.4))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-aria-components@1.19.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-aria@3.50.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-is@17.0.2)(react-stately@3.48.0(react@19.2.7))(react@19.2.7)(redux@5.0.1)(tailwindcss@4.3.3)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
       react:
         specifier: 'catalog:'
         version: 19.2.7
@@ -604,6 +616,13 @@ packages:
     peerDependencies:
       '@noble/ciphers': ^1.0.0
 
+  '@effect/atom-react@4.0.0-rc.112':
+    resolution: {integrity: sha512-Ksf90KQa6D4UDnMj4M84arlVKNIuwxxF2GvgXBzuaYi2LsgririsUhKQ5SYaK1euf8oIYeamEuthoZSbUQmIhw==}
+    peerDependencies:
+      effect: ^4.0.0-rc.112
+      react: '>=19.0.0 <20.0.0'
+      scheduler: '>=0.25.0 <0.28.0'
+
   '@emnapi/core@1.11.1':
     resolution: {integrity: sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ==}
 
@@ -635,6 +654,15 @@ packages:
     peerDependenciesMeta:
       wagmi:
         optional: true
+
+  '@ensforge/react@0.2.0':
+    resolution: {integrity: sha512-cuGI1MUmSVd8Z4yO5IWnFSPvzj+PNuNuWo6RNpfpI7/9Jeelqw1QJncl0H42FBORydrBxnum5X/ieCY7WmgHDw==}
+    peerDependencies:
+      effect: ^4.0.0-rc.112
+      react: '>=19.0.0 <20.0.0'
+      scheduler: '>=0.25.0 <0.28.0'
+      viem: ^2.56.0
+      wagmi: ^3.0.0
 
   '@ensforge/sdk@0.2.0':
     resolution: {integrity: sha512-EVuM4ducjbPIMbl+zKQnzsPFkCP+IgNEIfXJL5GQ6Kdmezo/TDCIhI8VAcL9G7IAJNuXZ1xHgzX5oOkERtOt7Q==}
@@ -841,6 +869,12 @@ packages:
 
   '@floating-ui/vue@1.1.9':
     resolution: {integrity: sha512-BfNqNW6KA83Nexspgb9DZuz578R7HT8MZw1CfK9I6Ah4QReNWEJsXWHN+SdmOVLNGmTPDi+fDT535Df5PzMLbQ==}
+
+  '@fontsource-variable/manrope@5.3.0':
+    resolution: {integrity: sha512-6D5dgokHsWDDMtmXHznKa0hK229NN+1a4BLPmUCLqcO1Pw5EEhWY5RFt0AcXnVRAljFFPfRtLkJePQj6LSsV6g==}
+
+  '@fontsource/instrument-serif@5.3.0':
+    resolution: {integrity: sha512-mDiaIg0u67sYV59fie92Wz4sM8UiVlbL7fLxnFPCKkX15DMASEnQTREbaP5S5/3DCcsoAOcQ0sV9E4AeY4QqYQ==}
 
   '@fontsource/inter@5.2.8':
     resolution: {integrity: sha512-P6r5WnJoKiNVV+zvW2xM13gNdFhAEpQ9dQJHt3naLvfg+LkF2ldgSLiF4T41lf1SQCM9QmkqPTn4TH568IRagg==}
@@ -8712,6 +8746,12 @@ snapshots:
     dependencies:
       '@noble/ciphers': 1.3.0
 
+  '@effect/atom-react@4.0.0-rc.112(effect@4.0.0-rc.112)(react@19.2.7)(scheduler@0.27.0)':
+    dependencies:
+      effect: 4.0.0-rc.112
+      react: 19.2.7
+      scheduler: 0.27.0
+
   '@emnapi/core@1.11.1':
     dependencies:
       '@emnapi/wasi-threads': 1.2.2
@@ -8741,9 +8781,35 @@ snapshots:
       '@multiformats/sha3': 4.0.0
       multiformats: 13.4.2
 
+  '@ensforge/contracts@0.2.0(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76)':
+    dependencies:
+      viem: 2.56.0(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
   '@ensforge/contracts@0.2.0(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@4.4.3)':
     dependencies:
       viem: 2.56.0(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@4.4.3)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@ensforge/core@0.2.0(bufferutil@4.1.0)(effect@4.0.0-rc.112)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))(zod@3.25.76)':
+    dependencies:
+      '@ensdomains/address-encoder': 1.1.4
+      '@ensdomains/content-hash': 3.1.1
+      '@ensforge/contracts': 0.2.0(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      cborg: 6.1.1
+      effect: 4.0.0-rc.112
+      fflate: 0.8.3
+      viem: 2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+    optionalDependencies:
+      wagmi: 2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - typescript
@@ -8759,6 +8825,34 @@ snapshots:
       effect: 4.0.0-rc.112
       fflate: 0.8.3
       viem: 2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@4.4.3)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@ensforge/react@0.2.0(bufferutil@4.1.0)(effect@4.0.0-rc.112)(react@19.2.7)(scheduler@0.27.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))(zod@3.25.76)':
+    dependencies:
+      '@effect/atom-react': 4.0.0-rc.112(effect@4.0.0-rc.112)(react@19.2.7)(scheduler@0.27.0)
+      '@ensforge/sdk': 0.2.0(bufferutil@4.1.0)(effect@4.0.0-rc.112)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))(zod@3.25.76)
+      effect: 4.0.0-rc.112
+      react: 19.2.7
+      scheduler: 0.27.0
+      viem: 2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      wagmi: 2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@ensforge/sdk@0.2.0(bufferutil@4.1.0)(effect@4.0.0-rc.112)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))(zod@3.25.76)':
+    dependencies:
+      '@ensforge/core': 0.2.0(bufferutil@4.1.0)(effect@4.0.0-rc.112)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))(zod@3.25.76)
+      effect: 4.0.0-rc.112
+      viem: 2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+    optionalDependencies:
+      wagmi: 2.19.5(@tanstack/query-core@5.102.8)(@tanstack/react-query@5.102.8(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(immer@11.1.11)(react@19.2.7)(typescript@6.0.3)(utf-8-validate@5.0.10)(viem@2.56.1(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - typescript
@@ -8910,6 +9004,10 @@ snapshots:
     transitivePeerDependencies:
       - '@vue/composition-api'
       - vue
+
+  '@fontsource-variable/manrope@5.3.0': {}
+
+  '@fontsource/instrument-serif@5.3.0': {}
 
   '@fontsource/inter@5.2.8': {}
 
@@ -17469,6 +17567,23 @@ snapshots:
       isows: 1.0.6(ws@8.18.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))
       ox: 0.6.7(typescript@6.0.3)(zod@3.25.76)
       ws: 8.18.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+    optionalDependencies:
+      typescript: 6.0.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
+
+  viem@2.56.0(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@3.25.76):
+    dependencies:
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@6.0.3)(zod@3.25.76)
+      isows: 1.0.7(ws@8.21.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))
+      ox: 0.14.34(typescript@6.0.3)(zod@3.25.76)
+      ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
     optionalDependencies:
       typescript: 6.0.3
     transitivePeerDependencies:

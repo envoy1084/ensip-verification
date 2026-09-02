@@ -15,10 +15,14 @@
     "typecheck": "tsr generate && tsc --noEmit"
   },
   "dependencies": {
+    "@ensforge/react": "0.2.0",
+    "@fontsource-variable/manrope": "5.3.0",
+    "@fontsource/instrument-serif": "5.3.0",
     "@rainbow-me/rainbowkit": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@thenamespace/uikit": "catalog:",
+    "effect": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "viem": "catalog:",

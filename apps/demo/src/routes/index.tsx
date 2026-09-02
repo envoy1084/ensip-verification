@@ -1,62 +1,31 @@
-import { useCallback, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-
-import { Button } from "@thenamespace/uikit/button";
-import { FieldError } from "@thenamespace/uikit/field-error";
-import { SearchField } from "@thenamespace/uikit/search-field";
-import { normalize } from "viem/ens";
+import { EnsNameSearch } from "../components/ens-name-search";
 
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
-  const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [isInvalid, setIsInvalid] = useState(false);
-
-  const search = useCallback(
-    (value: string) => {
-      try {
-        const normalizedName = normalize(value.trim());
-        setIsInvalid(false);
-        void navigate({ to: "/$name", params: { name: normalizedName } });
-      } catch {
-        setIsInvalid(true);
-      }
-    },
-    [navigate],
-  );
-  const handleChange = useCallback((value: string) => {
-    setName(value);
-    setIsInvalid(false);
-  }, []);
-  const handlePress = useCallback(() => search(name), [name, search]);
-
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-      <div className="flex w-full max-w-xl items-start gap-2">
-        <SearchField
-          aria-label="ENS name"
-          className="flex-1"
-          isInvalid={isInvalid}
-          onChange={handleChange}
-          onSubmit={search}
-          value={name}
-        >
-          <SearchField.Group className="h-11">
-            <SearchField.SearchIcon />
-            <SearchField.Input
-              className="w-full"
-              placeholder="Search an ENS name"
-            />
-            <SearchField.ClearButton />
-          </SearchField.Group>
-          <FieldError>Enter a valid ENS name.</FieldError>
-        </SearchField>
-        <Button className="h-11" onPress={handlePress}>
-          Search
-        </Button>
-      </div>
+    <main className="hero-field relative isolate flex min-h-[calc(100vh-4rem)] px-4">
+      <section className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center pt-[clamp(4rem,10vh,6rem)] text-center">
+        <p className="text-accent mb-5 text-xs font-bold tracking-[0.2em] uppercase">
+          ENS record verification
+        </p>
+        <h1 className="text-[clamp(3.25rem,8vw,6.75rem)] leading-none font-semibold tracking-[-0.065em]">
+          Trust the record.
+          <span className="font-display text-midnight mt-2 block font-normal italic">
+            Verify the source.
+          </span>
+        </h1>
+        <p className="text-muted mt-5 max-w-xl text-base leading-7 sm:text-lg">
+          Search an ENS name to inspect its records and verify where they came
+          from.
+        </p>
+
+        <div className="mt-8 w-full max-w-2xl">
+          <EnsNameSearch />
+        </div>
+      </section>
     </main>
   );
 }
