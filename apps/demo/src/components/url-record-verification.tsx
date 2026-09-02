@@ -1,23 +1,46 @@
+import { useCallback } from "react";
+
+import { useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+
 import { Button } from "@thenamespace/uikit/button";
-import {
-  Globe02Icon,
-  HugeiconsIcon,
-  SecurityValidationIcon,
-} from "@thenamespace/uikit/icons";
+import { Chip } from "@thenamespace/uikit/chip";
+import { Globe02Icon, HugeiconsIcon } from "@thenamespace/uikit/icons";
 import { Spinner } from "@thenamespace/uikit/spinner";
+
+import { verifyUrlRecord } from "../verification/verify-url-record.functions";
 
 interface UrlRecordVerificationProps {
   isError: boolean;
   isLoading: boolean;
+  name: string;
   value: string | null;
 }
 
 export function UrlRecordVerification({
   isError,
   isLoading,
+  name,
   value,
 }: UrlRecordVerificationProps) {
   const hasValue = value !== null && value.length > 0;
+  const verifyOnServer = useServerFn(verifyUrlRecord);
+  const verification = useMutation({
+    mutationFn: () => verifyOnServer({ data: { name } }),
+  });
+  const { mutate } = verification;
+  const handleVerify = useCallback(() => mutate(), [mutate]);
+  const isVerified =
+    verification.data?.success === true &&
+    verification.data.data.verification.verified &&
+    verification.data.data.value === value;
+  const verificationError = verification.isError
+    ? verification.error.message
+    : verification.data?.success === false
+      ? verification.data.error.message
+      : verification.data?.success === true && !isVerified
+        ? "The current URL value could not be verified."
+        : null;
 
   return (
     <section className="mt-12" aria-labelledby="url-record-heading">
@@ -75,18 +98,31 @@ export function UrlRecordVerification({
             </div>
           </div>
 
-          <Button
-            className="h-11 shrink-0 px-5"
-            isDisabled={isLoading || isError || !hasValue}
-          >
-            <HugeiconsIcon
-              icon={SecurityValidationIcon}
-              size={18}
-              strokeWidth={1.9}
-            />
-            Verify
-          </Button>
+          {isVerified ? (
+            <Chip color="success" size="lg" variant="soft">
+              Verified
+            </Chip>
+          ) : (
+            <Button
+              className="h-11 min-w-24 shrink-0 px-5"
+              isDisabled={
+                isLoading || isError || !hasValue || verification.isPending
+              }
+              onPress={handleVerify}
+            >
+              {verification.isPending ? "Verifying…" : "Verify"}
+            </Button>
+          )}
         </div>
+
+        {verificationError ? (
+          <p
+            className="border-border bg-danger/5 text-danger border-t px-5 py-3 text-sm sm:px-6"
+            role="alert"
+          >
+            {verificationError}
+          </p>
+        ) : null}
       </div>
     </section>
   );

@@ -3,6 +3,7 @@
   "include": ["src", "vite.config.ts", "oxlint.config.ts"],
   "exclude": ["src/routeTree.gen.ts"],
   "compilerOptions": {
+    "verbatimModuleSyntax": false,
     "paths": {
       "#/*": ["./src/*"],
       "@/*": ["./src/*"]

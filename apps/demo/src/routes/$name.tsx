@@ -135,8 +135,10 @@ function Name() {
             </article>
 
             <UrlRecordVerification
+              key={name}
               isError={urlError}
               isLoading={isLoading}
+              name={name}
               value={url}
             />
           </>
