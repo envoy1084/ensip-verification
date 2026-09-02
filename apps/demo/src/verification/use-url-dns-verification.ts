@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { useSetText } from "@ensforge/react";
@@ -23,6 +24,7 @@ type SetupStatus =
   | "preparing"
   | "signing"
   | "ready"
+  | "removing"
   | "verified";
 
 const statusLabels: Record<SetupStatus, string> = {
@@ -32,13 +34,24 @@ const statusLabels: Record<SetupStatus, string> = {
   preparing: "Preparing proof…",
   signing: "Waiting for signature…",
   ready: "Check verification",
+  removing: "Removing…",
   verified: "Verified",
 };
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Unable to prepare verification.";
 
-export function useUrlDnsVerification(name: string) {
+interface UseUrlDnsVerificationInput {
+  readonly name: string;
+  readonly value: string | null;
+  readonly verificationDescriptor: string | null;
+}
+
+export function useUrlDnsVerification({
+  name,
+  value,
+  verificationDescriptor,
+}: UseUrlDnsVerificationInput) {
   const account = useAccount();
   const { openConnectModal } = useConnectModal();
   const setText = useSetText();
@@ -46,7 +59,17 @@ export function useUrlDnsVerification(name: string) {
   const verifyOnServer = useServerFn(verifyUrlRecord);
   const prepareOnServer = useServerFn(prepareUrlDnsVerification);
   const createRecordOnServer = useServerFn(createUrlDnsRecord);
+  const verificationStatus = useQuery({
+    enabled: value !== null && value.length > 0,
+    queryFn: () => verifyOnServer({ data: { name } }),
+    queryKey: ["url-record-verification", name, value],
+    retry: false,
+    staleTime: 30_000,
+  });
   const [status, setStatus] = useState<SetupStatus>("idle");
+  const [configurationOverride, setConfigurationOverride] = useState<
+    boolean | null
+  >(null);
   const [dnsRecord, setDnsRecord] = useState<{
     readonly name: string;
     readonly value: string;
@@ -69,7 +92,11 @@ export function useUrlDnsVerification(name: string) {
 
     try {
       const verification = await verifyOnServer({ data: { name } });
-      if (verification.success && verification.data.verification.verified) {
+      if (
+        verification.success &&
+        verification.data.verification.verified &&
+        verification.data.value === value
+      ) {
         setStatus("verified");
         return;
       }
@@ -105,6 +132,7 @@ export function useUrlDnsVerification(name: string) {
         if (!preparation.success) {
           throw new Error(preparation.error.message);
         }
+        setConfigurationOverride(true);
       }
 
       setStatus("signing");
@@ -127,16 +155,61 @@ export function useUrlDnsVerification(name: string) {
     }
   };
 
+  const remove = async () => {
+    if (!account.isConnected || account.address === undefined) {
+      openConnectModal?.();
+      return;
+    }
+    if (account.chainId !== 1) {
+      setError("Switch your wallet to Ethereum mainnet first.");
+      return;
+    }
+
+    setError(null);
+    setStatus("removing");
+
+    try {
+      await setText.mutateAsync({
+        name,
+        key: DISCOVERY_KEY,
+        value: "",
+      });
+      setConfigurationOverride(false);
+      setDnsRecord(null);
+      setStatus("idle");
+    } catch (cause) {
+      setError(getErrorMessage(cause));
+      setStatus("idle");
+    }
+  };
+
+  const descriptorConfigured =
+    configurationOverride ?? verificationDescriptor === DNS_TXT_DESCRIPTOR;
+  const isInitiallyChecking =
+    value !== null && value.length > 0 && verificationStatus.isPending;
+  const isVerifiedFromQuery =
+    verificationStatus.data?.success === true &&
+    verificationStatus.data.data.verification.verified &&
+    verificationStatus.data.data.value === value;
+  const isPending =
+    isInitiallyChecking ||
+    status === "checking" ||
+    status === "setting-descriptor" ||
+    status === "preparing" ||
+    status === "signing" ||
+    status === "removing";
+
   return {
-    actionLabel: statusLabels[status],
+    actionLabel: isInitiallyChecking ? "Checking…" : statusLabels[status],
+    descriptorConfigured,
     dnsRecord,
     error,
-    isPending:
-      status === "checking" ||
-      status === "setting-descriptor" ||
-      status === "preparing" ||
-      status === "signing",
-    isVerified: status === "verified",
+    isPending,
+    isRemoving: status === "removing",
+    isVerified:
+      configurationOverride !== false &&
+      (status === "verified" || isVerifiedFromQuery),
+    remove,
     verify,
   } as const;
 }

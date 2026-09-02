@@ -22,6 +22,10 @@ function Name() {
       expiry: sdk.name.getExpiry.request({ name }),
       owner: sdk.name.getOwner.request({ name }),
       url: sdk.records.getText.request({ key: "url", name }),
+      verificationDescriptor: sdk.records.getText.request({
+        key: "verification[text][url]",
+        name,
+      }),
     }),
     [name, sdk],
   );
@@ -45,6 +49,10 @@ function Name() {
   const url =
     records.data?.url.status === "success"
       ? records.data.url.value.value
+      : null;
+  const verificationDescriptor =
+    records.data?.verificationDescriptor.status === "success"
+      ? records.data.verificationDescriptor.value.value
       : null;
   const avatarSource = avatar?.status === "resolved" ? avatar.uri : null;
   const profileError =
@@ -135,11 +143,12 @@ function Name() {
             </article>
 
             <UrlRecordVerification
-              key={name}
+              key={`${name}:${url ?? ""}`}
               isError={urlError}
               isLoading={isLoading}
               name={name}
               value={url}
+              verificationDescriptor={verificationDescriptor}
             />
           </>
         ) : null}

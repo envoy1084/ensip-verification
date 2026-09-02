@@ -1,3 +1,4 @@
+import { AlertDialog } from "@thenamespace/uikit/alert-dialog";
 import { Button } from "@thenamespace/uikit/button";
 import { Chip } from "@thenamespace/uikit/chip";
 import { Globe02Icon, HugeiconsIcon } from "@thenamespace/uikit/icons";
@@ -10,6 +11,7 @@ interface UrlRecordVerificationProps {
   isLoading: boolean;
   name: string;
   value: string | null;
+  verificationDescriptor: string | null;
 }
 
 export function UrlRecordVerification({
@@ -17,9 +19,14 @@ export function UrlRecordVerification({
   isLoading,
   name,
   value,
+  verificationDescriptor,
 }: UrlRecordVerificationProps) {
   const hasValue = value !== null && value.length > 0;
-  const verification = useUrlDnsVerification(name);
+  const verification = useUrlDnsVerification({
+    name,
+    value,
+    verificationDescriptor,
+  });
 
   return (
     <section className="mt-12" aria-labelledby="url-record-heading">
@@ -77,21 +84,32 @@ export function UrlRecordVerification({
             </div>
           </div>
 
-          {verification.isVerified ? (
-            <Chip color="success" size="lg" variant="soft">
-              Verified
-            </Chip>
-          ) : (
-            <Button
-              className="h-11 min-w-24 shrink-0 px-5"
-              isDisabled={
-                isLoading || isError || !hasValue || verification.isPending
-              }
-              onPress={verification.verify}
-            >
-              {verification.actionLabel}
-            </Button>
-          )}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {verification.isVerified ? (
+              <Chip color="success" size="lg" variant="soft">
+                Verified
+              </Chip>
+            ) : (
+              <Button
+                className="h-11 min-w-24 px-5"
+                isDisabled={
+                  isLoading || isError || !hasValue || verification.isPending
+                }
+                onPress={verification.verify}
+              >
+                {verification.actionLabel}
+              </Button>
+            )}
+
+            {verification.descriptorConfigured ? (
+              <RemoveVerificationDialog
+                isDisabled={verification.isPending}
+                isRemoving={verification.isRemoving}
+                name={name}
+                onRemove={verification.remove}
+              />
+            ) : null}
+          </div>
         </div>
 
         {verification.dnsRecord ? (
@@ -125,6 +143,51 @@ export function UrlRecordVerification({
         ) : null}
       </div>
     </section>
+  );
+}
+
+function RemoveVerificationDialog({
+  isDisabled,
+  isRemoving,
+  name,
+  onRemove,
+}: {
+  isDisabled: boolean;
+  isRemoving: boolean;
+  name: string;
+  onRemove: () => Promise<void>;
+}) {
+  return (
+    <AlertDialog>
+      <Button className="h-11" isDisabled={isDisabled} variant="danger-soft">
+        {isRemoving ? "Removing…" : "Remove verification"}
+      </Button>
+      <AlertDialog.Backdrop>
+        <AlertDialog.Container>
+          <AlertDialog.Dialog className="sm:max-w-[420px]">
+            <AlertDialog.CloseTrigger />
+            <AlertDialog.Header>
+              <AlertDialog.Icon status="danger" />
+              <AlertDialog.Heading>Remove verification?</AlertDialog.Heading>
+            </AlertDialog.Header>
+            <AlertDialog.Body>
+              <p>
+                This clears the URL verification discovery record from {name}.
+                It does not delete the TXT proof from your DNS provider.
+              </p>
+            </AlertDialog.Body>
+            <AlertDialog.Footer>
+              <Button slot="close" variant="tertiary">
+                Cancel
+              </Button>
+              <Button slot="close" variant="danger" onPress={onRemove}>
+                Remove record
+              </Button>
+            </AlertDialog.Footer>
+          </AlertDialog.Dialog>
+        </AlertDialog.Container>
+      </AlertDialog.Backdrop>
+    </AlertDialog>
   );
 }
 
