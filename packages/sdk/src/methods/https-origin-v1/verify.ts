@@ -2,31 +2,29 @@ import { Effect } from "effect";
 
 import type { Hex } from "viem";
 
-import { HTTP_TOTAL_TIMEOUT_MS } from "../data/http.js";
-import { PROOF_ENVELOPE_MAX_BYTES } from "../data/limits.js";
-import {
-  HTTPS_ORIGIN_MAX_LIFETIME_SECONDS,
-  HTTPS_ORIGIN_METHOD_ID,
-  HTTPS_ORIGIN_PROOF_PATH,
-} from "../data/methods.js";
-import { HttpService } from "../http/service.js";
-import { deriveProofKey } from "../protocol/claims.js";
-import { deriveRecordMetadata } from "../protocol/records.js";
-import { parseHttpsRecordUrl } from "../protocol/url.js";
+import { deriveProofKey } from "../../core/claims.js";
+import { deriveRecordMetadata } from "../../core/records.js";
 import {
   validateEmptyMethodProof,
   verifyCommonProof,
-} from "../protocol/verification.js";
-import { VerificationError } from "../schema/errors.js";
+} from "../../core/verification.js";
+import { HTTP_TOTAL_TIMEOUT_MS } from "../../http/policy.js";
+import { RecordVerificationError } from "../../schema/errors.js";
 import type {
   HttpsOriginVerificationData,
   MethodVerificationInput,
   VerificationMethod,
-} from "../schema/methods.js";
-
-export const httpsOriginDescriptorPolicy = Object.freeze({
-  proofUri: "forbidden",
-} as const);
+} from "../../schema/methods.js";
+import type { EnsService } from "../../services/EnsService.js";
+import { HttpService } from "../../services/HttpService.js";
+import { PROOF_ENVELOPE_MAX_BYTES } from "../../spec/limits.js";
+import {
+  HTTPS_ORIGIN_MAX_LIFETIME_SECONDS,
+  HTTPS_ORIGIN_METHOD_ID,
+  HTTPS_ORIGIN_PROOF_PATH,
+  httpsOriginDescriptorPolicy,
+} from "./definition.js";
+import { parseHttpsRecordUrl } from "./target.js";
 
 export const deriveHttpsOriginTarget = Effect.fn("deriveHttpsOriginTarget")(
   function* (value: string) {
@@ -47,9 +45,9 @@ export const verifyHttpsOrigin = Effect.fn("verifyHttpsOrigin")(function* (
     input.selector.type !== "text" ||
     input.value.type !== "text"
   ) {
-    return yield* new VerificationError({
+    return yield* new RecordVerificationError({
       code: "METHOD_NOT_APPLICABLE",
-      message: "https-origin.v1 requires a text record and no descriptor URI",
+      reason: "https-origin.v1 requires a text record and no descriptor URI",
     });
   }
 
@@ -71,7 +69,6 @@ export const verifyHttpsOrigin = Effect.fn("verifyHttpsOrigin")(function* (
     timeoutMs: HTTP_TOTAL_TIMEOUT_MS,
   });
   const common = yield* verifyCommonProof({
-    publicClient: input.publicClient,
     name: input.name,
     selector: input.selector,
     value: input.value,
@@ -100,5 +97,5 @@ export const httpsOriginMethod = Object.freeze({
 } satisfies VerificationMethod<
   typeof HTTPS_ORIGIN_METHOD_ID,
   HttpsOriginVerificationData,
-  HttpService
+  EnsService | HttpService
 >);

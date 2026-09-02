@@ -1,67 +1,55 @@
 import { Clock, Effect, Schema } from "effect";
 
-import type { Ensforge } from "@ensforge/sdk";
-import type { Address, Hex, PublicClient } from "viem";
+import type { Address, Hex } from "viem";
 
-import {
-  ENS_RECORD_VERIFICATION_DOMAIN,
-  ENS_RECORD_VERIFICATION_TYPES,
-} from "./data/claims.js";
-import { DNS_TXT_PROOF_MAX_BYTES } from "./data/limits.js";
-import {
-  DNS_TXT_MAX_LIFETIME_SECONDS,
-  DNS_TXT_METHOD_ID,
-} from "./data/methods.js";
-import { resolveEnsAuthorityV1 } from "./protocol/authority.js";
 import {
   deriveCommonClaim,
   deriveProofKey,
   hashCommonClaim,
-} from "./protocol/claims.js";
-import { parseDescriptor } from "./protocol/descriptor.js";
-import { deriveDnsProofOwner, deriveDnsTxtTarget } from "./protocol/dns.js";
+} from "../../core/claims.js";
+import { parseDescriptor } from "../../core/descriptor.js";
 import {
-  ensureEnsSnapshotCanonical,
-  readEnsRecordSnapshot,
-} from "./protocol/ens.js";
-import { prepareEnsName } from "./protocol/name.js";
-import { deriveRecordMetadata } from "./protocol/records.js";
-import { validateAuthoritySignature } from "./protocol/signatures.js";
-import { ProofEnvelope } from "./schema/claims.js";
-import {
-  type RpcError,
-  ValidationError,
-  VerificationError,
-} from "./schema/errors.js";
+  ENS_RECORD_VERIFICATION_DOMAIN,
+  ENS_RECORD_VERIFICATION_TYPES,
+} from "../../core/eip712.js";
+import { prepareEnsName } from "../../core/name.js";
+import { deriveRecordMetadata } from "../../core/records.js";
+import { ProofEnvelope } from "../../schema/claims.js";
+import { RecordVerificationError } from "../../schema/errors.js";
 import type {
   CreateDnsTxtRecordInput,
   DnsTxtVerificationPreparation,
   PrepareDnsTxtVerificationInput,
-} from "./schema/sdk.js";
+} from "../../schema/sdk.js";
+import { EnsService } from "../../services/EnsService.js";
+import { DNS_TXT_PROOF_MAX_BYTES } from "../../spec/limits.js";
+import {
+  DNS_TXT_MAX_LIFETIME_SECONDS,
+  DNS_TXT_METHOD_ID,
+} from "./definition.js";
+import { deriveDnsProofOwner, deriveDnsTxtTarget } from "./target.js";
 
 export const prepareDnsTxtVerification: (
-  ensforge: Ensforge,
-  publicClient: PublicClient,
   input: PrepareDnsTxtVerificationInput,
 ) => Effect.Effect<
   DnsTxtVerificationPreparation,
-  RpcError | ValidationError | VerificationError
+  RecordVerificationError,
+  EnsService
 > = Effect.fn("prepareDnsTxtVerification")(function* (
-  ensforge: Ensforge,
-  publicClient: PublicClient,
   input: PrepareDnsTxtVerificationInput,
 ) {
+  const ens = yield* EnsService;
   const name = yield* prepareEnsName(input.name);
   const selector = { type: input.type, key: input.key } as const;
-  const resolved = yield* readEnsRecordSnapshot(ensforge, publicClient, {
+  const resolved = yield* ens.readRecordSnapshot({
     name,
     selector,
   });
 
   if (resolved.record.value?.type !== "text") {
-    return yield* new VerificationError({
+    return yield* new RecordVerificationError({
       code: "METHOD_NOT_APPLICABLE",
-      message: "the target ENS text record is empty",
+      reason: "the target ENS text record is empty",
     });
   }
   const descriptorValue =
@@ -81,14 +69,14 @@ export const prepareDnsTxtVerification: (
     descriptor.method !== DNS_TXT_METHOD_ID ||
     descriptor.proofUri !== undefined
   ) {
-    return yield* new VerificationError({
+    return yield* new RecordVerificationError({
       code: "METHOD_NOT_APPLICABLE",
-      message:
+      reason:
         "the existing discovery record selects a different verification method",
     });
   }
 
-  const authority = yield* resolveEnsAuthorityV1(ensforge, {
+  const authority = yield* ens.resolveAuthority(1n, {
     name,
     snapshot: resolved.snapshot,
   });
@@ -101,9 +89,9 @@ export const prepareDnsTxtVerification: (
       ? authority.authorityValidUntil
       : maximumValidUntil;
   if (validUntil <= issuedAt) {
-    return yield* new VerificationError({
-      code: "NAME_EXPIRED",
-      message: "the ENS authority expires before a claim can be issued",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "the ENS authority expires before a claim can be issued",
     });
   }
 
@@ -128,7 +116,7 @@ export const prepareDnsTxtVerification: (
     method: descriptor.method,
   });
   const dnsRecordName = yield* deriveDnsProofOwner(target, proofKey);
-  yield* ensureEnsSnapshotCanonical(publicClient, resolved.snapshot);
+  yield* ens.ensureSnapshotCanonical(resolved.snapshot);
 
   const publicClaim = {
     ...claim,
@@ -155,7 +143,6 @@ export const prepareDnsTxtVerification: (
 });
 
 export const createDnsTxtRecord: (
-  publicClient: PublicClient,
   input: CreateDnsTxtRecordInput,
 ) => Effect.Effect<
   {
@@ -163,13 +150,12 @@ export const createDnsTxtRecord: (
     readonly value: string;
     readonly zoneFileValue: string;
   },
-  RpcError | ValidationError | VerificationError
-> = Effect.fn("createDnsTxtRecord")(function* (
-  publicClient: PublicClient,
-  input: CreateDnsTxtRecordInput,
-) {
+  RecordVerificationError,
+  EnsService
+> = Effect.fn("createDnsTxtRecord")(function* (input: CreateDnsTxtRecordInput) {
+  const ens = yield* EnsService;
   const authoritySignature = input.authoritySignature.toLowerCase();
-  yield* validateAuthoritySignature(publicClient, {
+  yield* ens.validateAuthoritySignature({
     authority: input.preparation.authority,
     signature: authoritySignature,
     digest: hashCommonClaim(input.preparation.claim),
@@ -183,17 +169,17 @@ export const createDnsTxtRecord: (
   }).pipe(
     Effect.mapError(
       () =>
-        new ValidationError({
-          code: "INVALID_ENVELOPE",
-          message: "unable to create a valid DNS TXT proof envelope",
+        new RecordVerificationError({
+          code: "INVALID_PROOF",
+          reason: "unable to create a valid DNS TXT proof envelope",
         }),
     ),
   );
   const value = JSON.stringify(encodedEnvelope);
   if (new TextEncoder().encode(value).byteLength > DNS_TXT_PROOF_MAX_BYTES) {
-    return yield* new ValidationError({
-      code: "ENVELOPE_TOO_LARGE",
-      message: `DNS TXT proof exceeds ${DNS_TXT_PROOF_MAX_BYTES} bytes`,
+    return yield* new RecordVerificationError({
+      code: "INVALID_PROOF",
+      reason: `DNS TXT proof exceeds ${DNS_TXT_PROOF_MAX_BYTES} bytes`,
     });
   }
 

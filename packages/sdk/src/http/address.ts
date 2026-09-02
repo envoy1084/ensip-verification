@@ -5,7 +5,7 @@ import { Effect } from "effect";
 
 import ipaddr from "ipaddr.js";
 
-import { RpcError, VerificationError } from "../schema/errors.js";
+import { RecordVerificationError } from "../schema/errors.js";
 
 export interface ResolvedHttpAddress {
   readonly address: string;
@@ -26,9 +26,9 @@ export const resolveHttpAddress = Effect.fn("resolveHttpAddress")(function* (
 
   if (literalFamily !== 0) {
     if (!isGloballyReachable(unbracketedHostname)) {
-      return yield* new VerificationError({
-        code: "HTTP_ADDRESS_BLOCKED",
-        message: "HTTP destination is not globally reachable",
+      return yield* new RecordVerificationError({
+        code: "METHOD_NOT_APPLICABLE",
+        reason: "HTTP destination is not globally reachable",
       });
     }
 
@@ -41,24 +41,24 @@ export const resolveHttpAddress = Effect.fn("resolveHttpAddress")(function* (
   const addresses = yield* Effect.tryPromise({
     try: () => lookup(unbracketedHostname, { all: true, verbatim: true }),
     catch: () =>
-      new RpcError({
-        code: "HTTP_DNS_FAILED",
-        message: "unable to resolve the HTTP destination",
+      new RecordVerificationError({
+        code: "PROOF_READ_FAILED",
+        reason: "unable to resolve the HTTP destination",
       }),
   });
 
   const selected = addresses[0];
   if (selected === undefined) {
-    return yield* new RpcError({
-      code: "HTTP_DNS_FAILED",
-      message: "HTTP destination did not resolve to an address",
+    return yield* new RecordVerificationError({
+      code: "PROOF_READ_FAILED",
+      reason: "HTTP destination did not resolve to an address",
     });
   }
 
   if (addresses.some(({ address }) => !isGloballyReachable(address))) {
-    return yield* new VerificationError({
-      code: "HTTP_ADDRESS_BLOCKED",
-      message: "HTTP destination resolved to a non-global address",
+    return yield* new RecordVerificationError({
+      code: "METHOD_NOT_APPLICABLE",
+      reason: "HTTP destination resolved to a non-global address",
     });
   }
 

@@ -2,28 +2,26 @@ import { Effect } from "effect";
 
 import type { Hex } from "viem";
 
-import {
-  DNS_TXT_MAX_LIFETIME_SECONDS,
-  DNS_TXT_METHOD_ID,
-} from "../data/methods.js";
-import { DnsService } from "../dns/service.js";
-import { deriveProofKey } from "../protocol/claims.js";
-import { deriveDnsProofOwner, deriveDnsTxtTarget } from "../protocol/dns.js";
-import { deriveRecordMetadata } from "../protocol/records.js";
+import { deriveProofKey } from "../../core/claims.js";
+import { deriveRecordMetadata } from "../../core/records.js";
 import {
   validateEmptyMethodProof,
   verifyCommonProof,
-} from "../protocol/verification.js";
-import { VerificationError } from "../schema/errors.js";
+} from "../../core/verification.js";
+import { RecordVerificationError } from "../../schema/errors.js";
 import type {
   DnsTxtVerificationData,
   MethodVerificationInput,
   VerificationMethod,
-} from "../schema/methods.js";
-
-export const dnsTxtDescriptorPolicy = Object.freeze({
-  proofUri: "forbidden",
-} as const);
+} from "../../schema/methods.js";
+import { DnsService } from "../../services/DnsService.js";
+import type { EnsService } from "../../services/EnsService.js";
+import {
+  DNS_TXT_MAX_LIFETIME_SECONDS,
+  DNS_TXT_METHOD_ID,
+  dnsTxtDescriptorPolicy,
+} from "./definition.js";
+import { deriveDnsProofOwner, deriveDnsTxtTarget } from "./target.js";
 
 export const verifyDnsTxt = Effect.fn("verifyDnsTxt")(function* (
   input: MethodVerificationInput,
@@ -34,9 +32,9 @@ export const verifyDnsTxt = Effect.fn("verifyDnsTxt")(function* (
     input.selector.type !== "text" ||
     input.value.type !== "text"
   ) {
-    return yield* new VerificationError({
+    return yield* new RecordVerificationError({
       code: "METHOD_NOT_APPLICABLE",
-      message: "dns-txt.v1 requires a text record and no descriptor URI",
+      reason: "dns-txt.v1 requires a text record and no descriptor URI",
     });
   }
 
@@ -57,7 +55,6 @@ export const verifyDnsTxt = Effect.fn("verifyDnsTxt")(function* (
     checkedAt: input.checkedAt,
   });
   const common = yield* verifyCommonProof({
-    publicClient: input.publicClient,
     name: input.name,
     selector: input.selector,
     value: input.value,
@@ -87,5 +84,5 @@ export const dnsTxtMethod = Object.freeze({
 } satisfies VerificationMethod<
   typeof DNS_TXT_METHOD_ID,
   DnsTxtVerificationData,
-  DnsService
+  DnsService | EnsService
 >);

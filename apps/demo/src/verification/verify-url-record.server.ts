@@ -21,11 +21,10 @@ export function verifyUrlRecord(name: string) {
     throw new Error("VITE_PUBLIC_RPC_URL is not configured.");
   }
 
-  return recordVerification.getRecord({
+  return recordVerification.verifyRecord({
     name,
     type: "text",
     key: "url",
-    verify: true,
   });
 }
 

@@ -10,18 +10,18 @@ import {
 } from "viem";
 
 import {
-  ENS_RECORD_VERIFICATION_DOMAIN,
-  ENS_RECORD_VERIFICATION_DOMAIN_SEPARATOR,
-  ENS_RECORD_VERIFICATION_TYPES,
-  PROOF_KEY_TYPEHASH,
-} from "../data/claims.js";
-import {
   CommonClaim,
   type CommonClaim as CommonClaimType,
   type DeriveCommonClaimInput,
   type ProofKeyInput,
 } from "../schema/claims.js";
-import { ValidationError, VerificationError } from "../schema/errors.js";
+import { RecordVerificationError } from "../schema/errors.js";
+import {
+  ENS_RECORD_VERIFICATION_DOMAIN,
+  ENS_RECORD_VERIFICATION_DOMAIN_SEPARATOR,
+  ENS_RECORD_VERIFICATION_TYPES,
+  PROOF_KEY_TYPEHASH,
+} from "./eip712.js";
 import {
   deriveLogicalResolverValueBytes,
   deriveRecordMetadata,
@@ -40,9 +40,9 @@ export const deriveCommonClaim = Effect.fn("deriveCommonClaim")(function* (
   const valueHash = yield* deriveResolverValueHash(input.value).pipe(
     Effect.mapError(
       () =>
-        new ValidationError({
-          code: "INVALID_CLAIM",
-          message: "unable to hash the live resolver value",
+        new RecordVerificationError({
+          code: "INVALID_PROOF",
+          reason: "unable to hash the live resolver value",
         }),
     ),
   );
@@ -65,9 +65,9 @@ export const deriveCommonClaim = Effect.fn("deriveCommonClaim")(function* (
     Effect.flatMap(Schema.decodeEffect(CommonClaim)),
     Effect.mapError(
       () =>
-        new ValidationError({
-          code: "INVALID_CLAIM",
-          message: "unable to derive a valid common claim",
+        new RecordVerificationError({
+          code: "INVALID_PROOF",
+          reason: "unable to derive a valid common claim",
         }),
     ),
   );
@@ -129,9 +129,9 @@ export const compareCommonClaim = Effect.fn("compareCommonClaim")(function* (
     "target",
   ] as const) {
     if (claim[field] !== expected[field]) {
-      return yield* new VerificationError({
-        code: "CLAIM_MISMATCH",
-        message: `claim ${field} does not match live ENS state`,
+      return yield* new RecordVerificationError({
+        code: "INVALID_PROOF",
+        reason: `claim ${field} does not match live ENS state`,
       });
     }
   }

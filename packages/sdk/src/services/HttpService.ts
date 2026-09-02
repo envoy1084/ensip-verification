@@ -1,6 +1,6 @@
 import { Context, type Effect } from "effect";
 
-import type { RpcError, VerificationError } from "../schema/errors.js";
+import type { RecordVerificationError } from "../schema/errors.js";
 
 export interface HttpRequest {
   readonly url: URL;
@@ -18,6 +18,6 @@ export class HttpService extends Context.Service<
   {
     readonly get: (
       request: HttpRequest,
-    ) => Effect.Effect<HttpResponse, RpcError | VerificationError>;
+    ) => Effect.Effect<HttpResponse, RecordVerificationError>;
   }
 >()("@thenamespace/record-verification/HttpService") {}

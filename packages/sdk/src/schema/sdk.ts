@@ -1,34 +1,34 @@
 import type { PublicClient } from "viem";
 import type { Address, Hex } from "viem";
 
-import type { SdkErrorCode } from "../data/errors.js";
+import type { RecordVerificationErrorCode } from "./errors.js";
 import type { RecordSelector } from "./records.js";
 
 export interface RecordVerificationOptions {
   readonly publicClient: PublicClient;
+  readonly fetch?: typeof globalThis.fetch;
+  readonly dnsOverHttpsUrl?: string;
 }
 
-type RecordQuery = RecordSelector & { readonly name: string };
+export type VerifyRecordInput = RecordSelector & { readonly name: string };
 
-type VerificationOption<Verify extends boolean> = Verify extends true
-  ? { readonly verify: true }
-  : { readonly verify?: false };
+export interface VerificationResult {
+  readonly verified: true;
+  readonly type: "control";
+  readonly method: "https-origin.v1" | "dns-txt.v1";
+  readonly target: string;
+  readonly validUntil: bigint;
+  readonly cacheUntil: bigint;
+}
 
-export type GetRecordInput<Verify extends boolean = false> = RecordQuery &
-  VerificationOption<Verify>;
-
-export type VerificationResult =
-  | { readonly verified: true; readonly verificationType: "control" }
-  | { readonly verified: false };
-
-export interface GetRecordData<Verify extends boolean = false> {
-  readonly value: string | null;
-  readonly verification: Verify extends true ? VerificationResult : null;
+export interface VerifyRecordData {
+  readonly value: string;
+  readonly verification: VerificationResult;
 }
 
 export interface RecordVerificationError {
-  readonly code: SdkErrorCode;
-  readonly message: string;
+  readonly code: RecordVerificationErrorCode;
+  readonly reason: string;
 }
 
 export type RecordVerificationResult<Data> =
@@ -41,8 +41,7 @@ export type RecordVerificationResult<Data> =
       readonly error: RecordVerificationError;
     };
 
-export type GetRecordResult<Verify extends boolean = false> =
-  RecordVerificationResult<GetRecordData<Verify>>;
+export type VerifyRecordResult = RecordVerificationResult<VerifyRecordData>;
 
 export interface PrepareDnsTxtVerificationInput {
   readonly name: string;

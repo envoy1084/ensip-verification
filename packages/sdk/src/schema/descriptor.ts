@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import {
   METHOD_IDENTIFIER_MAX_BYTES,
   PROOF_URI_MAX_BYTES,
-} from "../data/limits.js";
+} from "../spec/limits.js";
 import { Uint32 } from "./encoding.js";
 
 export const ProtocolVersion = Schema.Literal("ensrv1");
@@ -74,9 +74,4 @@ export type Descriptor = typeof Descriptor.Type;
 export interface DescriptorMethodPolicy {
   readonly proofUri: "forbidden" | "required";
   readonly schemes?: ReadonlySet<string>;
-}
-
-export interface DescriptorRegistry {
-  readonly authorityVersions: ReadonlySet<bigint>;
-  readonly methods: ReadonlyMap<string, DescriptorMethodPolicy>;
 }

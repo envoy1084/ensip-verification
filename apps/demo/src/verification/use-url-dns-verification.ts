@@ -104,14 +104,14 @@ export function useUrlDnsVerification({
         throw new Error(
           verification.success
             ? "The DNS proof is not visible yet. Check it again after DNS has propagated."
-            : verification.error.message,
+            : verification.error.reason,
         );
       }
 
       setStatus("preparing");
       let preparation = await prepareOnServer({ data: { name } });
       if (!preparation.success) {
-        throw new Error(preparation.error.message);
+        throw new Error(preparation.error.reason);
       }
       if (!isAddressEqual(account.address, preparation.data.authority)) {
         throw new Error(
@@ -130,7 +130,7 @@ export function useUrlDnsVerification({
         setStatus("preparing");
         preparation = await prepareOnServer({ data: { name } });
         if (!preparation.success) {
-          throw new Error(preparation.error.message);
+          throw new Error(preparation.error.reason);
         }
         setConfigurationOverride(true);
       }
@@ -144,7 +144,7 @@ export function useUrlDnsVerification({
         data: { preparation: preparation.data, authoritySignature },
       });
       if (!record.success) {
-        throw new Error(record.error.message);
+        throw new Error(record.error.reason);
       }
 
       setDnsRecord(record.data);

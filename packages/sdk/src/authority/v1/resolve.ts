@@ -1,28 +1,29 @@
 import { Effect } from "effect";
 
+import { analyzeName } from "@ensforge/core";
 import type { Ensforge } from "@ensforge/sdk";
 import { isAddressEqual, zeroAddress } from "viem";
 
 import {
   type EnsAuthority,
   type ResolveEnsAuthorityV1Input,
-} from "../schema/ens.js";
-import { RpcError, VerificationError } from "../schema/errors.js";
+} from "../../schema/ens.js";
+import { RecordVerificationError } from "../../schema/errors.js";
 
 export const resolveEnsAuthorityV1: (
   ensforge: Ensforge,
   input: ResolveEnsAuthorityV1Input,
-) => Effect.Effect<EnsAuthority, RpcError | VerificationError> = Effect.fn(
+) => Effect.Effect<EnsAuthority, RecordVerificationError> = Effect.fn(
   "resolveEnsAuthorityV1",
 )(function* (
   ensforge: Ensforge,
   { name, snapshot }: ResolveEnsAuthorityV1Input,
 ) {
-  const labels = name.normalizedName.split(".");
-  if (labels.at(-1) === "reverse") {
-    return yield* new VerificationError({
-      code: "UNSUPPORTED_NAME",
-      message: "reverse names do not have a supported verification authority",
+  const analysis = analyzeName(name.normalizedName);
+  if (analysis.tld === "reverse") {
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "reverse names do not have a supported verification authority",
     });
   }
 
@@ -34,23 +35,23 @@ export const resolveEnsAuthorityV1: (
     .pipe(
       Effect.mapError(
         () =>
-          new RpcError({
-            code: "AUTHORITY_READ_FAILED",
-            message: "unable to read ENS ownership state",
+          new RecordVerificationError({
+            code: "ENS_READ_FAILED",
+            reason: "unable to read ENS ownership state",
           }),
       ),
     );
 
   if (owner === null) {
-    return yield* new VerificationError({
-      code: "OWNER_NOT_FOUND",
-      message: "ENS name has no owner",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "ENS name has no owner",
     });
   }
   if (owner.protocol !== "v1") {
-    return yield* new VerificationError({
-      code: "UNSUPPORTED_NAME",
-      message: "authority version 1 does not support ENS v2 names",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "authority version 1 does not support ENS v2 names",
     });
   }
   const wrapped = yield* ensforge.name.isWrapped
@@ -61,21 +62,20 @@ export const resolveEnsAuthorityV1: (
     .pipe(
       Effect.mapError(
         () =>
-          new RpcError({
-            code: "AUTHORITY_READ_FAILED",
-            message: "unable to read ENS wrapping state",
+          new RecordVerificationError({
+            code: "ENS_READ_FAILED",
+            reason: "unable to read ENS wrapping state",
           }),
       ),
     );
   if (wrapped !== (owner.ownershipLevel === "nameWrapper")) {
-    return yield* new VerificationError({
-      code: "INVALID_AUTHORITY_STATE",
-      message: "ENS ownership and wrapping state are inconsistent",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "ENS ownership and wrapping state are inconsistent",
     });
   }
 
-  const isEthSecondLevel = labels.length === 2 && labels[1] === "eth";
-  if (isEthSecondLevel) {
+  if (analysis.isSecondLevelEth) {
     const expiry = yield* ensforge.name.getExpiry
       .effect({
         name: name.normalizedName,
@@ -84,9 +84,9 @@ export const resolveEnsAuthorityV1: (
       .pipe(
         Effect.mapError(
           () =>
-            new RpcError({
-              code: "AUTHORITY_READ_FAILED",
-              message: "unable to read .eth registration expiry",
+            new RecordVerificationError({
+              code: "ENS_READ_FAILED",
+              reason: "unable to read .eth registration expiry",
             }),
         ),
       );
@@ -95,23 +95,23 @@ export const resolveEnsAuthorityV1: (
       expiry.protocol !== "v1" ||
       expiry.source !== "baseRegistrar"
     ) {
-      return yield* new VerificationError({
-        code: "INVALID_AUTHORITY_STATE",
-        message: ".eth registration state is incomplete",
+      return yield* new RecordVerificationError({
+        code: "AUTHORITY_INVALID",
+        reason: ".eth registration state is incomplete",
       });
     }
     if (snapshot.blockTimestamp >= expiry.expiry) {
-      return yield* new VerificationError({
-        code: "NAME_EXPIRED",
-        message: ".eth registration is expired at the ENS snapshot",
+      return yield* new RecordVerificationError({
+        code: "AUTHORITY_INVALID",
+        reason: ".eth registration is expired at the ENS snapshot",
       });
     }
 
     if (wrapped) {
       if (owner.owner === null || isAddressEqual(owner.owner, zeroAddress)) {
-        return yield* new VerificationError({
-          code: "OWNER_NOT_FOUND",
-          message: "wrapped .eth name has no owner",
+        return yield* new RecordVerificationError({
+          code: "AUTHORITY_INVALID",
+          reason: "wrapped .eth name has no owner",
         });
       }
       return {
@@ -123,9 +123,9 @@ export const resolveEnsAuthorityV1: (
       owner.registrant === null ||
       isAddressEqual(owner.registrant, zeroAddress)
     ) {
-      return yield* new VerificationError({
-        code: "OWNER_NOT_FOUND",
-        message: ".eth registration has no registrant",
+      return yield* new RecordVerificationError({
+        code: "AUTHORITY_INVALID",
+        reason: ".eth registration has no registrant",
       });
     }
     return {
@@ -135,9 +135,9 @@ export const resolveEnsAuthorityV1: (
   }
 
   if (owner.owner === null || isAddressEqual(owner.owner, zeroAddress)) {
-    return yield* new VerificationError({
-      code: "OWNER_NOT_FOUND",
-      message: "ENS name has no owner",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "ENS name has no owner",
     });
   }
   if (!wrapped) {
@@ -152,16 +152,16 @@ export const resolveEnsAuthorityV1: (
     .pipe(
       Effect.mapError(
         () =>
-          new RpcError({
-            code: "AUTHORITY_READ_FAILED",
-            message: "unable to read Name Wrapper fuses",
+          new RecordVerificationError({
+            code: "ENS_READ_FAILED",
+            reason: "unable to read Name Wrapper fuses",
           }),
       ),
     );
   if (fuses.protocol !== "v1" || !fuses.supported || !fuses.wrapped) {
-    return yield* new VerificationError({
-      code: "INVALID_AUTHORITY_STATE",
-      message: "wrapped ENS ownership state is inconsistent",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "wrapped ENS ownership state is inconsistent",
     });
   }
   if (!fuses.active.includes("parentCannotControl")) {
@@ -176,9 +176,9 @@ export const resolveEnsAuthorityV1: (
     .pipe(
       Effect.mapError(
         () =>
-          new RpcError({
-            code: "AUTHORITY_READ_FAILED",
-            message: "unable to read Name Wrapper expiry",
+          new RecordVerificationError({
+            code: "ENS_READ_FAILED",
+            reason: "unable to read Name Wrapper expiry",
           }),
       ),
     );
@@ -188,15 +188,15 @@ export const resolveEnsAuthorityV1: (
     !wrapperExpiry.wrapped ||
     wrapperExpiry.expiry === null
   ) {
-    return yield* new VerificationError({
-      code: "INVALID_AUTHORITY_STATE",
-      message: "wrapped ENS expiry state is incomplete",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "wrapped ENS expiry state is incomplete",
     });
   }
   if (snapshot.blockTimestamp >= wrapperExpiry.expiry) {
-    return yield* new VerificationError({
-      code: "NAME_EXPIRED",
-      message: "wrapped ENS name is expired at the ENS snapshot",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "wrapped ENS name is expired at the ENS snapshot",
     });
   }
 

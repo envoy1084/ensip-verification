@@ -1,17 +1,2 @@
-export { RecordVerification } from "./record-verification.js";
-export type {
-  CreateDnsTxtRecordInput,
-  CreateDnsTxtRecordResult,
-  DnsTxtRecord,
-  DnsTxtVerificationClaim,
-  DnsTxtVerificationPreparation,
-  GetRecordData,
-  GetRecordInput,
-  GetRecordResult,
-  PrepareDnsTxtVerificationInput,
-  PrepareDnsTxtVerificationResult,
-  RecordVerificationError,
-  RecordVerificationOptions,
-  RecordVerificationResult,
-  VerificationResult,
-} from "./schema/sdk.js";
+export { RecordVerification } from "./client/node.js";
+export type * from "./public.js";

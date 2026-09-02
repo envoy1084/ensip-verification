@@ -1,13 +1,12 @@
-import { isIP } from "node:net";
-
 import { Effect } from "effect";
 
 import { base32nopad } from "@scure/base";
+import ipaddr from "ipaddr.js";
 import { hexToBytes, type Hex } from "viem";
 
-import { DNS_TXT_PROOF_LABEL } from "../data/methods.js";
-import { VerificationError } from "../schema/errors.js";
-import { parseHttpsRecordUrl } from "./url.js";
+import { RecordVerificationError } from "../../schema/errors.js";
+import { parseHttpsRecordUrl } from "../https-origin-v1/target.js";
+import { DNS_TXT_PROOF_LABEL } from "./definition.js";
 
 export const deriveDnsTxtTarget = Effect.fn("deriveDnsTxtTarget")(function* (
   value: string,
@@ -19,10 +18,10 @@ export const deriveDnsTxtTarget = Effect.fn("deriveDnsTxtTarget")(function* (
       ? hostname.slice(1, -1)
       : hostname;
 
-  if (isIP(unbracketedHostname) !== 0) {
-    return yield* new VerificationError({
-      code: "INVALID_METHOD_TARGET",
-      message: "dns-txt.v1 requires a domain hostname, not an IP address",
+  if (ipaddr.isValid(unbracketedHostname)) {
+    return yield* new RecordVerificationError({
+      code: "METHOD_NOT_APPLICABLE",
+      reason: "dns-txt.v1 requires a domain hostname, not an IP address",
     });
   }
 
@@ -44,18 +43,18 @@ export const deriveDnsProofOwner = Effect.fn("deriveDnsProofOwner")(function* (
   );
 
   if (labelByteLengths.some((length) => length === 0 || length > 63)) {
-    return yield* new VerificationError({
-      code: "INVALID_METHOD_TARGET",
-      message: "derived DNS proof owner contains an invalid label length",
+    return yield* new RecordVerificationError({
+      code: "METHOD_NOT_APPLICABLE",
+      reason: "derived DNS proof owner contains an invalid label length",
     });
   }
 
   const wireLength =
     1 + labelByteLengths.reduce((length, label) => length + 1 + label, 0);
   if (wireLength > 255) {
-    return yield* new VerificationError({
-      code: "INVALID_METHOD_TARGET",
-      message: "derived DNS proof owner exceeds the DNS wire-name limit",
+    return yield* new RecordVerificationError({
+      code: "METHOD_NOT_APPLICABLE",
+      reason: "derived DNS proof owner exceeds the DNS wire-name limit",
     });
   }
 

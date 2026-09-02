@@ -3,15 +3,15 @@ import { Effect, Schema } from "effect";
 import type { Ensforge } from "@ensforge/sdk";
 import { hexToBytes, type Hex, type PublicClient } from "viem";
 
+import { deriveDiscoveryKey } from "../core/discovery.js";
 import {
   type EnsRecordSnapshot,
   EnsSnapshot,
   type ReadRecordSnapshotInput,
   type ResolvedEnsRecord,
 } from "../schema/ens.js";
-import { RpcError, VerificationError } from "../schema/errors.js";
+import { RecordVerificationError } from "../schema/errors.js";
 import type { RecordSelector } from "../schema/records.js";
-import { deriveDiscoveryKey } from "./discovery.js";
 
 const readSelectedRecord = (
   selector: RecordSelector,
@@ -69,40 +69,15 @@ const readSelectedRecord = (
   }
 };
 
-export const readEnsRecord = Effect.fn("readEnsRecord")(function* (
-  ensforge: Ensforge,
-  name: ReadRecordSnapshotInput["name"],
-  selector: RecordSelector,
-) {
-  const records = {
-    ...(selector.type === "text" ? { texts: [selector.key] } : {}),
-    ...(selector.type === "addr" ? { addresses: [BigInt(selector.key)] } : {}),
-    ...(selector.type === "contenthash" ? { contentHash: true as const } : {}),
-    ...(selector.type === "data" ? { data: [selector.key] } : {}),
-  };
-  const result = yield* ensforge.records.getRecords
-    .effect({ name: name.normalizedName, records })
-    .pipe(
-      Effect.mapError(
-        () =>
-          new RpcError({
-            code: "RESOLUTION_FAILED",
-            message: `unable to resolve ${name.normalizedName}`,
-          }),
-      ),
-    );
-  return readSelectedRecord(selector, result);
-});
-
 const readEnsSnapshot = Effect.fn("readEnsSnapshot")(function* (
   publicClient: PublicClient,
 ) {
   const block = yield* Effect.tryPromise({
     try: () => publicClient.getBlock({ blockTag: "latest" }),
     catch: () =>
-      new RpcError({
-        code: "BLOCK_UNAVAILABLE",
-        message: "unable to select an Ethereum block",
+      new RecordVerificationError({
+        code: "ENS_READ_FAILED",
+        reason: "unable to select an Ethereum block",
       }),
   });
 
@@ -114,9 +89,9 @@ const readEnsSnapshot = Effect.fn("readEnsSnapshot")(function* (
   }).pipe(
     Effect.mapError(
       () =>
-        new RpcError({
-          code: "MALFORMED_RESPONSE",
-          message: "Ethereum block response is malformed",
+        new RecordVerificationError({
+          code: "ENS_READ_FAILED",
+          reason: "Ethereum block response is malformed",
         }),
     ),
   );
@@ -126,7 +101,7 @@ export const readEnsRecordSnapshot: (
   ensforge: Ensforge,
   publicClient: PublicClient,
   input: ReadRecordSnapshotInput,
-) => Effect.Effect<EnsRecordSnapshot, RpcError> = Effect.fn(
+) => Effect.Effect<EnsRecordSnapshot, RecordVerificationError> = Effect.fn(
   "readEnsRecordSnapshot",
 )(function* (
   ensforge: Ensforge,
@@ -137,9 +112,9 @@ export const readEnsRecordSnapshot: (
   const discoveryKey = yield* deriveDiscoveryKey(selector).pipe(
     Effect.mapError(
       () =>
-        new RpcError({
-          code: "MALFORMED_RESPONSE",
-          message: "unable to derive the discovery key",
+        new RecordVerificationError({
+          code: "ENS_READ_FAILED",
+          reason: "unable to derive the discovery key",
         }),
     ),
   );
@@ -161,9 +136,9 @@ export const readEnsRecordSnapshot: (
     .pipe(
       Effect.mapError(
         () =>
-          new RpcError({
-            code: "RESOLUTION_FAILED",
-            message: `unable to resolve ${name.normalizedName}`,
+          new RecordVerificationError({
+            code: "ENS_READ_FAILED",
+            reason: `unable to resolve ${name.normalizedName}`,
           }),
       ),
     );
@@ -184,7 +159,7 @@ export const readEnsRecordSnapshot: (
 export const ensureEnsSnapshotCanonical: (
   publicClient: PublicClient,
   snapshot: EnsRecordSnapshot["snapshot"],
-) => Effect.Effect<void, RpcError | VerificationError> = Effect.fn(
+) => Effect.Effect<void, RecordVerificationError> = Effect.fn(
   "ensureEnsSnapshotCanonical",
 )(function* (
   publicClient: PublicClient,
@@ -193,15 +168,15 @@ export const ensureEnsSnapshotCanonical: (
   const block = yield* Effect.tryPromise({
     try: () => publicClient.getBlock({ blockNumber: snapshot.blockNumber }),
     catch: () =>
-      new RpcError({
-        code: "BLOCK_UNAVAILABLE",
-        message: "unable to recheck the Ethereum snapshot",
+      new RecordVerificationError({
+        code: "ENS_READ_FAILED",
+        reason: "unable to recheck the Ethereum snapshot",
       }),
   });
   if (block.hash?.toLowerCase() !== snapshot.blockHash) {
-    return yield* new VerificationError({
-      code: "ENS_SNAPSHOT_CHANGED",
-      message: "the ENS evaluation block is no longer canonical",
+    return yield* new RecordVerificationError({
+      code: "STATE_CHANGED",
+      reason: "the ENS evaluation block is no longer canonical",
     });
   }
 });

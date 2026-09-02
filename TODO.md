@@ -1,257 +1,74 @@
-# SDK v0 Launch Roadmap
+# Record Verification SDK v0
 
-Publish an experimental Effect v4 SDK for verifying ENS record-control proofs.
-The v0 release targets Node.js and supports `https-origin.v1`, `dns-txt.v1`,
-and the draft `account-signature.eip155.v1` method.
+Ship `@thenamespace/record-verification` with complete Node and browser
+verification for `https-origin.v1` and `dns-txt.v1`.
 
-## 1. Freeze v0 Behavior
+## Implemented
 
-- [ ] Pin the exact ENSIP-15 normalization data used by `ensrv1`.
-- [ ] Set the maximum discovery-key and record-key byte lengths.
-- [ ] Set finite JSON nesting, member-count, and string limits.
-- [x] Fix v0 to Ethereum mainnet and ENSjs's Universal Resolver at
-      `0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe`, without a custom-resolver
-      override.
-- [ ] Define ENS block finality, maximum snapshot age, and reorg policy.
-- [ ] Define the CCIP Read consistency requirement for multiple offchain reads.
-- [ ] Freeze HTTP content encodings, deadlines, cache behavior, and network
-      address policy.
-- [ ] Freeze diagnostic categories, precedence, and negative-cache behavior.
-- [ ] Freeze `account-signature.eip155.v1` target-chain finality, maximum
-      snapshot age, proof lifetime, and revocation behavior.
-- [ ] Decide whether restored record or authority state can reactivate an
-      unexpired proof.
+- [x] Expose the Promise-based `RecordVerification` client and
+      `verifyRecord({ name, type, key })` result union.
+- [x] Return expected failures as `{ success: false, error: { code, reason } }`
+      while preserving unexpected defects as rejected promises.
+- [x] Keep protocol workflows as Effects behind a small public facade.
+- [x] Organize shared protocol logic under `core/`, authority algorithms under
+      `authority/<version>/`, and each method under `methods/<method-version>/`.
+- [x] Define injectable `EnsService`, `HttpService`, and `DnsService`
+      capabilities with production Layers.
+- [x] Use ENSForge exclusively for mainnet ENS reads, Universal Resolver/CCIP
+      Read behavior, ownership, expiry, wrapping, and fuse state.
+- [x] Reuse `@ensforge/core` for ENSIP-15 normalization, namehashing, and name
+      analysis.
+- [x] Resolve the record, discovery descriptor, authority, and authority
+      signature against one ENS block and recheck canonicality before success.
+- [x] Implement strict descriptor, proof-envelope, claim, lifecycle, EIP-712,
+      EOA signature, and ERC-1271 validation.
+- [x] Implement `https-origin.v1` with a hardened Node transport: WebPKI,
+      redirect/content-coding rejection, bounded streaming, timeouts, DNS
+      rebinding protection, and connected-peer checks.
+- [x] Implement a browser Fetch transport with bounded streaming, explicit
+      redirect/content-coding rejection, cancellation, and CORS-safe behavior.
+- [x] Implement `dns-txt.v1` using DNS-over-HTTPS and local DNSSEC validation
+      against the IANA root trust anchors.
+- [x] Expose DNS proof preparation and TXT-record creation helpers.
+- [x] Publish separate Node and browser entry points:
+      `@thenamespace/record-verification` and
+      `@thenamespace/record-verification/browser`.
+- [x] Add focused Effect Vitest coverage for descriptors, targets, lifecycle,
+      and both method workflows.
+- [x] Keep internal services, registries, schemas, and adapters out of the
+      public export surface.
 
-## 2. SDK Foundations
+## Required Before Publishing v0
 
-- [ ] Restore SDK test infrastructure when the v0 protocol behavior is frozen.
-- [x] Establish feature-focused source folders and a deliberate root export
-      facade.
-- [x] Keep schemas, types, and schema errors in focused `schema/` modules.
-- [x] Keep protocol constants and Effect-based derivation helpers in focused
-      `protocol/` modules, with one clear responsibility per file.
-- [x] Keep protocol limits and cryptographic constants in focused `data/`
-      modules; obtain ENS deployments and ABIs from ENSForge.
-- [x] Reuse Viem for hexadecimal conversion, ENS normalization, namehash, and
-      DNS packet encoding instead of maintaining local equivalents.
-- [x] Keep ordinary public and internal values unbranded; use schemas for
-      validation and reserve brands for invariants that genuinely require them.
-- [x] Keep expected protocol failures typed with the shared `ValidationError`,
-      `VerificationError`, and `RpcError` schemas, while avoiding
-      wrapping straightforward Viem calls and non-failing checks in needless
-      services or abstractions.
-- [ ] Define stable detailed-result and failure-category models.
-- [x] Define the minimal protocol-result projection.
-- [ ] Add injectable test implementations only for runtime boundaries that need
-      deterministic behavior: HTTP, DNSSEC, clock, and chain state.
-- [x] Ensure Node-only implementations are isolated from browser-safe exports.
+- [ ] Freeze and document the remaining protocol policy decisions: ENS block
+      finality/maximum age, CCIP consistency, cache semantics, and error
+      precedence.
+- [ ] Produce versioned conformance vectors for descriptor parsing, common
+      claims, EIP-712 digests, proof keys, signatures, and lifecycle boundaries.
+- [ ] Add deterministic integration fixtures for ENS snapshots, reorgs,
+      wrapped/unwrapped authority cases, ERC-1271, hardened HTTP behavior, and
+      signed DNSSEC zones.
+- [ ] Add end-to-end positive and representative adversarial cases for both
+      methods without testing Viem, ENSForge, or DNSSEC-library internals.
+- [ ] Decide and document the browser security profile. Browsers cannot enforce
+      the Node transport's connected-peer/IP policy, and HTTPS proof endpoints
+      must permit CORS.
+- [ ] Decide whether DNS evidence remains uncached in v0 or expose validated
+      authenticated TTL freshness from the DNSSEC resolver.
+- [ ] Add cancellation and total-deadline coverage across RPC, CCIP Read, HTTP,
+      and DNS-over-HTTPS operations.
+- [ ] Add package repository, homepage, keywords, support policy, and initial
+      semver metadata; remove `private` only after the release gate passes.
+- [ ] Run format, lint, typecheck, tests, build, `publint`, and a package dry run
+      from a clean checkout.
+- [ ] Inspect the packed tarball and test Node and browser imports from a fresh
+      consumer project.
+- [ ] Publish the experimental v0 package and matching protocol/vector version,
+      then create the release tag.
 
-## 3. Encodings, Records, and Descriptors
+## Later
 
-- [x] Implement strict UTF-8 decoding and byte-limit helpers.
-- [x] Implement canonical unsigned-decimal schemas and transforms.
-- [x] Implement lowercase hexadecimal schemas and transforms.
-- [x] Implement supported record-selector schemas.
-- [x] Implement `recordType`, `recordKey`, and logical resolver-value
-      derivation.
-- [x] Implement discovery-key derivation for `text`, `addr`, `contenthash`,
-      and `data`.
-- [x] Implement the closed `ensrv1` descriptor parser.
-- [x] Implement canonical descriptor serialization.
-- [x] Implement exact authority-version, method-ID, and proof-URI validation.
-- [ ] Add positive, negative, duplicate-field, order, limit, and boundary tests.
-
-## 4. ENS Snapshot and Authority
-
-- [x] Implement ENSIP-15 normalization and namehash derivation.
-- [x] Delegate DNS wire-name encoding for Universal Resolver calls to ENSForge.
-- [x] Define ENS snapshot, resolution, and expected read-failure schemas.
-- [x] Use ENSForge as the only ENS state-read implementation, including
-      deployments, ABIs, protocol routing, Universal Resolver, and CCIP Read.
-- [x] Implement block selection with number, hash, timestamp, and canonicality
-      checks.
-- [x] Read records, owners, expiries, and wrapper state through ENSForge at the
-      selected block.
-- [x] Resolve the target record and discovery record from one ENS snapshot.
-- [ ] Define the authority-algorithm interface and immutable registry.
-- [x] Implement Ethereum mainnet Authority Algorithm 1.
-- [x] Handle wrapped and unwrapped `.eth` second-level names and exact expiry
-      boundaries.
-- [x] Handle wrapped emancipated and parent-controlled subnames.
-- [x] Reject reverse names, virtual names without an exact authority, zero
-      owners, malformed returns, and unsupported authority versions.
-- [x] Recheck block canonicality before returning a positive result.
-- [ ] Add tests for protocol behavior around snapshots, CCIP Read, reorgs,
-      ownership, fuses, and expiry; do not duplicate Viem's own primitive tests.
-
-## 5. Claims, Envelopes, and Authority Signatures
-
-- [x] Implement duplicate-aware raw JSON parsing before map construction.
-- [x] Implement the closed common proof-envelope schema.
-- [x] Implement the exact common-claim schema and live-field comparison.
-- [x] Implement resolver value-byte hashing for every supported record type.
-- [x] Implement the `ensrv1` EIP-712 domain, type hash, struct hash, and final
-      digest.
-- [x] Implement deterministic proof-key derivation.
-- [x] Implement canonical 65-byte, low-`s` EOA authority-signature validation.
-- [x] Implement strict ERC-1271 authority-signature validation at the ENS block.
-- [x] Reject malformed ABI, raw four-byte ERC-1271 output, bad padding, trailing
-      data, counterfactual contracts, and signature fallback.
-- [ ] Add JSON, hashing, EIP-712, proof-key, EOA, and ERC-1271 tests with exact
-      intermediate values.
-
-## 6. Lifecycle and Results
-
-- [x] Implement one verifier-controlled `checkedAt` time per attempt.
-- [x] Implement future-skew, issuance, exclusive-expiry, and maximum-lifetime
-      checks.
-- [x] Calculate `effectiveValidUntil` from claim, authority, and method bounds.
-- [x] Calculate `cacheUntil` using the five-minute ceiling and authenticated
-      method freshness.
-- [ ] Map expected malformed, invalid, expired, unsupported, unavailable, and
-      policy-blocked failures into detailed non-positive results.
-- [ ] Keep runtime defects and invalid SDK construction distinct from expected
-      verification outcomes.
-- [ ] Add exact time-boundary, overflow, expiry, and cache tests.
-
-## 7. Extension Registries
-
-- [x] Define the verification-method interface around applicability, target
-      derivation, evidence retrieval, proof validation, and freshness.
-- [x] Implement an immutable exact-ID method registry.
-- [x] Prevent duplicate method IDs by declaring the registry as one frozen
-      object literal.
-- [x] Reject unknown method identifiers without fallback.
-- [ ] Define the authority registry and reject unknown authority identifiers.
-- [x] Give each method only its required runtime capabilities; use Effect
-      services or Layers where they improve dependency injection, not by
-      default.
-- [ ] Verify that adding a new authority version or method does not require
-      modifying the common verifier.
-
-## 8. `https-origin.v1`
-
-- [x] Implement exact WHATWG HTTPS URL acceptance.
-- [x] Implement canonical origin target serialization.
-- [x] Implement deterministic well-known proof URL derivation.
-- [x] Define the security-hardened Effect HTTP client service.
-- [x] Implement credentialless GET, WebPKI validation, redirect rejection, and
-      status and media-type checks.
-- [x] Decode the returned proof body as strict UTF-8 in the method workflow.
-- [x] Enforce compressed-input, decoded-body, header, and deadline limits while
-      streaming.
-- [x] Enforce globally reachable pre-connect and connected-peer address policy.
-- [x] Require the method proof to be exactly an empty object.
-- [ ] Implement authenticated HTTP freshness and cache bounds.
-- [ ] Add URL, IDN, port, IPv4, IPv6, redirect, SSRF, content-coding, timeout,
-      streaming-limit, and end-to-end tests.
-
-## 9. `dns-txt.v1`
-
-- [x] Implement canonical hostname target derivation and reject IP hosts.
-- [x] Implement lowercase unpadded base32 proof-key encoding.
-- [x] Implement proof-owner derivation and DNS wire-length validation.
-- [x] Define the Effect DNSSEC resolver service.
-- [x] Validate the complete chain to configured IANA root trust anchors.
-- [x] Reject CNAME and DNAME answers in v0; bounded Secure alias following is
-      an optional future extension.
-- [x] Require exactly one terminal TXT RDATA and concatenate only its character
-      strings.
-- [x] Enforce the 2,048-byte proof-envelope limit.
-- [x] Require the method proof to be exactly an empty object.
-- [x] Disable DNS evidence caching in v0 by setting its cache bound to
-      `checkedAt`; expose complete authenticated chain freshness before
-      enabling DNS result reuse.
-- [ ] Add signed-zone, rollover, alias, loop, multiple-TXT, expiry, insecure,
-      bogus, indeterminate, and end-to-end tests.
-
-## 10. `account-signature.eip155.v1`
-
-- [ ] Implement ENSIP-11 coin-type to EIP-155 chain mapping.
-- [ ] Require exact 20-byte EVM resolver values.
-- [ ] Implement EIP-55 address and canonical CAIP-10 target derivation.
-- [ ] Accept only the frozen descriptor proof-URI profile.
-- [ ] Reuse the hardened bounded HTTP retrieval service.
-- [ ] Define target-chain selection through configured clients only.
-- [ ] Pin target code lookup and ERC-1271 calls to one target-chain block.
-- [ ] Implement target EOA signature validation over `commonClaimDigest`.
-- [ ] Implement strict target ERC-1271 validation without EOA fallback.
-- [ ] Enforce target-chain freshness, finality, reorg, and cache policy.
-- [ ] Add coin-type, CAIP-10, wrong-chain, wrong-account, EOA, contract-wallet,
-      revocation, unavailable-chain, and end-to-end tests.
-
-## 11. Verifier Orchestration
-
-- [x] Implement the ordered common verification procedure as an Effect workflow.
-- [x] Prevent proof retrieval before descriptor and method validation complete.
-- [x] Preserve one ENS snapshot across records, authority, code, and ERC-1271
-      calls.
-- [ ] Dispatch exact authority and method versions through their registries.
-- [x] Revalidate time and ENS canonicality immediately before a positive
-      `https-origin.v1` result; target-chain revalidation remains method-specific.
-- [x] Expose `new RecordVerification({ publicClient })` as the Promise-based
-      public boundary while keeping protocol workflows as Effects internally.
-- [x] Expose one `getRecord({ name, type, key, verify? })` method and make its
-      verification field conditional on the literal `verify` flag.
-- [x] Run proof verification only when `verify` is true.
-- [x] Translate expected typed Effect failures to `{ error }` at the public
-      boundary without hiding defects or invalid construction.
-- [x] Expose the minimal `{ verified: true, verificationType: "control" }`
-      protocol-result projection.
-- [ ] Add safe spans and structured diagnostics without logging proof bodies,
-      signatures, credentials, or sensitive transport data.
-- [ ] Add cancellation and total-deadline tests across RPC, CCIP Read, HTTP,
-      DNSSEC, and target-chain operations.
-
-## 12. Conformance and Quality
-
-- [ ] Create the versioned machine-readable v0 vector corpus.
-- [ ] Make SDK tests consume the same immutable vector files used by the
-      protocol release.
-- [ ] Cover every accepted encoding and immediate below/at/above boundary.
-- [ ] Include exact normalization, namehash, value hash, EIP-712, proof-key, and
-      signature intermediates.
-- [ ] Provide deterministic Ethereum, CCIP Read, HTTP, DNSSEC, clock, reorg, and
-      target-chain fixtures.
-- [ ] Add complete positive and representative adversarial end-to-end cases for
-      all three methods.
-- [ ] Run the corpus against at least one independent implementation before
-      freezing method identifiers.
-- [ ] Maintain high coverage of core derivation, parsing, cryptographic, and
-      security-sensitive branches.
-
-## 13. Package and v0 Release
-
-- [ ] Finalize the public API, export map, Node entry point, and testing exports.
-- [ ] Keep the public surface small: `RecordVerification`, constructor options,
-      record query inputs, and stable Promise result types.
-- [ ] Keep internal services, registries, adapters, and experimental helpers out
-      of the public export surface.
-- [ ] Add explicit runtime configuration for caller-provided ENS and
-      target-chain clients, DNSSEC, HTTP, finality, limits, and timeouts.
-- [x] Set package runtime metadata to the supported Node versions and do not
-      advertise browser conformance.
-- [ ] Finalize package name, version, license, repository metadata, keywords,
-      and supported Node versions.
-- [x] Review production dependency necessity, versions, tree shaking, and
-      browser bundling.
-- [ ] Remove `private` only when every launch gate passes.
-- [ ] Run formatting, lint, typecheck, unit tests, integration tests, build,
-      `publint`, and package dry-run.
-- [ ] Inspect the packed tarball for missing files, internal files, source maps,
-      secrets, fixtures, and unexpected dependencies.
-- [ ] Publish the matching experimental v0 package and vector-corpus version.
-- [ ] Tag the release and record the exact protocol, SDK, and vector versions.
-
-## v0 Launch Gate
-
-- [ ] All frozen v0 decisions are implemented and covered by boundary vectors.
-- [ ] All three advertised methods pass their complete conformance suites.
-- [ ] No required verification check is silently skipped in the Node runtime.
-- [ ] Public APIs contain no accidental internal or unstable exports.
-- [ ] Positive results always include valid expiry and cache bounds.
-- [ ] Unsupported and unavailable operations always remain non-positive.
-- [ ] Reproducible package checks pass from a clean checkout.
-- [ ] The package is installable, importable, tree-shakeable, and accepted by
-      `publint`.
-- [ ] The packed artifact and release metadata contain no secrets.
+- [ ] Add authenticated HTTP/DNS freshness if proof-result caching is enabled.
+- [ ] Add bounded secure CNAME/DNAME following for DNS proofs if required.
+- [ ] Design `account-signature.eip155.v1` only after the two v0 methods and
+      their conformance vectors are stable.

@@ -1,29 +1,25 @@
 import { Effect } from "effect";
 
-import {
-  type RpcError,
-  ValidationError,
-  type VerificationError,
-} from "../schema/errors.js";
+import { RecordVerificationError } from "../schema/errors.js";
 import type {
   CommonVerification,
   VerifyCommonProofInput,
 } from "../schema/verification.js";
+import { EnsService } from "../services/EnsService.js";
 import {
   compareCommonClaim,
   deriveCommonClaim,
   hashCommonClaim,
 } from "./claims.js";
-import { parseProofEnvelope } from "./json.js";
+import { parseProofEnvelope } from "./envelope.js";
 import { validateClaimLifecycle } from "./lifecycle.js";
-import { validateAuthoritySignature } from "./signatures.js";
 
 export const validateEmptyMethodProof = Effect.fn("validateEmptyMethodProof")(
   function* (proof: Record<string, unknown>) {
     if (Object.keys(proof).length !== 0) {
-      return yield* new ValidationError({
-        code: "INVALID_METHOD_PROOF",
-        message: "selected method requires an empty proof object",
+      return yield* new RecordVerificationError({
+        code: "INVALID_PROOF",
+        reason: "selected method requires an empty proof object",
       });
     }
   },
@@ -31,10 +27,7 @@ export const validateEmptyMethodProof = Effect.fn("validateEmptyMethodProof")(
 
 export const verifyCommonProof = Effect.fn("verifyCommonProof")(function* (
   input: VerifyCommonProofInput,
-): Effect.fn.Return<
-  CommonVerification,
-  RpcError | ValidationError | VerificationError
-> {
+): Effect.fn.Return<CommonVerification, RecordVerificationError, EnsService> {
   const envelope = yield* parseProofEnvelope(input.envelopeBytes);
   yield* input.validateProof(envelope.proof);
 
@@ -68,7 +61,8 @@ export const verifyCommonProof = Effect.fn("verifyCommonProof")(function* (
   });
 
   const digest = hashCommonClaim(envelope.claim);
-  yield* validateAuthoritySignature(input.publicClient, {
+  const ens = yield* EnsService;
+  yield* ens.validateAuthoritySignature({
     authority: envelope.claim.authority,
     signature: envelope.authoritySignature,
     digest,

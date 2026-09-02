@@ -6,15 +6,19 @@ import { Effect, Layer } from "effect";
 
 import ipaddr from "ipaddr.js";
 
+import { RecordVerificationError } from "../schema/errors.js";
+import {
+  HttpService,
+  type HttpRequest,
+  type HttpResponse,
+} from "../services/HttpService.js";
+import { resolveHttpAddress } from "./address.js";
 import {
   HTTP_BODY_TIMEOUT_MS,
   HTTP_CONNECT_TIMEOUT_MS,
   HTTP_RESPONSE_HEADER_MAX_BYTES,
   HTTP_RESPONSE_HEADER_TIMEOUT_MS,
-} from "../data/http.js";
-import { RpcError, VerificationError } from "../schema/errors.js";
-import { resolveHttpAddress } from "./address.js";
-import { HttpService, type HttpRequest, type HttpResponse } from "./service.js";
+} from "./policy.js";
 
 const normalizeHeaders = (
   headers: IncomingHttpHeaders,
@@ -31,18 +35,18 @@ const normalizeHeaders = (
 const validateResponse = (
   response: IncomingMessage,
   maximumBodyBytes: number,
-): VerificationError | undefined => {
+): RecordVerificationError | undefined => {
   const status = response.statusCode;
   if (status !== undefined && status >= 300 && status < 400) {
-    return new VerificationError({
-      code: "HTTP_REDIRECT",
-      message: "HTTP proof request returned a redirect",
+    return new RecordVerificationError({
+      code: "INVALID_PROOF",
+      reason: "HTTP proof request returned a redirect",
     });
   }
   if (status !== 200) {
-    return new VerificationError({
-      code: "HTTP_INVALID_STATUS",
-      message: "HTTP proof request did not return status 200",
+    return new RecordVerificationError({
+      code: "INVALID_PROOF",
+      reason: "HTTP proof request did not return status 200",
     });
   }
 
@@ -51,9 +55,9 @@ const validateResponse = (
     ? undefined
     : contentType?.split(";", 1)[0]?.trim().toLowerCase();
   if (mediaType !== "application/json") {
-    return new VerificationError({
-      code: "HTTP_INVALID_CONTENT_TYPE",
-      message: "HTTP proof response must have application/json media type",
+    return new RecordVerificationError({
+      code: "INVALID_PROOF",
+      reason: "HTTP proof response must have application/json media type",
     });
   }
 
@@ -63,9 +67,9 @@ const validateResponse = (
     (Array.isArray(contentEncoding) ||
       contentEncoding.trim().toLowerCase() !== "identity")
   ) {
-    return new VerificationError({
-      code: "HTTP_UNSUPPORTED_ENCODING",
-      message: "HTTP proof response uses an unsupported content encoding",
+    return new RecordVerificationError({
+      code: "INVALID_PROOF",
+      reason: "HTTP proof response uses an unsupported content encoding",
     });
   }
 
@@ -74,18 +78,18 @@ const validateResponse = (
     Array.isArray(contentLength) ||
     (contentLength !== undefined && !/^(0|[1-9][0-9]*)$/.test(contentLength))
   ) {
-    return new VerificationError({
-      code: "HTTP_INVALID_RESPONSE",
-      message: "HTTP proof response has an invalid content length",
+    return new RecordVerificationError({
+      code: "INVALID_PROOF",
+      reason: "HTTP proof response has an invalid content length",
     });
   }
   if (
     contentLength !== undefined &&
     BigInt(contentLength) > BigInt(maximumBodyBytes)
   ) {
-    return new VerificationError({
-      code: "HTTP_BODY_TOO_LARGE",
-      message: "HTTP proof response exceeds the body limit",
+    return new RecordVerificationError({
+      code: "INVALID_PROOF",
+      reason: "HTTP proof response exceeds the body limit",
     });
   }
 
@@ -117,7 +121,7 @@ const requestBytes = (
       resolve(result);
     };
 
-    const fail = (error: RpcError | VerificationError) => {
+    const fail = (error: RecordVerificationError) => {
       if (settled) return;
       settled = true;
       clearTimers();
@@ -129,9 +133,9 @@ const requestBytes = (
 
     const timeout = (stage: string) =>
       fail(
-        new RpcError({
-          code: "HTTP_TIMEOUT",
-          message: `HTTP proof request exceeded the ${stage} deadline`,
+        new RecordVerificationError({
+          code: "PROOF_READ_FAILED",
+          reason: `HTTP proof request exceeded the ${stage} deadline`,
         }),
       );
 
@@ -157,9 +161,9 @@ const requestBytes = (
 
     const abort = () =>
       fail(
-        new RpcError({
-          code: "HTTP_REQUEST_FAILED",
-          message: "HTTP proof request was cancelled",
+        new RecordVerificationError({
+          code: "PROOF_READ_FAILED",
+          reason: "HTTP proof request was cancelled",
         }),
       );
 
@@ -186,9 +190,9 @@ const requestBytes = (
             ipaddr.process(destination.address).toString()
         ) {
           fail(
-            new VerificationError({
-              code: "HTTP_ADDRESS_BLOCKED",
-              message: "connected HTTP peer is not the approved destination",
+            new RecordVerificationError({
+              code: "METHOD_NOT_APPLICABLE",
+              reason: "connected HTTP peer is not the approved destination",
             }),
           );
         }
@@ -215,9 +219,9 @@ const requestBytes = (
         byteLength += chunk.byteLength;
         if (byteLength > input.maximumBodyBytes) {
           fail(
-            new VerificationError({
-              code: "HTTP_BODY_TOO_LARGE",
-              message: "HTTP proof response exceeds the body limit",
+            new RecordVerificationError({
+              code: "INVALID_PROOF",
+              reason: "HTTP proof response exceeds the body limit",
             }),
           );
           return;
@@ -226,17 +230,17 @@ const requestBytes = (
       });
       incoming.once("aborted", () =>
         fail(
-          new RpcError({
-            code: "HTTP_REQUEST_FAILED",
-            message: "HTTP proof response ended unexpectedly",
+          new RecordVerificationError({
+            code: "PROOF_READ_FAILED",
+            reason: "HTTP proof response ended unexpectedly",
           }),
         ),
       );
       incoming.once("error", () =>
         fail(
-          new RpcError({
-            code: "HTTP_REQUEST_FAILED",
-            message: "unable to read the HTTP proof response",
+          new RecordVerificationError({
+            code: "PROOF_READ_FAILED",
+            reason: "unable to read the HTTP proof response",
           }),
         ),
       );
@@ -253,18 +257,18 @@ const requestBytes = (
     request.once("error", (error) => {
       if (Reflect.get(error, "code") === "HPE_HEADER_OVERFLOW") {
         fail(
-          new VerificationError({
-            code: "HTTP_HEADERS_TOO_LARGE",
-            message: "HTTP proof response exceeds the header limit",
+          new RecordVerificationError({
+            code: "INVALID_PROOF",
+            reason: "HTTP proof response exceeds the header limit",
           }),
         );
         return;
       }
 
       fail(
-        new RpcError({
-          code: "HTTP_REQUEST_FAILED",
-          message: "unable to complete the HTTP proof request",
+        new RecordVerificationError({
+          code: "PROOF_READ_FAILED",
+          reason: "unable to complete the HTTP proof request",
         }),
       );
     });
@@ -284,20 +288,20 @@ const get = Effect.fn("HttpService.get")(function* (input: HttpRequest) {
     input.url.username !== "" ||
     input.url.password !== ""
   ) {
-    return yield* new VerificationError({
-      code: "HTTP_URL_NOT_ALLOWED",
-      message: "HTTP service requires a credentialless HTTPS URL",
+    return yield* new RecordVerificationError({
+      code: "METHOD_NOT_APPLICABLE",
+      reason: "HTTP service requires a credentialless HTTPS URL",
     });
   }
   const destination = yield* resolveHttpAddress(input.url.hostname);
   return yield* Effect.tryPromise({
     try: (signal) => requestBytes(input, destination, signal),
     catch: (error) =>
-      error instanceof RpcError || error instanceof VerificationError
+      error instanceof RecordVerificationError
         ? error
-        : new RpcError({
-            code: "HTTP_REQUEST_FAILED",
-            message: "unable to complete the HTTP proof request",
+        : new RecordVerificationError({
+            code: "PROOF_READ_FAILED",
+            reason: "unable to complete the HTTP proof request",
           }),
   });
 });

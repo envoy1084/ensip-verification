@@ -1,16 +1,13 @@
 import type { Effect } from "effect";
 
-import type { PublicClient } from "viem";
-
 import type { Descriptor, DescriptorMethodPolicy } from "./descriptor.js";
 import type { EnsAuthority, EnsSnapshot } from "./ens.js";
-import type { RpcError, ValidationError, VerificationError } from "./errors.js";
+import type { RecordVerificationError } from "./errors.js";
 import type { EnsNameIdentity } from "./name.js";
 import type { LogicalResolverValue, RecordSelector } from "./records.js";
 import type { CommonVerification } from "./verification.js";
 
 export interface MethodVerificationInput {
-  readonly publicClient: PublicClient;
   readonly name: EnsNameIdentity;
   readonly selector: RecordSelector;
   readonly value: LogicalResolverValue;
@@ -38,7 +35,7 @@ export interface VerificationMethod<
     input: MethodVerificationInput,
   ) => Effect.Effect<
     MethodVerificationResult<Id, Data>,
-    RpcError | ValidationError | VerificationError,
+    RecordVerificationError,
     Requirements
   >;
 }

@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { VerificationError } from "../schema/errors.js";
+import { RecordVerificationError } from "../../schema/errors.js";
 
 export const parseHttpsRecordUrl = Effect.fn("parseHttpsRecordUrl")(function* (
   value: string,
@@ -9,9 +9,9 @@ export const parseHttpsRecordUrl = Effect.fn("parseHttpsRecordUrl")(function* (
     value.length === 0 ||
     Array.from(value).some((character) => character.charCodeAt(0) <= 0x20)
   ) {
-    return yield* new VerificationError({
-      code: "INVALID_METHOD_TARGET",
-      message:
+    return yield* new RecordVerificationError({
+      code: "METHOD_NOT_APPLICABLE",
+      reason:
         "HTTPS URL must be nonempty and contain no ASCII whitespace or controls",
     });
   }
@@ -19,9 +19,9 @@ export const parseHttpsRecordUrl = Effect.fn("parseHttpsRecordUrl")(function* (
   const url = yield* Effect.try({
     try: () => new URL(value),
     catch: () =>
-      new VerificationError({
-        code: "INVALID_METHOD_TARGET",
-        message: "record value is not an absolute WHATWG URL",
+      new RecordVerificationError({
+        code: "METHOD_NOT_APPLICABLE",
+        reason: "record value is not an absolute WHATWG URL",
       }),
   });
 
@@ -33,9 +33,9 @@ export const parseHttpsRecordUrl = Effect.fn("parseHttpsRecordUrl")(function* (
     url.hostname.endsWith(".") ||
     url.origin === "null"
   ) {
-    return yield* new VerificationError({
-      code: "INVALID_METHOD_TARGET",
-      message: "record value does not satisfy the HTTPS URL policy",
+    return yield* new RecordVerificationError({
+      code: "METHOD_NOT_APPLICABLE",
+      reason: "record value does not satisfy the HTTPS URL policy",
     });
   }
 

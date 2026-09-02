@@ -1,28 +1,28 @@
 import { Schema } from "effect";
 
-import {
-  RPC_ERROR_CODES,
-  VALIDATION_ERROR_CODES,
-  VERIFICATION_ERROR_CODES,
-} from "../data/errors.js";
+export const RECORD_VERIFICATION_ERROR_CODES = [
+  "INVALID_INPUT",
+  "RECORD_NOT_FOUND",
+  "VERIFICATION_NOT_CONFIGURED",
+  "INVALID_DESCRIPTOR",
+  "METHOD_NOT_APPLICABLE",
+  "UNSUPPORTED_AUTHORITY",
+  "UNSUPPORTED_METHOD",
+  "ENS_READ_FAILED",
+  "PROOF_READ_FAILED",
+  "INVALID_PROOF",
+  "PROOF_EXPIRED",
+  "AUTHORITY_INVALID",
+  "STATE_CHANGED",
+] as const;
 
-export class ValidationError extends Schema.TaggedError<ValidationError>()(
-  "ValidationError",
+export type RecordVerificationErrorCode =
+  (typeof RECORD_VERIFICATION_ERROR_CODES)[number];
+
+export class RecordVerificationError extends Schema.TaggedError<RecordVerificationError>()(
+  "RecordVerificationError",
   {
-    code: Schema.Literals(VALIDATION_ERROR_CODES),
-    message: Schema.String,
+    code: Schema.Literals(RECORD_VERIFICATION_ERROR_CODES),
+    reason: Schema.String,
   },
 ) {}
-
-export class VerificationError extends Schema.TaggedError<VerificationError>()(
-  "VerificationError",
-  {
-    code: Schema.Literals(VERIFICATION_ERROR_CODES),
-    message: Schema.String,
-  },
-) {}
-
-export class RpcError extends Schema.TaggedError<RpcError>()("RpcError", {
-  code: Schema.Literals(RPC_ERROR_CODES),
-  message: Schema.String,
-}) {}

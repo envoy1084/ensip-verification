@@ -1,14 +1,18 @@
 import { Effect } from "effect";
 
-import { DNS_TXT_METHOD_ID, HTTPS_ORIGIN_METHOD_ID } from "../data/methods.js";
 import type { DescriptorMethodPolicy } from "../schema/descriptor.js";
-import { VerificationError } from "../schema/errors.js";
+import { RecordVerificationError } from "../schema/errors.js";
 import type { MethodVerificationInput } from "../schema/methods.js";
-import { dnsTxtDescriptorPolicy, dnsTxtMethod } from "./dns-txt.js";
 import {
+  DNS_TXT_METHOD_ID,
+  dnsTxtDescriptorPolicy,
+} from "./dns-txt-v1/definition.js";
+import { dnsTxtMethod } from "./dns-txt-v1/verify.js";
+import {
+  HTTPS_ORIGIN_METHOD_ID,
   httpsOriginDescriptorPolicy,
-  httpsOriginMethod,
-} from "./https-origin.js";
+} from "./https-origin-v1/definition.js";
+import { httpsOriginMethod } from "./https-origin-v1/verify.js";
 
 export const methodRegistry = Object.freeze({
   [HTTPS_ORIGIN_METHOD_ID]: httpsOriginMethod,
@@ -23,18 +27,57 @@ export const descriptorMethodPolicies: ReadonlyMap<
 > = new Map<string, DescriptorMethodPolicy>([
   [HTTPS_ORIGIN_METHOD_ID, httpsOriginDescriptorPolicy],
   [DNS_TXT_METHOD_ID, dnsTxtDescriptorPolicy],
-  [
-    "account-signature.eip155.v1",
-    { proofUri: "required" as const, schemes: new Set(["https"]) },
-  ],
 ]);
+
+export const validateRegisteredMethodDescriptor = Effect.fn(
+  "validateRegisteredMethodDescriptor",
+)(function* (descriptor: MethodVerificationInput["descriptor"]) {
+  const methodPolicy = descriptorMethodPolicies.get(descriptor.method);
+  if (methodPolicy === undefined) {
+    return yield* new RecordVerificationError({
+      code: "UNSUPPORTED_METHOD",
+      reason: `unsupported method: ${descriptor.method}`,
+    });
+  }
+
+  if (
+    methodPolicy.proofUri === "forbidden" &&
+    descriptor.proofUri !== undefined
+  ) {
+    return yield* new RecordVerificationError({
+      code: "INVALID_DESCRIPTOR",
+      reason: `method ${descriptor.method} forbids u`,
+    });
+  }
+  if (
+    methodPolicy.proofUri === "required" &&
+    descriptor.proofUri === undefined
+  ) {
+    return yield* new RecordVerificationError({
+      code: "INVALID_DESCRIPTOR",
+      reason: `method ${descriptor.method} requires u`,
+    });
+  }
+  if (descriptor.proofUri !== undefined && methodPolicy.schemes !== undefined) {
+    const scheme = descriptor.proofUri.slice(
+      0,
+      descriptor.proofUri.indexOf(":"),
+    );
+    if (!methodPolicy.schemes.has(scheme)) {
+      return yield* new RecordVerificationError({
+        code: "INVALID_DESCRIPTOR",
+        reason: `method ${descriptor.method} does not permit the ${scheme}: scheme`,
+      });
+    }
+  }
+});
 
 export const verifyRegisteredMethod = Effect.fn("verifyRegisteredMethod")(
   function* (input: MethodVerificationInput) {
     if (!Object.hasOwn(methodRegistry, input.descriptor.method)) {
-      return yield* new VerificationError({
-        code: "VERIFICATION_NOT_IMPLEMENTED",
-        message: `verification method ${input.descriptor.method} is not implemented`,
+      return yield* new RecordVerificationError({
+        code: "UNSUPPORTED_METHOD",
+        reason: `verification method ${input.descriptor.method} is not implemented`,
       });
     }
 

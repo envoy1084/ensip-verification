@@ -1,39 +1,39 @@
 import { Effect } from "effect";
 
-import {
-  CLAIM_FUTURE_SKEW_SECONDS,
-  POSITIVE_CACHE_MAX_SECONDS,
-} from "../data/limits.js";
-import { VerificationError } from "../schema/errors.js";
+import { RecordVerificationError } from "../schema/errors.js";
 import type {
   ClaimLifecycleInput,
   VerificationLifetime,
 } from "../schema/verification.js";
+import {
+  CLAIM_FUTURE_SKEW_SECONDS,
+  POSITIVE_CACHE_MAX_SECONDS,
+} from "../spec/limits.js";
 
 export const validateClaimLifecycle = Effect.fn("validateClaimLifecycle")(
   function* (input: ClaimLifecycleInput) {
     if (input.issuedAt > input.checkedAt + CLAIM_FUTURE_SKEW_SECONDS) {
-      return yield* new VerificationError({
-        code: "INVALID_CLAIM_TIME",
-        message: "claim issuance exceeds the permitted future skew",
+      return yield* new RecordVerificationError({
+        code: "INVALID_PROOF",
+        reason: "claim issuance exceeds the permitted future skew",
       });
     }
     if (input.issuedAt >= input.validUntil) {
-      return yield* new VerificationError({
-        code: "INVALID_CLAIM_TIME",
-        message: "claim issuance must precede claim expiry",
+      return yield* new RecordVerificationError({
+        code: "INVALID_PROOF",
+        reason: "claim issuance must precede claim expiry",
       });
     }
     if (input.checkedAt >= input.validUntil) {
-      return yield* new VerificationError({
-        code: "CLAIM_EXPIRED",
-        message: "claim is expired at the verification time",
+      return yield* new RecordVerificationError({
+        code: "PROOF_EXPIRED",
+        reason: "claim is expired at the verification time",
       });
     }
     if (input.validUntil - input.issuedAt > input.methodMaxLifetime) {
-      return yield* new VerificationError({
-        code: "CLAIM_LIFETIME_EXCEEDED",
-        message: "claim exceeds the selected method maximum lifetime",
+      return yield* new RecordVerificationError({
+        code: "INVALID_PROOF",
+        reason: "claim exceeds the selected method maximum lifetime",
       });
     }
 
@@ -46,9 +46,9 @@ export const validateClaimLifecycle = Effect.fn("validateClaimLifecycle")(
       value < minimum ? value : minimum,
     );
     if (input.checkedAt >= effectiveValidUntil) {
-      return yield* new VerificationError({
-        code: "EFFECTIVE_VALIDITY_EXPIRED",
-        message: "authority or method evidence is expired",
+      return yield* new RecordVerificationError({
+        code: "PROOF_EXPIRED",
+        reason: "authority or method evidence is expired",
       });
     }
 

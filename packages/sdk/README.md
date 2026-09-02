@@ -1,9 +1,8 @@
 # ENS Record Verification SDK
 
-Promise-based Node.js SDK for reading ENS records and verifying
-`https-origin.v1` and `dns-txt.v1` control proofs. ENS resolution, ownership,
-expiry, wrapper state, Universal Resolver routing, and CCIP Read are provided
-by ENSForge.
+Promise-based SDK for verifying `https-origin.v1` and `dns-txt.v1` ENS record
+control proofs. The root entry provides the hardened Node.js runtime. The
+`/browser` entry uses browser-safe Fetch, Web Crypto, and DNS-over-HTTPS.
 
 ```ts
 import { RecordVerification } from "@thenamespace/record-verification";
@@ -14,17 +13,26 @@ const verification = new RecordVerification({
   publicClient: createPublicClient({ chain: mainnet, transport: http() }),
 });
 
-const result = await verification.getRecord({
+const result = await verification.verifyRecord({
   name: "example.eth",
   type: "text",
   key: "url",
-  verify: true,
 });
+
+await verification.close();
 ```
 
-Omit `verify` to read the record without proof verification. Expected failures
-are returned as `{ success: false, error }`; invalid mainnet client
-configuration is rejected during construction.
+For browser applications, import the same class from the browser entry:
+
+```ts
+import { RecordVerification } from "@thenamespace/record-verification/browser";
+```
+
+The API is identical. Browser HTTPS verification is subject to CORS and cannot
+enforce the Node runtime's connected-peer address policy. Both runtimes perform
+DNSSEC validation locally over DNS-over-HTTPS. Expected failures are returned as
+`{ success: false, error: { code, reason } }`; unexpected defects reject the
+Promise.
 
 To publish a DNS proof, call `prepareDnsTxtVerification` after configuring the
 record's `dns-txt.v1` discovery descriptor. Sign the returned `typedData` with

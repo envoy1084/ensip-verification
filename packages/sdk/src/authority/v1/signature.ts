@@ -10,15 +10,15 @@ import {
   type PublicClient,
 } from "viem";
 
-import { erc1271Abi } from "../data/abi.js";
 import {
   ERC1271_CANONICAL_RESULT,
   SECP256K1_HALF_ORDER,
   SECP256K1_ORDER,
-} from "../data/claims.js";
-import { AUTHORITY_SIGNATURE_MAX_BYTES } from "../data/limits.js";
-import type { ValidateAuthoritySignatureInput } from "../schema/claims.js";
-import { RpcError, VerificationError } from "../schema/errors.js";
+} from "../../core/eip712.js";
+import type { ValidateAuthoritySignatureInput } from "../../schema/claims.js";
+import { RecordVerificationError } from "../../schema/errors.js";
+import { AUTHORITY_SIGNATURE_MAX_BYTES } from "../../spec/limits.js";
+import { erc1271Abi } from "./erc1271.js";
 
 const validateEoaSignature = Effect.fn("validateEoaSignature")(function* (
   authority: Address,
@@ -26,9 +26,9 @@ const validateEoaSignature = Effect.fn("validateEoaSignature")(function* (
   signature: string,
 ) {
   if (!/^0x[0-9a-f]{130}$/.test(signature)) {
-    return yield* new VerificationError({
-      code: "INVALID_AUTHORITY_SIGNATURE",
-      message: "EOA authority signature must be exactly 65 lowercase-hex bytes",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "EOA authority signature must be exactly 65 lowercase-hex bytes",
     });
   }
 
@@ -42,27 +42,27 @@ const validateEoaSignature = Effect.fn("validateEoaSignature")(function* (
     s > SECP256K1_HALF_ORDER ||
     (v !== 27 && v !== 28)
   ) {
-    return yield* new VerificationError({
-      code: "INVALID_AUTHORITY_SIGNATURE",
-      message: "EOA authority signature is non-canonical",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "EOA authority signature is non-canonical",
     });
   }
 
   const recovered = yield* Effect.tryPromise({
     try: () => recoverAddress({ hash: digest, signature: signature as Hex }),
     catch: () =>
-      new VerificationError({
-        code: "INVALID_AUTHORITY_SIGNATURE",
-        message: "unable to recover the EOA authority signature",
+      new RecordVerificationError({
+        code: "AUTHORITY_INVALID",
+        reason: "unable to recover the EOA authority signature",
       }),
   });
   if (
     isAddressEqual(recovered, zeroAddress) ||
     !isAddressEqual(recovered, authority)
   ) {
-    return yield* new VerificationError({
-      code: "INVALID_AUTHORITY_SIGNATURE",
-      message: "EOA authority signature does not recover the ENS authority",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "EOA authority signature does not recover the ENS authority",
     });
   }
 });
@@ -70,7 +70,7 @@ const validateEoaSignature = Effect.fn("validateEoaSignature")(function* (
 export const validateAuthoritySignature: (
   publicClient: PublicClient,
   input: ValidateAuthoritySignatureInput,
-) => Effect.Effect<void, RpcError | VerificationError> = Effect.fn(
+) => Effect.Effect<void, RecordVerificationError> = Effect.fn(
   "validateAuthoritySignature",
 )(function* (
   publicClient: PublicClient,
@@ -84,9 +84,9 @@ export const validateAuthoritySignature: (
         blockNumber: input.blockNumber,
       }),
     catch: () =>
-      new RpcError({
-        code: "AUTHORITY_SIGNATURE_READ_FAILED",
-        message: "unable to read ENS authority code",
+      new RecordVerificationError({
+        code: "ENS_READ_FAILED",
+        reason: "unable to read ENS authority code",
       }),
   });
 
@@ -102,9 +102,9 @@ export const validateAuthoritySignature: (
     !/^0x(?:[0-9a-f]{2})+$/.test(input.signature) ||
     input.signature.length > 2 + AUTHORITY_SIGNATURE_MAX_BYTES * 2
   ) {
-    return yield* new VerificationError({
-      code: "INVALID_AUTHORITY_SIGNATURE",
-      message: `contract authority signature must contain 1-${AUTHORITY_SIGNATURE_MAX_BYTES} lowercase-hex bytes`,
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: `contract authority signature must contain 1-${AUTHORITY_SIGNATURE_MAX_BYTES} lowercase-hex bytes`,
     });
   }
 
@@ -120,16 +120,16 @@ export const validateAuthoritySignature: (
         blockNumber: input.blockNumber,
       }),
     catch: () =>
-      new RpcError({
-        code: "AUTHORITY_SIGNATURE_READ_FAILED",
-        message: "ENS authority ERC-1271 call failed",
+      new RecordVerificationError({
+        code: "ENS_READ_FAILED",
+        reason: "ENS authority ERC-1271 call failed",
       }),
   });
 
   if (result.data !== ERC1271_CANONICAL_RESULT) {
-    return yield* new VerificationError({
-      code: "INVALID_AUTHORITY_SIGNATURE",
-      message: "ENS authority returned an invalid ERC-1271 result",
+    return yield* new RecordVerificationError({
+      code: "AUTHORITY_INVALID",
+      reason: "ENS authority returned an invalid ERC-1271 result",
     });
   }
 });
