@@ -1,22 +1,18 @@
 # Record Verification
 
-This repository contains the ENS Record Verification documentation site.
-The previous SDK and demo have been removed while the documentation is rebuilt
-for readers and implementers.
+This repository contains the ENS Record Verification documentation site for
+readers and implementers.
 
 ## Documentation
 
-Previous drafts are preserved under
-[apps/web/src/pages/internal](./apps/web/src/pages/internal) and served at
-`/internal/*`:
+These guides are the source of truth for the proposal:
 
-- `/internal/docs`: protocol concepts, components, methods, and walkthrough.
-- `/internal/references`: implementation requirements and conformance plans.
-- `/internal/sdk-readme` and `/internal/sdk-roadmap`: historical SDK notes.
+- `/docs`: concepts, methods, and a complete verification walkthrough.
+  Source: [Learn](./apps/web/src/pages/docs).
+- `/implementers`: algorithms, formats, retrieval, and method requirements.
+  Source: [For Implementers](./apps/web/src/pages/implementers).
 
-New reader documentation starts at `/docs`, with its source in
-[apps/web/src/pages/docs](./apps/web/src/pages/docs). The `/references` route
-is reserved for the new implementation specification.
+Pending protocol decisions are identified in the relevant guides.
 
 ## Development
 

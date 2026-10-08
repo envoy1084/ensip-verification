@@ -1,8 +1,0 @@
-{
-  "discovery-records": "Discovery Records",
-  "verification-descriptor": "Verification Descriptor",
-  "authority": "Authority",
-  "claims-and-signatures": "Claims and Target Proofs",
-  "lifecycle": "Lifecycle",
-  "results": "Verification Results"
-}
