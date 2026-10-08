@@ -1,0 +1,145 @@
+---
+title: Reference
+description: Normative requirements for implementations of ENS Record Verification.
+---
+
+# Reference
+
+This section defines the behavior required for interoperable ENS Record
+Verification implementations. Protocol background and rationale are in the
+[protocol documentation](/internal/docs).
+
+> **Status:** This is an experimental v0 reference. A rule is not frozen until
+> its reference text and conformance vectors are complete.
+
+## Normative Language
+
+The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHOULD**, **SHOULD NOT**,
+and **MAY** are interpreted as described by
+[BCP 14](https://www.rfc-editor.org/info/bcp14) only when written in capitals.
+
+Examples are non-normative unless explicitly identified as conformance
+vectors.
+
+## v0 Profile
+
+| Component           | Required v0 value                                     |
+| ------------------- | ----------------------------------------------------- |
+| Common version      | `ensrv1`                                              |
+| ENS deployment      | Ethereum mainnet                                      |
+| Authority algorithm | Authority Algorithm 1                                 |
+| HTTPS method        | `https-origin.v1`                                     |
+| DNS method          | `dns-txt.v1`                                          |
+| Account method      | `account-signature.eip155.v1`; profile not yet frozen |
+
+The HTTPS and DNS methods apply only to eligible text records containing HTTPS
+URLs. The account method applies only to address records supported by its
+frozen profile.
+
+`account-signature.<profile>.v1` identifies a method family, not an
+implementable method. Implementations MUST select an exact profile and MUST NOT
+fall back between profiles.
+
+## Conformance
+
+Conformance is claimed per exact tuple of:
+
+```text
+common version + authority algorithm + method + runtime
+```
+
+A conforming verifier MUST:
+
+1. reject unsupported versions, authority algorithms, and methods without
+   fallback;
+2. derive the record selector, live value, descriptor, authority, target, and
+   expected claim fields from live inputs rather than proof-supplied values;
+3. evaluate the target record, descriptor, ENS ownership and expiry state,
+   authority account code, and ERC-1271 calls at one Ethereum block;
+4. validate the complete closed proof envelope and every required signature;
+5. perform every transport, network, DNSSEC, freshness, and method-specific
+   check required by the selected method;
+6. evaluate all time bounds against one checked-at time immediately before a
+   positive result; and
+7. pass the applicable conformance vectors.
+
+An SDK MAY expose individual parsers or derivation functions. It MUST NOT claim
+method conformance unless it can execute the complete verification procedure
+for that method in the stated runtime.
+
+## Verification Result
+
+The protocol result is one of:
+
+```json
+{ "verified": true, "verificationType": "control" }
+```
+
+```json
+{ "verified": false }
+```
+
+A positive result means that every common and method-specific requirement
+passed for the exact record, block, and checked-at time used by the attempt.
+
+Malformed, invalid, expired, unsupported, unavailable, and inconclusive
+attempts are all non-positive. Implementations MAY return additional
+diagnostics, but diagnostics do not change the protocol result unless a later
+page defines a diagnostic as normative.
+
+## Fail-Closed Rule
+
+A verifier MUST NOT return a positive result when a required operation cannot
+be completed. In particular, it MUST NOT:
+
+- ignore unknown or duplicate descriptor or envelope fields;
+- substitute another protocol version, authority algorithm, method, profile,
+  proof location, target interpretation, or signature algorithm;
+- accept an authority supplied only by a proof;
+- substitute a parent owner, resolver operator, gateway, or delegated writer
+  for the authority selected by Authority Algorithm 1;
+- combine ENS-dependent values from different blocks; or
+- skip a signature, TLS, network-address, DNSSEC, expiry, or freshness check
+  because the runtime cannot perform it.
+
+## Runtime Boundary
+
+Runtime capabilities are part of a conformance claim. A runtime that cannot
+perform a required check MUST return a non-positive result for that attempt.
+
+Browser implementations generally cannot inspect the connected peer address
+or perform native DNSSEC validation. Such an implementation MUST identify the
+methods and checks it supports and MUST NOT present a restricted verification
+as conformant full-method verification.
+
+## Versioning
+
+Common, authority, and method versions change independently. Implementations
+MUST interpret only the exact versions selected by the descriptor.
+
+Any semantic change to a frozen grammar, signed claim, authority selection,
+target derivation, proof format, verification procedure, or positive-result
+meaning requires a new applicable version.
+
+## Security Boundary
+
+A positive result proves only the control relationship defined by the selected
+method for one exact live ENS record. It does not establish that the target is
+safe, trusted, legally owned, or valid for another record, name, host, path,
+account, chain, or protocol.
+
+## Reference Order
+
+Implementations should follow the reference in this dependency order:
+
+1. data types and encoding;
+2. discovery and descriptor grammar;
+3. ENS snapshot and authority selection;
+4. claims, envelopes, and signatures;
+5. lifecycle and result rules;
+6. ordered verification algorithm;
+7. the selected method profile; and
+8. conformance vectors.
+
+Normative text and conformance vectors MUST agree. A conflict is a specification
+defect; until resolved, the affected case MUST NOT produce a positive result.

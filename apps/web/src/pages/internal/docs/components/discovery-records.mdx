@@ -1,0 +1,217 @@
+---
+title: Discovery Records
+description: Find the verification descriptor for an ENS record.
+---
+
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTitle,
+} from "../../../../components/accordion.tsx";
+
+# Discovery Records
+
+A verification descriptor is an ENS text record for one target record. Its key
+is derived from the target record, so clients know where to find it.
+
+```text
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+```
+
+## Key Mapping
+
+| Target record    | Descriptor text key              | `recordType`  | `recordKey`       |
+| ---------------- | -------------------------------- | ------------- | ----------------- |
+| `text(key)`      | `verification[text][<key>]`      | `text`        | Exact key         |
+| `addr(coinType)` | `verification[addr][<coinType>]` | `addr`        | Decimal coin type |
+| `contenthash()`  | `verification[contenthash]`      | `contenthash` | Empty string      |
+| `data(key)`      | `verification[data][<key>]`      | `data`        | Exact key         |
+
+The resolver `node` argument is the same for both records and is omitted above.
+
+For `text` and `data`, copy the key exactly. Do not trim, lowercase, normalize,
+or escape it. Brackets inside the key remain part of the key. For example:
+
+```text
+text("agent-endpoint[mcp]")
+→ text("verification[text][agent-endpoint[mcp]]")
+```
+
+For `addr`, encode the coin type as unsigned decimal. Use `60`, not `060` or
+`+60`. Bitcoin uses `0`.
+
+## Resolution
+
+For each verification attempt:
+
+1. Normalize the ENS name using ENSIP-15.
+2. Resolve the target record and descriptor through the Universal Resolver.
+3. Use the same DNS-encoded name and Ethereum block for both reads.
+4. Read ENS authority state at that same block.
+5. Reject an empty target record or empty descriptor.
+
+If the block is removed by a chain reorganization, run verification again.
+CCIP Read is allowed, but its callback must use the same pinned block.
+
+## Open Issues
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>What is the maximum verification key length?</AccordionTitle>
+    <AccordionContent>
+
+ENS resolver keys do not have one interoperable size limit. A very large target
+key creates an even larger verification key and increases calldata, RPC,
+resolver, and indexer work.
+
+The protocol needs a UTF-8 byte limit for the complete verification key before
+the format is frozen. A 1,024-byte limit is a reasonable candidate, but it still
+needs implementation testing.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>How is the bracketed key family registered?</AccordionTitle>
+    <AccordionContent>
+
+Final ENSIP-5 global key names allow lowercase letters, numbers, and hyphens,
+but not brackets. Resolver contracts can store bracketed keys, and draft
+ENSIP-25 and ENSIP-26 use them, but the standards classification is not settled.
+
+The proposal must explicitly register `verification[...]` as a parameterized
+key family and define how it coexists with ordinary ENSIP-5 keys.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>How can clients enumerate configured descriptors?</AccordionTitle>
+    <AccordionContent>
+
+Per-record discovery works when the client already knows which target record it
+wants to verify. ENS text records are not generally enumerable, so a profile or
+indexer cannot discover every configured descriptor from this format alone.
+
+An optional index may be useful for enumeration and batching. It must remain
+non-authoritative: an index entry can suggest a descriptor to read, but it can
+never create a positive verification result.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>How are new resolver record types added?</AccordionTitle>
+    <AccordionContent>
+
+The current mapping defines `text`, `addr`, `contenthash`, and `data`. Future
+resolver functions may use different selectors or return-value encodings.
+
+Each new record type needs an immutable type token, an exact `recordKey`
+mapping, and a definition of the bytes used for `valueHash`. Clients must not
+guess these rules from an unknown resolver function.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>
+
+## Decisions
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Why use brackets instead of dots or colons?</AccordionTitle>
+    <AccordionContent>
+
+Brackets keep the record type and record key visibly separate. Dots are already
+common inside ENS text keys such as `com.github`, while colons are common in
+identifiers and URIs.
+
+Bracketed parameters also have precedent in draft ENSIP-25 and ENSIP-26 record
+keys.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why store the raw key instead of its hash?</AccordionTitle>
+    <AccordionContent>
+
+The raw key is readable, directly derived from the resolver call, and easy to
+inspect in ENS tools. A hash would require another encoding rule and would make
+configuration errors harder to diagnose.
+
+Keys containing brackets remain unambiguous because clients construct the
+verification key from a known target selector; they do not reverse-parse it.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why include the record type in the key?</AccordionTitle>
+    <AccordionContent>
+
+Different resolver functions can use the same textual parameter. Including the
+type prevents collisions:
+
+```text
+verification[text][60]
+verification[addr][60]
+```
+
+The first verifies `text("60")`; the second verifies `addr(60)`.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why use one descriptor per target record?</AccordionTitle>
+    <AccordionContent>
+
+A client can fetch the descriptor for a known record directly. Updating one
+record does not rewrite unrelated verification data, and resolvers can preserve
+per-key permissions.
+
+A single manifest would couple unrelated records and introduce replacement,
+concurrency, and stale-entry problems.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why preserve text keys but canonicalize coin types?</AccordionTitle>
+    <AccordionContent>
+
+Text and data keys are exact resolver strings, so changing their case, spacing,
+normalization, or escaping could select a different record.
+
+Address coin types are numeric. Canonical decimal gives each number one key, so
+coin type 60 is always `60`, never `060`, `+60`, or hexadecimal.
+
+    </AccordionContent>
+
+  </AccordionItem>
+
+  <AccordionItem>
+    <AccordionTitle>Why use text records instead of a new resolver interface?</AccordionTitle>
+    <AccordionContent>
+
+Text records work with existing ENS resolvers and require no contract upgrade.
+They also preserve per-key reads and permissions in resolvers that support them.
+
+A new interface would add deployment and adoption requirements without changing
+the verification result.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>

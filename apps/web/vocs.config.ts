@@ -32,94 +32,107 @@ export default defineConfig({
     enabled: true,
   },
   topNav: [
-    { text: "Protocol", link: "/docs", match: "/docs" },
     {
-      text: "Reference",
-      link: "/references",
-      match: "/references",
+      text: "Internal Protocol",
+      link: "/internal/docs",
+      match: "/internal/docs",
+    },
+    {
+      text: "Internal Reference",
+      link: "/internal/references",
+      match: "/internal/references",
     },
   ],
   sidebar: {
-    "/docs": [
+    "/internal/docs": [
       {
         text: "Start",
-        items: [{ text: "Introduction", link: "/docs" }],
+        items: [{ text: "Introduction", link: "/internal/docs" }],
       },
       {
         text: "Core Components",
         items: [
           {
             text: "Discovery Records",
-            link: "/docs/components/discovery-records",
+            link: "/internal/docs/components/discovery-records",
           },
           {
             text: "Verification Descriptor",
-            link: "/docs/components/verification-descriptor",
+            link: "/internal/docs/components/verification-descriptor",
           },
           {
             text: "Authority",
-            link: "/docs/components/authority",
+            link: "/internal/docs/components/authority",
           },
           {
             text: "Claims and Target Proofs",
-            link: "/docs/components/claims-and-signatures",
+            link: "/internal/docs/components/claims-and-signatures",
           },
-          { text: "Lifecycle", link: "/docs/components/lifecycle" },
-          { text: "Verification Results", link: "/docs/components/results" },
+          { text: "Lifecycle", link: "/internal/docs/components/lifecycle" },
+          {
+            text: "Verification Results",
+            link: "/internal/docs/components/results",
+          },
         ],
       },
       {
         text: "Methods",
         items: [
-          { text: "Overview", link: "/docs/methods/overview" },
-          { text: "HTTPS Origin", link: "/docs/methods/https-origin" },
-          { text: "DNS TXT", link: "/docs/methods/dns-txt" },
+          { text: "Overview", link: "/internal/docs/methods/overview" },
+          { text: "HTTPS Origin", link: "/internal/docs/methods/https-origin" },
+          { text: "DNS TXT", link: "/internal/docs/methods/dns-txt" },
           {
             text: "Account Signature",
-            link: "/docs/methods/account-signature",
+            link: "/internal/docs/methods/account-signature",
           },
         ],
       },
       {
         text: "Walkthrough",
-        items: [{ text: "Protocol Walkthrough", link: "/docs/walkthrough" }],
+        items: [
+          { text: "Protocol Walkthrough", link: "/internal/docs/walkthrough" },
+        ],
       },
       {
         text: "References",
-        items: [{ text: "References", link: "/docs/reference/references" }],
+        items: [
+          { text: "References", link: "/internal/docs/reference/references" },
+        ],
       },
     ],
-    "/references": [
+    "/internal/references": [
       {
         text: "Start",
-        items: [{ text: "Overview and Conformance", link: "/references" }],
+        items: [
+          { text: "Overview and Conformance", link: "/internal/references" },
+        ],
       },
       {
         text: "Common",
         items: [
           {
             text: "Data Types and Encoding",
-            link: "/references/data-types-and-encoding",
+            link: "/internal/references/data-types-and-encoding",
           },
           {
             text: "Discovery and Descriptor Grammar",
-            link: "/references/discovery-and-descriptor",
+            link: "/internal/references/discovery-and-descriptor",
           },
           {
             text: "ENS Snapshot and Authority",
-            link: "/references/ens-snapshot-and-authority",
+            link: "/internal/references/ens-snapshot-and-authority",
           },
           {
             text: "Claims, Envelopes, and Signatures",
-            link: "/references/claims-envelopes-and-signatures",
+            link: "/internal/references/claims-envelopes-and-signatures",
           },
           {
             text: "Lifecycle and Results",
-            link: "/references/lifecycle-and-results",
+            link: "/internal/references/lifecycle-and-results",
           },
           {
             text: "Verification Algorithm",
-            link: "/references/verification-algorithm",
+            link: "/internal/references/verification-algorithm",
           },
         ],
       },
@@ -128,15 +141,15 @@ export default defineConfig({
         items: [
           {
             text: "HTTPS Origin",
-            link: "/references/method-https-origin",
+            link: "/internal/references/method-https-origin",
           },
           {
             text: "DNS TXT",
-            link: "/references/method-dns-txt",
+            link: "/internal/references/method-dns-txt",
           },
           {
             text: "EIP-155 Account Signature",
-            link: "/references/method-account-signature-eip155",
+            link: "/internal/references/method-account-signature-eip155",
           },
         ],
       },
@@ -145,7 +158,7 @@ export default defineConfig({
         items: [
           {
             text: "Conformance Vectors",
-            link: "/references/conformance-vectors",
+            link: "/internal/references/conformance-vectors",
           },
         ],
       },

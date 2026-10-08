@@ -45,7 +45,7 @@ export function Landing() {
   }, [packageManager]);
 
   const copyPrompt = useCallback(async () => {
-    const docsUrl = new URL("/docs", window.location.origin).href;
+    const docsUrl = new URL("/internal/docs", window.location.origin).href;
     const agentPrompt = `Read the Record Verification specification at ${docsUrl} and explain it.`;
     await navigator.clipboard.writeText(agentPrompt);
     setCopiedPrompt(true);
@@ -67,7 +67,7 @@ export function Landing() {
             </span>
           </a>
           <a
-            href="/docs"
+            href="/internal/docs"
             className="inline-flex items-center gap-1.5 text-[13px] font-medium text-(--vocs-text-color-secondary) no-underline transition-colors duration-100 hover:text-(--vocs-text-color-heading) [&_svg]:size-3.5"
           >
             Docs
@@ -93,7 +93,7 @@ export function Landing() {
             </p>
             <div className="mb-10 flex flex-wrap gap-3">
               <Link
-                to="/docs"
+                to="/internal/docs"
                 className="inline-flex min-h-12 items-center justify-center gap-2.5 rounded-[var(--vocs-radius-lg)] border border-solid border-(--vocs-color-accent) bg-(--vocs-color-accent) px-[22px] text-[15px] font-medium text-(--vocs-color-accentInvert) no-underline transition-opacity duration-100 hover:opacity-90 max-[700px]:w-full [&_svg]:size-3.5"
               >
                 Read the docs

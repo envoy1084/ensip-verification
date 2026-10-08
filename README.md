@@ -1,33 +1,27 @@
 # Record Verification
 
-This repository contains the specification and companion documentation for
-record-scoped verification of external targets represented by ENS resolver
-records.
+This repository contains the ENS Record Verification documentation site.
+The previous SDK and demo have been removed while the documentation is rebuilt
+for readers and implementers.
 
-## Docs App
+## Documentation
 
-The ENSIP draft and companion method profiles live in
-[apps/web/src/pages](./apps/web/src/pages).
+Previous drafts are preserved under
+[apps/web/src/pages/internal](./apps/web/src/pages/internal) and served at
+`/internal/*`:
 
-| Area            | Location                                                                 |
-| --------------- | ------------------------------------------------------------------------ |
-| Introduction    | [apps/web/src/pages/index.mdx](./apps/web/src/pages/index.mdx)           |
-| Source docs     | [apps/web/src/pages/docs](./apps/web/src/pages/docs)                     |
-| Specification   | [apps/web/src/pages/docs/spec](./apps/web/src/pages/docs/spec)           |
-| Method profiles | [apps/web/src/pages/docs/methods](./apps/web/src/pages/docs/methods)     |
-| Record guides   | [apps/web/src/pages/docs/records](./apps/web/src/pages/docs/records)     |
-| Reference       | [apps/web/src/pages/docs/reference](./apps/web/src/pages/docs/reference) |
+- `/internal/docs`: protocol concepts, components, methods, and walkthrough.
+- `/internal/references`: implementation requirements and conformance plans.
+- `/internal/sdk-readme` and `/internal/sdk-roadmap`: historical SDK notes.
 
-Run the docs site with:
+The `/docs` and `/references` routes are available for the new documentation.
+
+## Development
 
 ```sh
+pnpm install
 pnpm --dir apps/web dev
 ```
 
-Build the docs site with:
-
-```sh
-pnpm --dir apps/web build
-```
-
-Research notes live in [research/](./research/README.md).
+Validate the repository with `pnpm check`, or build the site with
+`pnpm --dir apps/web build`.
