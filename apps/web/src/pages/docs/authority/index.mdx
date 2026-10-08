@@ -1,0 +1,47 @@
+---
+title: Authority Overview
+description: Understand whose approval is required to verify an ENS record.
+---
+
+# Authority
+
+The **authority** is the account whose approval is required on the ENS side of
+verification. A verifier determines this account from ENS ownership state, then
+checks its signature on the claim.
+
+The proof cannot choose its own authority. Permission to publish a record or
+host a proof does not automatically grant permission to approve the claim.
+
+## Why It Is Needed
+
+Verification checks both sides of an association: approval from the ENS
+name's authority and the evidence required by the target's verification method.
+Neither side replaces the other.
+
+For example, a website publishing a proof does not establish that the ENS owner
+approved the connection. The authority's signature supplies that approval for
+the specific name and record value.
+
+## Authority Versions
+
+The descriptor's `a` field selects an authority algorithm. Each version defines
+which names it supports and how to find the account whose approval counts.
+
+[Version 1](/docs/authority/version-1), selected by `a=1`, uses ownership in the
+ENS v1 deployment on Ethereum mainnet. The number identifies the algorithm,
+not the ENS generation. A client that does not support the selected version
+cannot verify the record by choosing another version.
+
+## Ownership Can Change
+
+Authority is checked alongside the current record and descriptor. After a
+transfer, a proof signed by the previous authority does not establish approval
+from the new one. Registration expiry can also end an authority's validity.
+
+A successful check describes the state that was checked. It does not grant
+permanent verification to the name or its records.
+
+## Implementer Guide
+
+See [Authority for implementers](/implementers/authority) for shared inputs,
+outputs, and chain-state requirements.

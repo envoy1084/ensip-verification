@@ -1,0 +1,45 @@
+---
+title: Sia / Skynet
+description: Retrieve a proof addressed by a Skylink.
+---
+
+# Sia / Skynet
+
+Use `sia://<skylink>[/path]`. This is the Skylink format represented by ENS
+contenthash tooling, not an arbitrary file path on the Sia network.
+The ENS codec is named `skynet`, while ENSjs uses the protocol label `sia`.
+See the [ENS content-hash library](https://github.com/ensdomains/content-hash).
+
+Apply the [shared retrieval rules](/implementers/proof-retrieval). Reject URI
+queries and fragments. Do not interpret the Skylink as a gateway hostname.
+
+## Retrieval
+
+1. Decode and validate the Skylink with a format-aware implementation. Preserve
+   case and reject invalid lengths, encodings, or version bits.
+2. For a direct link, verify the requested data against the link's content
+   commitment, including the selected byte range and file metadata.
+3. For a resolver link, validate the signed registry entry and its binding to
+   the link before following the referenced content. Check revision ordering
+   against any newer entry already known to the client.
+4. Resolve the requested file path through the verified metadata. Do not accept
+   a portal's error page or an unrelated default file for a missing path.
+5. Extract one file, then apply the proof format and envelope size rules.
+
+Use a verifying node or obtain the evidence needed to check the content and
+registry mapping. Do not treat a portal response or a repeated Skylink header
+as an integrity proof. Mutable links require bounded resolution and loop detection.
+
+The archived [Skynet client source](https://github.com/SkynetLabs/skynet-js)
+provides protocol context. Its existence does not imply that its former default
+portal is available. Configure the node or portal explicitly; do not hard-code
+a public service as a requirement of verification.
+
+## Availability and Caching
+
+Cache verified immutable files by link and path. Refresh mutable registry mappings
+before reusing a result; a valid old signature does not establish the latest revision.
+
+If the client cannot validate a link version or cannot reach a provider, report
+that limitation. Do not silently turn the location into an ordinary HTTPS proof
+and skip Skylink validation.

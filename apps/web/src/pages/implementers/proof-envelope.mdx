@@ -1,0 +1,121 @@
+---
+title: Proof Envelope
+description: Encode and parse the common envelope in JSON or CBOR.
+---
+
+# Proof Envelope
+
+An envelope contains exactly four members: `v`, `claim`, `authoritySignature`,
+and `proof`. Require each once. Reject missing or unknown members.
+
+- `v` is the exact text `ensrv1`.
+- `claim` contains every [common-claim field](/implementers/common-claim) once.
+- `authoritySignature` contains the signature bytes.
+- `proof` is an object whose exact fields are defined by the selected method.
+
+Choose the method from the live descriptor, then apply its proof schema. Do not
+let the envelope select a different method or choose which signature rules run.
+
+## JSON Example
+
+This shows the complete claim shape. The signature is a placeholder, so the
+example is not a valid signed proof.
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "node": "0x787192fc5378cc32aa956ddfdedbf26b24e8d78e40109add0eea2c1a012c3dec",
+    "recordType": "text",
+    "recordKey": "url",
+    "valueHash": "0x34174bbdf078fba55709ff82e2d5929de2e915c964d18dc57907afc851781142",
+    "authorityVersion": "1",
+    "authority": "0x1234567890abcdef1234567890abcdef12345678",
+    "method": "https-origin.v1",
+    "target": "https://example.com",
+    "issuedAt": "1783728000",
+    "validUntil": "1786320000"
+  },
+  "authoritySignature": "0x...",
+  "proof": {}
+}
+```
+
+## Field Encodings
+
+The proposed CBOR mapping uses the same text member names as JSON:
+
+| Logical field                                      | JSON                         | CBOR                  |
+| -------------------------------------------------- | ---------------------------- | --------------------- |
+| `v`, name, record type, record key, method, target | String                       | Text string           |
+| Authority version, issuance time, expiry           | Canonical decimal string     | Unsigned integer      |
+| Node and value hash                                | Lowercase `0x` hex, 32 bytes | Byte string, 32 bytes |
+| Authority address                                  | Lowercase `0x` hex, 20 bytes | Byte string, 20 bytes |
+| Authority signature                                | Lowercase `0x` hex           | Byte string           |
+| Envelope, claim, method proof                      | Object                       | Map with text keys    |
+
+Decimal strings use `0` or a nonzero digit followed by digits. Reject signs,
+leading zeroes, whitespace, fractions, and exponents. Enforce the claim's integer
+ranges. JSON numbers are not accepted for these fields.
+
+Hex strings preserve leading zero bytes and have two lowercase digits per byte.
+Reject odd lengths and mixed-case addresses. `0x` represents empty bytes only
+where the signature or method rules allow them.
+
+Each method must specify the JSON and CBOR representations of its own proof
+fields before claiming support for both formats. An empty `proof` is an empty
+object or map. There are no implicit type conversions.
+
+## JSON Parsing
+
+Follow [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259.html). Require strict
+UTF-8 without a BOM and one top-level object. Only JSON whitespace may follow it.
+
+Detect duplicate names after escape decoding, before storing them in a normal
+map. Reject invalid Unicode scalar values, including lone surrogates, and
+wrongly typed members. Do not normalize parsed strings.
+
+Member order, whitespace, and equivalent escapes do not change the logical
+claim. JSON canonicalization is not required because serialized bytes are not signed.
+
+## CBOR Parsing
+
+Follow [RFC 8949 section 4.2.1](https://www.rfc-editor.org/rfc/rfc8949.html#section-4.2.1)
+core deterministic encoding: shortest encodings, definite lengths, and map keys
+sorted by the bytewise order of their deterministic encodings.
+
+Require one map with no trailing bytes. Reject duplicate keys, non-text map
+keys, invalid UTF-8, tags, floats, and values outside the schema. The common
+fields permit no negative integers, arrays, booleans, or nulls. A method may
+explicitly permit additional untagged types in its own proof schema.
+
+Decode CBOR bytes and integers to the same logical values as JSON. Compute the
+same EIP-712 digest; never hash the serialized envelope as a substitute.
+
+## Limits
+
+| Source                    | Maximum decoded envelope |
+| ------------------------- | ------------------------ |
+| Inline data URI           | 16 KiB                   |
+| External resource         | 256 KiB                  |
+| Method with a lower limit | That lower limit         |
+
+Enforce the applicable limit before parsing and while reading. Signature limits
+also apply independently. See [Proof Retrieval](/implementers/proof-retrieval)
+for transport limits and format selection.
+
+Nesting, member-count, and individual-field limits still need final values.
+Enforce finite documented limits during parsing, not just after constructing an
+object. A local limit rejection must not be described as cryptographic failure.
+
+## Validation Order
+
+1. Enforce transport and envelope limits and decode the selected format.
+2. Validate the closed envelope, claim, and method-proof schemas.
+3. Compare claim fields with independently derived values and check times.
+4. Calculate the digest and validate authority approval.
+5. Validate the method's evidence and recheck applicable expiry before success.
+
+Successful parsing is not successful verification. The same checks apply to
+inline and externally retrieved envelopes.

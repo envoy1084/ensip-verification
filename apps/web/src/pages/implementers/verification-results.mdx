@@ -1,0 +1,131 @@
+---
+title: Verification Results
+description: Report the outcome, diagnostic reason, and context of a verification attempt.
+---
+
+# Verification Results
+
+Return a positive result only when every common check and every selected-method
+check passes. Results describe one record at a particular evaluation, not
+persistent onchain verification state.
+
+## Minimal Result
+
+A positive control result is:
+
+```json
+{
+  "verified": true,
+  "verificationType": "control"
+}
+```
+
+A positive result has one of these method-defined types:
+
+| `verificationType` | Required meaning                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| `control`          | Authority approval and the method's required evidence of target control both passed                 |
+| `attestation`      | Authority approval and an accepted issuer's attestation bound to the exact common claim both passed |
+
+An attestation result is:
+
+```json
+{
+  "verified": true,
+  "verificationType": "attestation"
+}
+```
+
+The method profile must define its result type and evidence requirements. Derive
+the type from the successfully evaluated method, not an unchecked envelope field
+or a caller's preferred label. Do not promote an attestation to control or
+reinterpret failed control evidence as an attestation.
+
+An attestation method must define the statement being attested, issuer
+identification and authentication, issuer acceptance under the client's trust
+policy, claim binding, and applicable expiry and revocation checks. A valid
+issuer signature alone does not establish issuer acceptance. Common authority,
+claim, and lifecycle checks still apply.
+
+For every unsuccessful or incomplete attempt, the minimal result is:
+
+```json
+{ "verified": false }
+```
+
+Omit `verificationType` from a negative minimal result. These examples define
+meaning rather than a required wire format or SDK return type. Implementations
+may expose richer results while preserving the same outcome.
+
+## Diagnostic Categories
+
+Preserve the reason a required check could not pass:
+
+| Category       | Use when                                                                                     |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| Not configured | A required target value or discovery descriptor is unset under its record rules              |
+| Unsupported    | The algorithm, method, signature format, deployment, or required capability is not supported |
+| Invalid        | A conclusive format, claim-comparison, signature, or evidence check failed                   |
+| Expired        | A required exclusive validity bound has been reached                                         |
+| Unavailable    | RPC, retrieval, or another required operation could not complete                             |
+| Policy blocked | Local policy forbids the required operation                                                  |
+
+Examples: a mismatched `valueHash` is invalid; an expired claim is expired; an
+RPC timeout is unavailable; a deferred ERC-6492 wrapper is unsupported.
+An unset `(0, 0)` public key follows the record's not-configured rule.
+
+A protocol size limit violation is invalid input. A stricter local resource
+budget being exhausted does not establish cryptographic invalidity; report the
+resource limitation with the appropriate unavailable or policy-blocked reason.
+Methods must define how their missing publication and evidence failures map to
+these categories. Do not assume every missing HTTP or DNS response means ENS
+verification was not configured.
+
+## Failure Handling
+
+Stop when a required dependency fails. Do not replace the selected method,
+authority, record, proof location, or signature interpretation to obtain a
+positive result.
+
+Report the failed check that was actually observed. Do not claim later checks
+failed if they were never run. If work runs concurrently, retain the observed
+failures rather than inventing a protocol-wide priority order. Exact diagnostic
+codes and precedence remain to be finalized.
+
+Keep provider and execution failures separate from a contract returning a
+conclusive rejection. Discard a reorged snapshot and retry within the attempt's
+work budget. If that cannot complete, report an unavailable result rather than
+claiming the proof is cryptographically invalid.
+
+## Evaluation Context
+
+An implementation should retain the following alongside a positive result:
+
+| Context                                          | Purpose                                          |
+| ------------------------------------------------ | ------------------------------------------------ |
+| Normalized name, record type and key, value hash | Identify exactly what was checked                |
+| Descriptor, authority, and method                | Identify the selected rules and approval account |
+| ENS chain ID and block number, hash, timestamp   | Identify the ownership and record snapshot       |
+| Target-chain block reference, when required      | Identify account-method state                    |
+| `checkedAt`                                      | Record the final wall-clock evaluation time      |
+| `effectiveValidUntil`                            | Record the earliest applicable hard expiry       |
+| `cacheUntil`                                     | Record the latest permitted result reuse time    |
+
+For attestation results, also retain the issuer identity and the trust policy
+used to accept it. Scope cached results to that policy and re-evaluate after a
+known change to issuer acceptance or attestation revocation state.
+
+These are evaluation metadata, not additional signed claim fields. Negative
+results may have only partial context; do not manufacture missing values or
+attach positive cache bounds to them.
+
+## Using Results
+
+Apply the [Lifecycle rules](/implementers/lifecycle) before reusing a positive
+result. A refresh failure cannot extend its cache deadline. A previous success
+may be retained as history, but must not be presented as current verification
+after its bound or a known invalidating change.
+
+The result does not modify the ENS record, prove legal identity, or certify the
+safety of a website or other resource. Applications can continue showing the
+underlying record while explaining that verification did not succeed.

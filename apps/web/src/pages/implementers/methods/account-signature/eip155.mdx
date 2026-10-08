@@ -1,0 +1,166 @@
+---
+title: EIP-155
+description: Derive an EVM target and validate its approval of the common claim.
+---
+
+# EIP-155
+
+`account-signature.eip155.v1` requires approval of the common EIP-712 claim
+from both the ENS authority and the account in the selected address record.
+
+## Applicability
+
+| Property               | Rule                                                         |
+| ---------------------- | ------------------------------------------------------------ |
+| Record type            | `addr`                                                       |
+| Record value           | Exactly 20 bytes; the zero address is not a target           |
+| Descriptor `m`         | Exactly `account-signature.eip155.v1`                        |
+| Descriptor `u`         | Required                                                     |
+| Envelope               | JSON or CBOR                                                 |
+| Locations              | All locations defined by the descriptor and retrieval guides |
+| Maximum claim lifetime | 7,776,000 seconds (90 days)                                  |
+| Result                 | `control`                                                    |
+
+Apply the common [claim](/implementers/common-claim),
+[envelope](/implementers/proof-envelope), and [lifecycle](/implementers/lifecycle)
+rules. Empty or zero-address records are not configured. A nonempty value of
+another length is invalid for this profile.
+
+## Derive the Target
+
+Derive the chain from the selected coin type, not from proof fields or the
+connected wallet's current network:
+
+| Coin type                         | Target chain ID         |
+| --------------------------------- | ----------------------- |
+| `60`                              | `1` (Ethereum mainnet)  |
+| `0x80000001` through `0xffffffff` | `coinType & 0x7fffffff` |
+
+The high-bit mapping follows [ENSIP-11](https://docs.ens.domains/ensip/11/).
+This profile excludes the default EVM coin type `0x80000000`, which does not
+identify one target chain. Other legacy EVM coin types are unsupported.
+
+Set `recordKey` to the selected coin type in canonical unsigned decimal.
+Set `valueHash` to Keccak-256 of the exact 20 resolved bytes. Derive:
+
+```text
+target = "eip155:" + decimal(chainId) + ":" + checksummedAddress
+```
+
+Use [CAIP-10](https://standards.chainagnostic.org/CAIPs/caip-10) syntax, with
+the [EIP-55](https://eips.ethereum.org/EIPS/eip-55) checksum derived from the
+address bytes. EIP-55 casing is this profile's canonicalization rule. Compare
+the entire target string exactly, including chain ID and checksum casing.
+
+For example, Base chain ID `8453` maps to coin type `2147492101`. Its discovery
+key is `verification[addr][2147492101]`, and its target starts with
+`eip155:8453:`. Never merge claims for different coin types, even if their
+resolved address bytes match.
+
+## Retrieve and Decode the Proof
+
+Retrieve the exact descriptor `u` using [Proof Retrieval](/implementers/proof-retrieval).
+The common limits are 16 KiB for decoded inline envelopes and 256 KiB for
+external envelopes. No proof key or alternate publication search is needed.
+
+The method-proof object contains exactly one field, `targetSignature`.
+In JSON it is a lowercase `0x`-prefixed hexadecimal byte string. In CBOR it
+is a byte string. Reject missing, duplicate, unknown, or incorrectly typed fields.
+The following JSON fragment uses a placeholder, not a valid signature:
+
+```json
+{
+  "proof": {
+    "targetSignature": "0x..."
+  }
+}
+```
+
+Signature encoding and length depend on the validation path below. The common
+envelope still requires its separate `authoritySignature` field.
+
+## Signing Input
+
+Use the exact [common typed data](/implementers/claim-digest): domain, types,
+primary type `ENSRecordVerification`, and claim as the message. Ordinary
+wallets use an [EIP-712](https://eips.ethereum.org/EIPS/eip-712) typed-data API.
+Smart wallets produce the bytes accepted by their account's ERC-1271 policy.
+Both approvals are validated against `commonClaimDigest`.
+
+Do not use `personal_sign`, sign the hexadecimal digest as text, or add another
+message wrapper. The target account does not replace `claim.authority`.
+
+The domain's `chainId` remains `1`, identifying the ENS deployment. The target
+chain is committed through `claim.target`; do not change the domain to match it.
+EIP-712 wallets may refuse a domain whose chain differs from the active network.
+The frontend must use a compatible signing flow and explain which target chain
+the claim names. A refusal does not permit changing the domain or falling back
+to another signing method. Cross-chain smart-wallet signing support must be
+checked with the wallet integration.
+
+## Target-Chain State
+
+Select an acceptable block on the derived target chain. Record its number,
+hash, and timestamp. Use trusted client configuration for the RPC endpoint and
+confirm its chain ID. The proof cannot supply an endpoint or chain override.
+
+Read account code and perform every target ERC-1271 check at that same block.
+Pin calls to its hash where supported; otherwise detect a changed block hash
+and discard the attempt. An unknown chain is unsupported; an RPC failure is
+unavailable. Neither is evidence of an invalid signature.
+
+Apply the snapshot policy described in [Lifecycle](/implementers/lifecycle#snapshot-requirements-still-to-finalize).
+The shared finality, maximum snapshot-age, and reuse parameters remain
+implementation policy until the common rules are fixed. Document finite bounds;
+an arbitrarily old canonical block is not current state.
+
+## Validate Target Approval
+
+Reuse the [signature rules](/implementers/signatures), substituting the derived
+target address and target-chain block for the authority address and ENS block:
+
+| Target state or proof   | Required check                                                            |
+| ----------------------- | ------------------------------------------------------------------------- |
+| ERC-6492 wrapper        | Report unsupported before choosing another path                           |
+| Empty account code      | Recover the EOA from the common digest and match the target address       |
+| Nonempty account code   | Validate through ERC-1271 at the target address                           |
+| EIP-7702 delegated code | Use the same ERC-1271 path at the account, not the implementation address |
+
+EOA signatures accept the common 65-byte and ERC-2098 64-byte encodings,
+recovery-bit rules, and low-`s` bounds. Contract signatures are opaque bytes
+of at most 8,192 bytes; empty bytes are allowed only if the contract approves.
+
+Require static execution of
+`isValidSignature(commonClaimDigest, targetSignature)` and the exact canonical
+ABI return defined in the shared guide. Do not retry contract rejection as EOA
+recovery. The shared execution-context and resource-limit requirements apply.
+
+Validate authority approval separately at the ENS snapshot. The two signatures
+may be byte-identical, but the target check cannot replace the authority check.
+An address with no code on one chain may have code on the other.
+
+## Verification Order
+
+1. Resolve the record, descriptor, and authority at the accepted ENS snapshot.
+2. Check applicability and derive the target chain, address, and claim fields.
+3. Retrieve `u` and validate the closed envelope and method-proof schemas.
+4. Match every common claim field and check its validity period.
+5. Calculate the common digest and validate ENS authority approval.
+6. Select the target snapshot and validate target approval using the rules above.
+7. Recheck snapshot acceptability and time bounds before returning `control`.
+
+Apply [Verification Results](/implementers/verification-results): a conclusive
+signature mismatch or contract rejection is invalid; an expired claim is
+expired; transport or execution failures retain their own diagnostic category.
+
+## Freshness
+
+Set `methodMaxLifetime` to 7,776,000 seconds. This profile defines no additional
+hard `methodEvidenceValidUntil`. A contract's acceptance at one block is not a
+promise of future acceptance.
+
+Bound result reuse by both chain snapshots, claim and authority expiry, and
+the common five-minute ceiling. Re-evaluate after a known change to account
+code or signature policy, and discard a reorganized snapshot. The proof's
+hosting cache headers cannot extend approval. A 90-day claim does not permit
+caching account state for 90 days.

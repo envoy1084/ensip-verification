@@ -1,0 +1,94 @@
+---
+title: Proof Key
+description: Derive a deterministic publication key from live ENS verification inputs.
+---
+
+# Proof Key
+
+Use a proof key only when the method derives a publication slot, such as an
+HTTPS path or DNS TXT owner. Descriptor `u` identifies envelope bytes, but does
+not remove a method's separate publication requirement. DNS TXT uses `u` for
+the envelope and a proof key for the DNS claim-digest location.
+
+The key is public and is not a content hash or signature. Validate the retrieved
+envelope independently.
+
+## Inputs
+
+Use the [domain separator](/implementers/claim-digest), selected authority,
+normalized name's node, record type and key, and exact descriptor method.
+All inputs must be known before retrieving the proof. Never obtain them from
+the envelope you are trying to locate.
+
+## Derivation
+
+The exact type string is:
+
+```text
+ENSRecordVerificationProofKey(bytes32 domainSeparator,uint32 authorityVersion,address authority,bytes32 node,bytes32 recordTypeHash,bytes32 recordKeyHash,bytes32 methodHash)
+```
+
+```pseudocode
+proofKeyTypeHash = keccak256(UTF8(proofKeyType))
+recordTypeHash = keccak256(UTF8(recordType))
+recordKeyHash = keccak256(UTF8(recordKey))
+methodHash = keccak256(UTF8(method))
+
+proofKey = keccak256(abi.encode(
+    proofKeyTypeHash,
+    domainSeparator,
+    uint32(authorityVersion),
+    address(authority),
+    node,
+    recordTypeHash,
+    recordKeyHash,
+    methodHash
+))
+```
+
+Encode eight standard 32-byte ABI words, for a 256-byte preimage. Left-pad the
+integer and address with zero bytes. Do not use packed encoding, textual hex,
+JSON, or an EIP-712 `0x1901` prefix for this calculation.
+
+The proof-key type is separate from the signed claim type. Empty record keys
+use Keccak-256 of the empty byte string, not a zero hash.
+
+## Publication Encodings
+
+| Method              | Encoding of the 32-byte key                       |
+| ------------------- | ------------------------------------------------- |
+| HTTPS publication   | 64 lowercase hexadecimal characters, without `0x` |
+| DNS TXT publication | 52 lowercase Base32 characters, without padding   |
+
+DNS uses the [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648.html) Base32
+alphabet, rendered as `a-z2-7`. Do not Base32-encode the hexadecimal string.
+The method owns the surrounding URL path or DNS name and its length checks.
+
+## Stability
+
+The key excludes `valueHash`, target, timestamps, signatures, and proof URI.
+This allows renewing or replacing a proof at the same slot. A different target
+can still change the complete URL or DNS owner where the slot is located.
+
+Changing the authority, authority version, name, record selector, method, or
+domain changes the key. Restoring all inputs restores the same key. It does not
+supply ownership-generation tracking or permanent revocation.
+
+## Test Vector
+
+Use the same fixture as [Claim Digest](/implementers/claim-digest):
+
+<a href="/vectors/common-claim-v1.json" download>
+  claim and proof-key vector
+</a>
+. It includes each input hash and the full 256-byte preimage.
+
+```text
+proofKeyTypeHash = 0x996584489ccc072f5c54146ea3a0e61365e835b39d5d3fa7ffb5c33bdbc008b0
+proofKey = 0xf10198b0fa04c7128a1cd77f08ce5d2437fc795dfa47dc3cff3203dfa73f0385
+proofKeyBase32 = 6eazrmh2atdrfcq4257qrts5eq37y6k57jd5yph7gib57jz7aocq
+```
+
+Verify that changing only `issuedAt`, `validUntil`, or the record value leaves
+the key unchanged while changing the claim digest. Changing the authority or
+record key must change both. These are calculation checks, not live verification.

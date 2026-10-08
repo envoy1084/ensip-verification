@@ -1,0 +1,114 @@
+---
+title: Common Claim
+description: Derive and validate the fields of one ENS record verification claim.
+---
+
+# Common Claim
+
+Every method uses the same `ENSRecordVerification` claim. The field names,
+types, and order below determine its [EIP-712 digest](/implementers/claim-digest).
+Do not add method-specific fields to this type.
+
+```solidity
+struct ENSRecordVerification {
+    string name;
+    bytes32 node;
+    string recordType;
+    string recordKey;
+    bytes32 valueHash;
+    uint32 authorityVersion;
+    address authority;
+    string method;
+    string target;
+    uint64 issuedAt;
+    uint64 validUntil;
+}
+```
+
+## Field Sources
+
+| Field              | Required value                                               |
+| ------------------ | ------------------------------------------------------------ |
+| `name`             | Exact ENSIP-15 normalized name used for resolution           |
+| `node`             | Namehash of that name                                        |
+| `recordType`       | `text`, `addr`, `contenthash`, or `pubkey`                   |
+| `recordKey`        | Selector encoded by the table below                          |
+| `valueHash`        | Keccak-256 of the decoded live value bytes                   |
+| `authorityVersion` | Descriptor `a`, in the range `1..4294967295`                 |
+| `authority`        | Account returned by the selected authority algorithm         |
+| `method`           | Exact descriptor `m`                                         |
+| `target`           | Canonical target derived by that method from the live record |
+| `issuedAt`         | Signed issuance time in Unix seconds, as `uint64`            |
+| `validUntil`       | Signed exclusive expiry in Unix seconds, as `uint64`         |
+
+Derive and compare all fields except the timestamps, which are validated rather
+than derived. Use the same ENS snapshot for the record, descriptor, and
+[authority](/implementers/authority). Never let proof fields select an alternative
+name, record, authority, method, or target.
+
+## Record Keys and Values
+
+| Type          | `recordKey`                                           | Bytes used for `valueHash`                         |
+| ------------- | ----------------------------------------------------- | -------------------------------------------------- |
+| `text`        | Exact text key                                        | Strict UTF-8 bytes of the decoded string           |
+| `addr`        | Coin type in unsigned decimal, without leading zeroes | Exact decoded address bytes                        |
+| `contenthash` | Empty string                                          | Exact decoded contenthash bytes                    |
+| `pubkey`      | Empty string                                          | Decoded `x` followed by `y`, each exactly 32 bytes |
+
+For `addr`, use the selected coin type's `addr(node, coinType)` result. The
+legacy `addr(node)` selector represents coin type `60`; decode its `address`
+return to 20 bytes. It has the same claim key as `addr(node, 60)`. Do not retry a
+failed read through another selector or merge conflicting results.
+
+For `pubkey`, preserve leading zero bytes and omit any compressed-key or `0x04`
+prefix. Treat `(x = 0, y = 0)` as unset. A public-key method must define curve
+validation and evidence of key control. See [ENSIP-4](https://docs.ens.domains/ensip/4/).
+
+Reject empty text, address, and contenthash values as unconfigured. Methods
+must enforce additional value rules, such as address width and prohibited
+zero addresses. Supporting a record type does not imply every value has a method.
+
+Hash logical values, not ABI offsets, padding, hexadecimal text, displayed
+addresses, or Universal Resolver framing. Decode the expected ABI return shape
+strictly. Do not trim, normalize, or otherwise rewrite record keys or values.
+Use Keccak-256, not the different SHA3-256 function.
+
+## Time Checks
+
+Use an independently obtained `checkedAt` time in whole Unix seconds, selected
+at the final check as defined in [Lifecycle](/implementers/lifecycle#time-checks).
+Immediately before a positive result, require:
+
+```pseudocode
+require issuedAt <= checkedAt + 300
+require issuedAt < validUntil
+require checkedAt < validUntil
+require validUntil - issuedAt <= methodMaxLifetime
+require checkedAt < authorityValidUntil, when present
+require checkedAt < methodEvidenceValidUntil, when present
+```
+
+Use integer arithmetic that cannot overflow. Both signed times must fit
+`uint64`. The 300-second allowance applies only to future issuance, never to
+expiry. Each method must define its maximum lifetime before it can be supported.
+
+A claim's expiry is an upper bound, not permission to cache its result until
+then. Ownership, records, contract-signature policy, and method evidence can
+change earlier.
+
+## Restored State
+
+This design has no ownership-generation or revocation counter. An unexpired
+claim may become valid again if its required live state is restored and every
+method check passes. A temporary descriptor removal does not permanently revoke
+all copies of a proof. A random nonce in the proof would not fix this without
+an authoritative current value that verifiers can read.
+
+## Encoding and Remaining Limits
+
+[Proof Envelope](/implementers/proof-envelope) defines the JSON and CBOR field
+representations. Their decoded values must produce the same claim.
+
+The exact ENSIP-15 data release and maximum field lengths still need to be
+frozen for conformance. Until then, implementations must document finite limits
+and must not claim complete interoperability based on these pages alone.

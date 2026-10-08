@@ -1,0 +1,102 @@
+---
+title: Verification Descriptor
+description: Parse the descriptor and select the authority rules, method, and proof location.
+---
+
+# Verification Descriptor
+
+The descriptor has the form `ensrv1 a=<authority-version> m=<method> [u=<proof-uri>]`.
+Angle brackets are placeholders. The brackets around `u` mean that the field is
+optional in the common format; the selected method decides whether it is needed.
+
+For an explanation of the fields, see
+[Verification Descriptor](/docs/components/verification-descriptor) in Learn.
+
+## Parsing Rules
+
+- Require ASCII and the exact prefix `ensrv1`.
+- Use one ASCII space between tokens. Reject extra spaces, tabs, and line breaks.
+- Split each field at its first `=`. Keep later `=` characters in the value.
+- Require `a` and `m` once each. Allow `u` at most once.
+- Reject unknown fields, duplicate fields, and empty values.
+- Publish fields in `a`, `m`, `u` order. Parsers accept any order.
+- Reject unsupported versions without falling back to another interpretation.
+
+Formal grammar uses [ABNF, RFC 5234](https://www.rfc-editor.org/rfc/rfc5234.html),
+with [RFC 7405](https://www.rfc-editor.org/rfc/rfc7405.html) for case-sensitive literals.
+
+## Authority Version: `a`
+
+Require a decimal integer from `1` to `4294967295`, with no sign or leading zeroes.
+It selects the rules for finding the current ENS authority, not the ENS generation.
+
+Support the exact algorithm and check that it applies to the name and deployment.
+The authority version in the proof must match `a`. See the
+[Authority guides](/implementers/authority), starting with
+[Version 1](/implementers/authority/version-1) for `a=1`.
+
+## Method: `m`
+
+Use dot-separated name segments followed by `.v<number>`, such as
+`https-origin.v1` or `account-signature.eip155.v1`.
+
+- Each segment starts with a lowercase letter and ends with a letter or digit.
+- Between those characters, allow lowercase letters, digits, and hyphens.
+- Single-letter segments are valid; empty segments are not.
+- The final version is `v` followed by a number from `1` to `4294967295`, without
+  leading zeroes.
+- Match the whole identifier exactly. Do not accept aliases or choose another version.
+
+A method must define its record types, proof schema, required evidence, accepted
+proof formats, and whether `u` is required, optional, or forbidden. The proof's
+method must match `m`. A valid identifier alone does not mean the method is supported.
+
+## Proof Location: `u`
+
+Require an absolute URI under [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986.html).
+Reject user information, fragments, raw whitespace, control characters, non-ASCII
+characters, and malformed percent escapes.
+
+Do not repair a URI, resolve it against a base URL, lowercase the whole value,
+or percent-decode it before parsing. Apply the location's own rules after parsing.
+
+| Location     | Form                                      | Retrieval rules                                         |
+| ------------ | ----------------------------------------- | ------------------------------------------------------- |
+| HTTPS        | `https://host/path`                       | [HTTPS](/implementers/proof-retrieval/https)            |
+| IPFS         | `ipfs://<cid>[/path]`                     | [IPFS](/implementers/proof-retrieval/ipfs)              |
+| IPNS         | `ipns://<name>[/path]`                    | [IPNS](/implementers/proof-retrieval/ipns)              |
+| Swarm        | `bzz://<reference>[/path]`                | [Swarm](/implementers/proof-retrieval/swarm)            |
+| Arweave      | `ar://<id>[/path]`                        | [Arweave](/implementers/proof-retrieval/arweave)        |
+| Sia / Skynet | `sia://<skylink>[/path]`                  | [Sia / Skynet](/implementers/proof-retrieval/sia)       |
+| Tor v3       | HTTP or HTTPS URL with a v3 `.onion` host | [Tor Onion Services](/implementers/proof-retrieval/tor) |
+| Inline JSON  | `data:application/json;base64,<payload>`  | [Inline Proofs](/implementers/proof-retrieval/inline)   |
+| Inline CBOR  | `data:application/cbor;base64,<payload>`  | [Inline Proofs](/implementers/proof-retrieval/inline)   |
+
+The table uses placeholders and optional path notation. The method must allow
+the selected location and format. Legacy Tor v2 is recognized but cannot be
+retrieved by current Tor.
+
+## Limits
+
+| Value                                               | Proposed maximum            |
+| --------------------------------------------------- | --------------------------- |
+| `m`, excluding `m=`                                 | 64 ASCII bytes              |
+| External `u`, excluding `u=`                        | 2,048 ASCII bytes           |
+| Inline `u`, including its prefix but excluding `u=` | 21,877 ASCII bytes          |
+| Complete descriptor                                 | 32,768 ASCII bytes (32 KiB) |
+
+Check the whole descriptor before tokenizing, then check individual fields.
+The inline limit accommodates a 16 KiB envelope encoded as Base64 with its
+29-byte prefix. These are proposal limits, not URI-standard limits.
+
+Envelope limits and decoding rules are in
+[Proof Retrieval](/implementers/proof-retrieval). The proposed common CBOR field mapping is defined in
+[Proof Envelope](/implementers/proof-envelope); each method must define its own
+proof fields before supporting that format.
+
+## Next Step
+
+After parsing, use the selected authority algorithm and method. If a proof must
+be read, follow the [retrieval rules](/implementers/proof-retrieval).
+Keep invalid descriptors, unsupported options, unavailable resources, and invalid
+proofs distinguishable. Successful parsing is not successful verification.

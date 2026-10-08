@@ -1,0 +1,125 @@
+---
+title: Authority Version 1
+description: Resolve the authority for a=1 using ENS v1 ownership and expiry checks.
+---
+
+# Version 1
+
+Use this algorithm only for descriptor `a=1` and the ENS v1 deployment on
+Ethereum mainnet, chain ID `1`. Apply the snapshot requirements in the
+[Authority overview](/implementers/authority).
+
+## Contracts
+
+| Contract       | Mainnet address                              |
+| -------------- | -------------------------------------------- |
+| ENS Registry   | `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` |
+| Base Registrar | `0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85` |
+| Name Wrapper   | `0xD4416b13d2b3a9Bae7AcD5D6C2BbDBE25686401`  |
+
+These are protocol deployment constants. Do not accept replacement contract
+addresses from the descriptor or proof.
+
+## Name Preparation
+
+Use the normalized name and its `node = namehash(name)`.
+Reject the root, `reverse`, and every name ending in `.reverse`.
+
+A `.eth` second-level name has exactly two labels and ends in `eth`. For that
+case, derive `tokenId = uint256(keccak256(UTF8(firstLabel)))`.
+The registrar uses this label hash; the wrapper uses `uint256(node)`.
+
+## Selection Algorithm
+
+Every read below uses the evaluation block. `now` means that block's timestamp,
+not the local clock. `none` means no scheduled authority expiry was found.
+`require` stops authority resolution when its condition is false.
+
+```pseudocode
+registryOwner = Registry.owner(node)
+
+if registryOwner == NameWrapper:
+    (owner, fuses, expiry) = NameWrapper.getData(uint256(node))
+    require owner != zero
+
+    if name is a .eth second-level name:
+        registrarExpiry = BaseRegistrar.nameExpires(tokenId)
+        require now < registrarExpiry
+        require BaseRegistrar.ownerOf(tokenId) == NameWrapper
+        return (owner, registrarExpiry)
+
+    if (fuses & PARENT_CANNOT_CONTROL) != 0:
+        require now < expiry
+        return (owner, expiry)
+
+    return (owner, none)
+
+if name is a .eth second-level name:
+    expiry = BaseRegistrar.nameExpires(tokenId)
+    require now < expiry
+    owner = BaseRegistrar.ownerOf(tokenId)
+    require owner != zero
+    require owner != NameWrapper
+    return (owner, expiry)
+
+require registryOwner != zero
+return (registryOwner, none)
+```
+
+`PARENT_CANNOT_CONTROL` is fuse bit `1 << 16` (`0x00010000`).
+The two returned values are `authority` and `authorityValidUntil`.
+A revert, malformed response, or unavailable state stops the lookup. Do not
+continue to a different branch after a failed check.
+
+The unwrapped `.eth` branch rejects a registrar token held by the Name Wrapper
+when the Registry does not point to it. Do not treat inconsistent wrapper
+custody as an ordinary unwrapped owner.
+
+## Expiry Rules
+
+For `.eth` second-level names, use `BaseRegistrar.nameExpires(tokenId)` in both
+wrapped and unwrapped cases. The wrapper stores an expiry that includes the
+renewal grace period. That later timestamp does not extend authority under
+this algorithm. See the [Base Registrar contract](https://github.com/ensdomains/ens-contracts/blob/staging/contracts/ethregistrar/BaseRegistrarImplementation.sol).
+
+For other wrapped names, use the public `getData` result. It accounts for
+expired ownership and fuses. If `PARENT_CANNOT_CONTROL` is set, enforce the
+returned expiry. Without that fuse, expiry can clear restrictions without
+ending the wrapped owner's ownership, so do not use it as an authority bound.
+See [Name Wrapper ownership and expiry handling](https://github.com/ensdomains/ens-contracts/blob/staging/contracts/wrapper/NameWrapper.sol).
+
+All bounds are exclusive: equality with the expiry fails. Also apply the
+current-time check from the overview before returning a positive verification
+result.
+
+## Selection Boundaries
+
+- Select the exact name's owner. Do not walk up to a parent if it is missing.
+- Do not include a separate `.eth` Manager, approved operators, or resolver
+  delegates as alternative authorities.
+- Resolver addresses, CCIP Read signers, and target-record addresses do not
+  establish ownership.
+- Wildcard and offchain resolution do not create an exact owner. Such names
+  are unsupported unless this algorithm can select one.
+- For unwrapped subnames, the Registry entry is authoritative for this
+  algorithm even if it survives a parent's expiry or re-registration. This
+  algorithm does not establish current parent approval.
+- For imported DNS names, ENS ownership does not establish current DNS control.
+
+After selection, require the claim's authority to match the returned address
+and validate its signature. Do not accept another signer when that check fails.
+
+## Check Cases
+
+| State                                                     | Expected outcome                         |
+| --------------------------------------------------------- | ---------------------------------------- |
+| Active unwrapped `alice.eth`, owner Alice, Manager Bob    | Alice                                    |
+| Active wrapped `alice.eth`, wrapped owner Carol           | Carol, bounded by registrar expiry       |
+| `.eth` registration at expiry or in grace                 | No authority result                      |
+| Wrapped child with `PARENT_CANNOT_CONTROL`, before expiry | Wrapped owner, bounded by wrapper expiry |
+| Same child at or after expiry                             | No authority result                      |
+| Wrapped child without that fuse, nonzero `getData` owner  | Wrapped owner, no scheduled expiry bound |
+| Unwrapped child with nonzero Registry owner               | Exact Registry owner                     |
+| Wildcard child without an exact owner                     | Unsupported                              |
+
+For the reasoning behind owner selection, see [Version 1 in Learn](/docs/authority/version-1).

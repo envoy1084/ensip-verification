@@ -1,0 +1,97 @@
+---
+title: Claim Digest (EIP-712)
+description: Calculate the typed-data digest used to sign a common claim.
+---
+
+# Claim Digest (EIP-712)
+
+Calculate the digest from the validated [common claim](/implementers/common-claim)
+using [EIP-712](https://eips.ethereum.org/EIPS/eip-712). JSON and CBOR envelope
+bytes are not the signing input.
+
+## Domain
+
+For `ensrv1` on Ethereum mainnet, use exactly:
+
+```json
+{
+  "name": "ENS Record Verification",
+  "version": "1",
+  "chainId": 1
+}
+```
+
+The domain type is `EIP712Domain(string name,string version,uint256 chainId)`.
+Omit `verifyingContract` and `salt`; do not insert zero values for absent fields.
+`chainId` identifies the ENS deployment. It remains `1` when a method checks an
+account on another chain; that target chain is bound through the method's target.
+
+## Claim Type
+
+Use this exact string, with no line breaks or extra spaces:
+
+```text
+ENSRecordVerification(string name,bytes32 node,string recordType,string recordKey,bytes32 valueHash,uint32 authorityVersion,address authority,string method,string target,uint64 issuedAt,uint64 validUntil)
+```
+
+Its Keccak-256 hash is `claimTypeHash`. The primary type supplied to a wallet is
+`ENSRecordVerification`.
+
+## Calculation
+
+For each string, hash its exact UTF-8 bytes. Keep `bytes32` values unchanged.
+Encode unsigned integers and the address as 32-byte, left-zero-padded values.
+Then concatenate the words in the declared order:
+
+```pseudocode
+domainSeparator = keccak256(abi.encode(
+    keccak256(UTF8(domainType)),
+    keccak256(UTF8("ENS Record Verification")),
+    keccak256(UTF8("1")),
+    uint256(1)
+))
+
+claimStructHash = keccak256(abi.encode(
+    claimTypeHash,
+    keccak256(UTF8(name)), node,
+    keccak256(UTF8(recordType)), keccak256(UTF8(recordKey)),
+    valueHash, uint32(authorityVersion), address(authority),
+    keccak256(UTF8(method)), keccak256(UTF8(target)),
+    uint64(issuedAt), uint64(validUntil)
+))
+
+commonClaimDigest = keccak256(
+    hexBytes("1901") || domainSeparator || claimStructHash
+)
+```
+
+`abi.encode` uses standard 32-byte ABI words, not packed integers. The final
+hash has a 66-byte input: two prefix bytes and two 32-byte hashes.
+
+## Wallet Input
+
+Supply `domain`, `types`, `primaryType`, and `message` to a typed-data signing
+API. `message` contains the common claim. It does not contain envelope `v`,
+`authoritySignature`, or `proof`.
+
+Parse wire integers into exact integer values supported by the signing library.
+Never convert a `uint64` through a JavaScript `number` that loses precision.
+Do not add a personal-sign prefix or sign the hexadecimal digest as text.
+
+## Test Vector
+
+The shared <a href="/vectors/common-claim-v1.json" download>claim and proof-key vector</a> contains
+one fixed claim, typed-data input, encoded hash inputs, and expected intermediate
+hashes. It is a calculation fixture, not evidence that the example name or
+account has live ownership. See the selected values below.
+
+```text
+claimTypeHash = 0xa40ff36f3189ec95e12e6d89e8cbfcdc35f598bebca66561e8c1221b8cd78c2d
+domainSeparator = 0x13e18e785741386cdda7b13ad2e40f5c26c940f9942e80ff9baeb53f50ee3aaa
+claimStructHash = 0x3598240a66023467261d422f7973ef617224a9cfca884a4ba948c75102a4beb3
+commonClaimDigest = 0xdd4f601548768d2213b42b2be359d92e0f47adf25f6ae536cd206428ea65ef8d
+```
+
+Changing a claim field must change the digest. Reordering JSON members or
+encoding the same logical claim as CBOR must not. These examples do not replace
+the full conformance corpus, including signature and invalid-input cases.

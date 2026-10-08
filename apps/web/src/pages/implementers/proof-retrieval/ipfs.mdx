@@ -1,0 +1,42 @@
+---
+title: IPFS
+description: Retrieve and check proof bytes identified by an IPFS CID.
+---
+
+# IPFS
+
+Use `ipfs://<cid>` or `ipfs://<cid>/path/to/proof`. Angle brackets mark a placeholder.
+Publish CIDv1 in lowercase Base32. Accept a valid legacy CIDv0 by converting it
+to its equivalent CIDv1 without changing the identified content. Preserve its
+case before conversion.
+
+Apply the [shared retrieval rules](/implementers/proof-retrieval). This proof
+profile rejects URI queries and fragments; gateway-specific request parameters
+belong to the retrieval adapter, not the descriptor.
+
+## Retrieval
+
+1. Parse and validate the CID before choosing a node or gateway.
+2. Resolve the path using IPFS content-path rules. Reject traversal beyond the root.
+3. Fetch the blocks needed for that path and file.
+4. Verify each block against its CID and verify the links from the requested root.
+5. Extract one complete file and apply the envelope size and format rules.
+
+Use a verifying local client or a gateway response that includes verifiable
+blocks. A plain gateway response containing JSON is insufficient unless the
+client can establish its connection to the requested CID.
+
+A CID often identifies a file structure, not a hash of the final file bytes.
+Do not compare a raw file hash to the CID and treat that as general IPFS validation.
+Reject unsupported codecs or hash algorithms without guessing another decoder.
+
+See the [IPFS URI specification](https://specs.ipfs.tech/ipfs-uri/),
+[UnixFS path rules](https://specs.ipfs.tech/unixfs/), and
+[Trustless Gateway specification](https://specs.ipfs.tech/http-gateways/trustless-gateway/).
+
+## Availability and Caching
+
+Verified file bytes can be cached by root CID and resolved path. Recheck the
+proof against current ENS state before returning a verification result.
+Content must remain available from a provider; a CID does not guarantee hosting.
+See [IPFS persistence](https://docs.ipfs.tech/concepts/persistence/).

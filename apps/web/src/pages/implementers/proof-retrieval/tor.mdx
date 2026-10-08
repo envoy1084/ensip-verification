@@ -1,0 +1,49 @@
+---
+title: Tor Onion Services
+description: Retrieve a proof from a v3 onion service over Tor.
+---
+
+# Tor Onion Services
+
+Use `http://<v3-address>.onion[:port]/path` or its HTTPS equivalent. Queries are
+allowed. Require the base v3 service address; reject user information, fragments,
+and additional subdomains in this profile.
+
+A contenthash codec named `onion3` identifies the address type. It is not an
+instruction to invent an `onion3://` HTTP-fetching scheme.
+
+## Retrieval
+
+1. Validate the 56-character v3 address, including its Base32 encoding, checksum,
+   and version. Length alone is not enough.
+2. Connect through a configured Tor client. Let Tor resolve and authenticate the
+   onion service. Never send the hostname to ordinary DNS.
+3. Send a credentialless `GET` request to the selected path and query.
+4. Reject all HTTP redirects and require status `200`.
+5. Require a method-permitted JSON or CBOR media type and enforce the shared
+   response limits. For HTTPS, also validate the certificate and hostname.
+
+Use the [shared retrieval rules](/implementers/proof-retrieval) and the response
+handling in [HTTPS](/implementers/proof-retrieval). The Tor connection replaces
+ordinary public-IP routing; it does not remove response or proof checks.
+
+Follow the [Tor onion-service specification](https://spec.torproject.org/rend-spec/index.html)
+and [.onion handling in RFC 7686](https://www.rfc-editor.org/rfc/rfc7686.html).
+HTTP over an authenticated Tor connection does not enable ordinary cleartext
+HTTP locations elsewhere in the protocol.
+
+## Unsupported Connections
+
+Do not replace Tor with a public onion-to-web proxy. If Tor is unavailable or
+the service requires credentials the verifier does not have, report that the
+proof cannot be retrieved.
+
+Recognize legacy v2 onion addresses as obsolete. Current Tor no longer supports
+them, so they cannot produce a successful retrieval. See the
+[Tor setup guide](https://community.torproject.org/onion-services/setup/).
+
+## Caching
+
+An onion URL names a live service, not immutable file bytes. Re-fetch when a
+fresh publication check is required. A cached response must not extend proof
+expiry or establish that the service still publishes the proof.

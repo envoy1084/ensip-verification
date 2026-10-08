@@ -1,0 +1,47 @@
+---
+title: HTTPS
+description: Retrieve a proof from an HTTPS resource without redirects.
+---
+
+# HTTPS
+
+Use an absolute `https://host/path` URI, with an optional port and query.
+Apply the [shared retrieval rules](/implementers/proof-retrieval).
+
+## Request
+
+1. Send a `GET` request to the exact selected URL.
+2. Validate the server certificate and hostname using normal HTTPS validation.
+3. Send no cookies, authorization headers, client certificate, or referrer.
+4. Disable automatic redirects. Reject every redirect response, including one
+   that stays on the same origin.
+5. Require status `200` and a complete response body.
+6. Require `application/json` or `application/cbor`, as permitted by the method.
+   Do not infer the format from the body or file extension.
+
+Use `Accept-Encoding: identity` where the client allows it. If the stack decodes
+compression, bound both transferred and decoded bytes. A client that cannot
+enforce the response policy must report a retrieval limitation.
+
+HTTP status, media types, and content encoding follow
+[RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html). TLS certificate and service
+identity checks follow [RFC 9525](https://www.rfc-editor.org/rfc/rfc9525.html).
+
+## Network Access
+
+A server-side verifier must block private, loopback, link-local, multicast, and
+other non-public destinations. Check resolved addresses before every connection
+and ensure the connection uses an allowed address. Apply this to IPv4 and IPv6;
+a second DNS lookup must not bypass the check.
+
+Operator-configured local nodes are separate from descriptor-controlled URLs.
+Never let a proof URI redirect the verifier to its own infrastructure.
+
+## Method Requirements
+
+If the method derives a proof URL from the target origin, use that exact URL.
+Do not replace it with `u`, a proxy, or another website. A browser must not use
+an arbitrary public proxy to work around CORS or redirect restrictions.
+
+A method that only uses HTTPS to carry signatures still requires every signature
+and claim check. A successful download does not prove the claimed association.

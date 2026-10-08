@@ -1,0 +1,127 @@
+---
+title: Signatures
+description: Validate approval of the common claim by the selected authority.
+---
+
+# Signatures
+
+Validate `authoritySignature` against the [claim digest](/implementers/claim-digest)
+and the independently selected [authority](/implementers/authority). A recovered
+signer does not get to replace that authority.
+
+## Select the Validation Path
+
+Reject ERC-6492 wrappers as unsupported before choosing a validation path.
+Then read the authority account's code at the ENS evaluation block.
+
+- Empty code: apply the EOA rules below.
+- Nonempty code: use the account's ERC-1271 validation at the same block.
+
+Do not retry a failed contract check as EOA recovery. Contract approval can
+change with its policy or state, so an earlier successful call is not permanent
+approval.
+
+## EOA Signatures
+
+Accept either encoding below. Interpret all signature integers as unsigned,
+big-endian values.
+
+| Encoding         | Layout                                      | Recovery bit                                                       |
+| ---------------- | ------------------------------------------- | ------------------------------------------------------------------ |
+| 65-byte ECDSA    | 32-byte `r`, 32-byte `s`, then one-byte `v` | Accept `v = 0` or `1` directly; subtract `27` for `v = 27` or `28` |
+| 64-byte ERC-2098 | 32-byte `r`, then 32-byte `yParityAndS`     | Extract the highest bit of `yParityAndS`                           |
+
+For [ERC-2098](https://eips.ethereum.org/EIPS/eip-2098), clear that highest bit
+to obtain `s`:
+
+```pseudocode
+yParity = yParityAndS >> 255
+s = yParityAndS & ((1 << 255) - 1)
+```
+
+After decoding either form, require:
+
+- `1 <= r < n`;
+- `1 <= s <= floor(n / 2)`; and
+- a recovery bit of `0` or `1`.
+
+```text
+n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+```
+
+Recover the address from `commonClaimDigest`. Require a nonzero result equal
+to the selected authority. If the recovery API expects `27` or `28`, add `27`
+to the decoded recovery bit.
+
+Reject every other length or `v` value, including transaction-style EIP-155
+values. Reject high `s`; do not repair it. Accepting the encodings above does
+not permit personal-sign prefixes or signing the digest as hexadecimal text.
+
+These decoding rules apply only to the EOA path. Contract signatures remain
+opaque bytes, even when their length happens to be 64 or 65 bytes.
+
+## Contract Signatures
+
+Use [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271):
+
+```solidity
+isValidSignature(bytes32 digest, bytes signature) returns (bytes4)
+```
+
+Pass the common claim digest and the signature bytes unchanged. The proposed
+profile allows up to 8,192 signature bytes, including an empty byte string if
+the contract approves it. Empty bytes are not automatic approval.
+
+Multisigs, passkeys, session keys, and other policies can be supported through
+the account's ERC-1271 implementation. This protocol does not interpret those
+schemes directly.
+
+Require successful static execution and exactly 32 return bytes: `0x1626ba7e`
+followed by 28 zero bytes, the canonical ABI encoding of the magic `bytes4`.
+Reject raw four-byte output, extra bytes, incorrect padding, and other values.
+Never submit a transaction to perform this check.
+
+An ordinary RPC `eth_call` is not itself an EVM `STATICCALL`. A conforming
+execution path must enforce static semantics. The common caller context and
+interoperable gas budget are still pending; implementations must document their
+execution profile and bound gas, response size, and request time. A provider or
+local resource failure is unavailable, not conclusive evidence of a bad signature.
+
+## Delegated Accounts
+
+[EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) lets EOAs have delegated code.
+For the initial version, these accounts use ERC-1271 at the authority address.
+Do not call the delegation implementation address as if it were the authority,
+or fall back to ordinary EOA recovery. A delegated account without compatible
+ERC-1271 validation cannot provide approval under this profile.
+
+This is the proposal's validation policy, not a requirement of EIP-7702 itself.
+
+## Counterfactual Accounts
+
+[ERC-6492](https://eips.ethereum.org/EIPS/eip-6492) support is deferred. Its
+validation can require simulated deployment or preparation calls, including
+preparation of an already-deployed account.
+
+Recognize its exact 32-byte suffix and report the format as unsupported, whether
+or not the account already has code:
+
+```text
+0x6492649264926492649264926492649264926492649264926492649264926492
+```
+
+Do not strip the wrapper, execute its calls, deploy an account, or fall back to
+another signature interpretation. A future profile must define the validator,
+execution context, preparation policy, resource limits, and conformance cases
+before this format can be accepted.
+
+## Target Signatures
+
+A method may require a separate target signature inside `proof`. It must define
+which digest is signed and how the target account and chain are derived.
+Validate that signature separately, even if the target and authority are the
+same address. A target signature cannot replace authority approval.
+
+Methods must authenticate any proof fields that change the approved statement,
+or derive them independently. The authority signature does not automatically
+cover arbitrary fields placed in `proof`.

@@ -1,0 +1,64 @@
+---
+title: Proof Envelope
+description: Package a claim, its authority signature, and method evidence.
+---
+
+# Proof Envelope
+
+A **proof envelope** carries the [common claim](/docs/components/common-claim),
+the authority's signature, and the evidence required by the selected method.
+It is the object a verifier reads from a proof location or an inline descriptor.
+
+## Structure
+
+This shortened example shows the four required parts. The placeholders are
+explanations, not a valid proof.
+
+```json
+{
+  "v": "ensrv1",
+  "claim": {
+    "name": "alice.eth",
+    "recordType": "text",
+    "recordKey": "url",
+    "...": "remaining common-claim fields"
+  },
+  "authoritySignature": "0x...",
+  "proof": {}
+}
+```
+
+| Field                | Purpose                                            |
+| -------------------- | -------------------------------------------------- |
+| `v`                  | Identifies the common protocol version             |
+| `claim`              | Contains the complete statement being approved     |
+| `authoritySignature` | Carries approval from the selected ENS authority   |
+| `proof`              | Contains the method-specific evidence, when needed |
+
+For a website-publication method, `proof` can be empty: fetching the envelope
+from the required website location supplies the target evidence. An account
+method can instead put the target account's signature inside `proof`.
+
+An empty `proof` object does not mean that the target check is skipped. The
+method defines what evidence must be present and where it comes from.
+
+## JSON and CBOR
+
+JSON is a text format that is easy to inspect. CBOR is a binary format that can
+represent hashes and signatures more compactly. Both carry the same logical
+claim and use the same signing digest.
+
+The method must allow the chosen format. Inline envelopes use a Base64-encoded
+data URI; external envelopes follow the rules for their location. See
+[Verification Descriptor](/docs/components/verification-descriptor).
+
+## What a Verifier Checks
+
+The verifier checks the envelope's structure, compares the claim with current
+ENS state, validates the authority signature, and checks the method's evidence
+and time limits. A well-formed file alone does not establish verification.
+
+## Implementer Guide
+
+See [Proof Envelope](/implementers/proof-envelope) for the complete JSON example,
+CBOR mapping, parsing rules, and size limits.

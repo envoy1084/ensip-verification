@@ -1,0 +1,16 @@
+---
+title: Verification Methods
+description: Methods for checking the evidence behind an ENS record.
+---
+
+# Verification Methods
+
+The descriptor's `m` field selects a method and version. Each method defines
+its target evidence and returns `control` or `attestation` after the common
+claim and authority checks pass. These are the methods documented so far.
+
+| Method                                                               | Record                                          | Evidence                                           | Result    |
+| -------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------- | --------- |
+| [HTTPS Origin](/docs/methods/https-origin)                           | Text containing an HTTPS URL                    | Envelope published by the URL's origin             | `control` |
+| [DNS TXT](/docs/methods/dns-txt)                                     | Text containing an HTTPS URL with a domain host | Claim digest published in DNSSEC-authenticated TXT | `control` |
+| [Account Signature: EIP-155](/docs/methods/account-signature/eip155) | Supported EVM address record                    | Target account approval of the common claim        | `control` |

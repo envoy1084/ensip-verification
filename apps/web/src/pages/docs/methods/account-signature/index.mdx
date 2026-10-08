@@ -1,0 +1,24 @@
+---
+title: Account Signature
+description: Verify approval from the account stored in an ENS address record.
+---
+
+# Account Signature
+
+`account-signature.<profile>.v1` verifies that an account approves its connection
+to an ENS name. The ENS authority and the recorded account both approve the
+same [common claim](/docs/components/common-claim).
+
+The profile defines the supported accounts and their signing rules. Replace
+`<profile>` with an exact profile identifier in the descriptor.
+
+| Profile                                          | Accounts                      | Approval                                         |
+| ------------------------------------------------ | ----------------------------- | ------------------------------------------------ |
+| [eip155](/docs/methods/account-signature/eip155) | Supported EVM address records | EIP-712 signatures or ERC-1271 contract approval |
+
+The descriptor requires `u`, pointing to the complete proof envelope. The
+location stores the proof; account approval comes from the signature checks.
+Successful verification returns `control` for the exact recorded account.
+
+See the [implementer overview](/implementers/methods/account-signature) for the
+shared requirements. Other profiles are not defined yet.

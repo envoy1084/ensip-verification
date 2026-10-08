@@ -1,0 +1,83 @@
+---
+title: EIP-155
+description: Verify an EVM account's approval of its ENS address record.
+---
+
+# EIP-155
+
+`account-signature.eip155.v1` verifies approval from an EVM account stored in
+an ENS address record. Both the ENS authority and the target account approve
+the same claim using the existing typed-data format.
+
+## Supported Accounts
+
+| Account                              | How approval is checked                                             |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| Ordinary wallet (EOA)                | Recover the signer and compare it with the recorded address         |
+| Deployed smart account               | Ask the account's ERC-1271 implementation to validate the signature |
+| Account with EIP-7702 delegated code | Use ERC-1271 at the account address                                 |
+
+Smart accounts can apply their own multisig, passkey, or other signing policies
+through ERC-1271. Counterfactual proofs using ERC-6492 are not supported in this
+version. See [signature rules](/implementers/signatures).
+
+## Configure the Record
+
+For an Ethereum address, publish the address under coin type `60` and its
+descriptor under:
+
+```text
+verification[addr][60]
+```
+
+The descriptor can point to an envelope published over HTTPS:
+
+```text
+ensrv1 a=1 m=account-signature.eip155.v1 u=https://proofs.example/alice-eth.json
+```
+
+Other supported [proof locations](/implementers/proof-retrieval), including
+inline proofs, are also allowed. This method does not use a proof key.
+
+For other EVM chains, use the chain-specific coin type. The claim identifies
+both the account and its chain. Approval for an account on Ethereum does not
+verify the same address on Base or another chain.
+
+## Create the Proof
+
+1. Prepare the common claim for the name, current address record, authority,
+   target chain, and validity period.
+2. Obtain the ENS authority's approval as `authoritySignature`.
+3. Obtain the target account's approval as `proof.targetSignature`.
+4. Publish the complete envelope at `u`.
+
+An ordinary wallet signs the full typed claim with `signTypedData`. The EVM
+profile does not sign the digest's hexadecimal text as a message. A smart wallet
+produces signature bytes that its account can validate through ERC-1271.
+
+The two signatures may be identical when the same account fills both roles.
+Both checks are still required, using the account state on each relevant chain.
+
+## What Is Verified
+
+The verifier checks the live record and ENS authority, then validates the target
+account's approval on the target chain. Hosting a proof file is not evidence of
+account control by itself.
+
+A successful result has verification type `control`. It confirms approval of
+this exact connection, not the account holder's legal identity or ownership of
+every address in their wallet.
+
+## Validity and Renewal
+
+A claim may last at most 90 days. A positive result must be refreshed within
+five minutes or any shorter applicable bound. Record changes, authority changes,
+and changes to a smart account's signature policy require re-evaluation.
+
+Renewal requires approval of the new claim from both sides. See
+[Lifecycle](/docs/components/lifecycle).
+
+## Implementer Guide
+
+See [EIP-155 for implementers](/implementers/methods/account-signature/eip155)
+for target derivation, proof encoding, chain snapshots, and verification rules.

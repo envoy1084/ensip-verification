@@ -1,0 +1,75 @@
+---
+title: Authority Overview
+description: Select an authority algorithm and evaluate it against consistent ENS state.
+---
+
+# Authority
+
+Authority resolution determines which account must approve the claim. Run the
+exact algorithm selected by the descriptor's `a` field. Do not take the
+authority address from the proof as an input to selection.
+
+For the concept and examples, see [Authority in Learn](/docs/authority).
+
+## Inputs and Output
+
+| Input                            | Purpose                                    |
+| -------------------------------- | ------------------------------------------ |
+| Normalized ENS name and namehash | Identify the exact name being verified     |
+| Descriptor field `a`             | Select the authority algorithm             |
+| Chain and evaluation block       | Identify the ownership state being checked |
+
+Normalize the name with [ENSIP-15](https://docs.ens.domains/ensip/15/) and derive
+its namehash as defined in [ENSIP-1](https://docs.ens.domains/ensip/1/). Use the
+same normalized name throughout verification.
+
+A successful authority lookup returns:
+
+| Output                              | Meaning                                               |
+| ----------------------------------- | ----------------------------------------------------- |
+| `authority`                         | One nonzero account address                           |
+| `authorityValidUntil`, when present | Exclusive ownership-expiry timestamp, in Unix seconds |
+
+An absent expiry means the algorithm found no scheduled ownership expiry. It
+does not mean the authority can never change.
+
+## Consistent Chain State
+
+For the Ethereum-based algorithm, record the chain ID, block number, block hash,
+and block timestamp. Read the target record, descriptor, ownership, and relevant
+expiry at that same block. Authority code and contract-signature checks must
+also use that block.
+
+Prefer block-hash reads using [EIP-1898](https://eips.ethereum.org/EIPS/eip-1898).
+If using a block number, confirm its canonical hash still matches before
+returning a positive result. Discard the attempt if the block was replaced.
+Do not silently retry an individual read against `latest`.
+
+Use the block timestamp for ownership checks. Before returning a current
+positive result, also require the current time to be earlier than any returned
+`authorityValidUntil`. An older snapshot cannot extend known ownership expiry.
+
+## Use the Selected Account
+
+Require the claim's authority version and address to match the descriptor and
+computed result. Then validate approval by that account under the common
+[signature rules](/implementers/signatures). A contract account needs contract-signature validation, such
+as [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271); do not replace it with the
+contract's administrator or a token operator.
+
+Authority selection alone is not successful verification. The record, claim,
+signature, validity period, and method evidence still need their own checks.
+
+## Unsupported or Unavailable Authority
+
+An unknown algorithm or unsupported deployment cannot produce a positive
+result. A failed RPC request means authority is unavailable, not that the
+proof's signature is necessarily invalid. Preserve that distinction in errors.
+
+Never recover by selecting another version or accepting a signer suggested by
+the proof.
+
+## Algorithms
+
+- [Version 1](/implementers/authority/version-1) - Ownership selection for ENS v1
+  on Ethereum mainnet.

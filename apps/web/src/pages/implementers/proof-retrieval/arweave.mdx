@@ -1,0 +1,43 @@
+---
+title: Arweave
+description: Retrieve proof data from an Arweave transaction, data item, or manifest.
+---
+
+# Arweave
+
+Use `ar://<id>[/path]`. The ID identifies an Arweave transaction or an ANS-104
+data item. Require its canonical 43-character, unpadded Base64url representation
+of 32 bytes. Preserve case. Reject URI queries and fragments.
+
+Apply the [shared retrieval rules](/implementers/proof-retrieval).
+
+## Retrieval
+
+1. Retrieve the object identified by the ID from a configured node or gateway.
+2. For a transaction, verify the ID, signature, and the returned data's binding
+   to the signed transaction fields.
+3. For an ANS-104 data item, verify its ID, signature, tags, and signed data.
+4. If a path is supplied, verify the manifest, resolve the exact path, then
+   retrieve and validate the referenced object in the same way.
+5. Return one complete proof envelope using its authenticated `Content-Type`
+   tag or a format fixed by the verification method.
+
+Arweave IDs are derived from signatures. Hashing the downloaded file and comparing
+it to the ID is not sufficient. A successful gateway response is also insufficient.
+See the [Arweave HTTP API](https://docs.arweave.org/developers/arweave-node-server/http-api)
+and [ANS-104 data-item rules](https://github.com/ArweaveTeam/arweave-standards/blob/master/ans/ANS-104.md).
+
+For path manifests, follow
+[Arweave path-manifest rules](https://docs.ar.io/build/upload/manifests).
+Use a declared index for an empty path. Reject missing paths rather than using
+an application fallback page. Bound nested lookups and detect loops.
+
+## Storage and Validity
+
+Authenticating an object's bytes is separate from proving network inclusion or
+long-term availability. Do not claim confirmation or permanence from a gateway
+response alone. If a method requires confirmed storage, it must define that check.
+
+Cache verified objects by ID. A renewed proof creates a different object and
+requires a new descriptor reference. Cached objects still need current claim,
+authority, and expiry checks.

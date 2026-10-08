@@ -1,0 +1,9 @@
+{
+  "discovery-records": "Discovery Records",
+  "verification-descriptor": "Verification Descriptor",
+  "common-claim": "Common Claim",
+  "proof-envelope": "Proof Envelope",
+  "proof-key": "Proof Key",
+  "lifecycle": "Lifecycle",
+  "verification-results": "Verification Results"
+}

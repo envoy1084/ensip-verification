@@ -1,0 +1,46 @@
+---
+title: IPNS
+description: Resolve a mutable IPNS name before retrieving its proof.
+---
+
+# IPNS
+
+Use `ipns://<name>[/path]`. The name can identify a cryptographic IPNS key or a
+DNSLink domain. Follow the [IPNS URI specification](https://specs.ipfs.tech/ipns-uri/)
+for name encoding and path resolution. This proof profile rejects queries and
+fragments.
+
+Apply the [shared retrieval rules](/implementers/proof-retrieval). Resolve the
+name first, then fetch the final content using the [IPFS rules](/implementers/proof-retrieval/ipfs).
+
+## Cryptographic Names
+
+1. Obtain the IPNS record and validate its public key against the requested name.
+2. Verify `signatureV2` and the signed record fields. Do not rely on the legacy signature.
+3. Reject expired records and inconsistent unsigned copies of signed fields.
+4. Select records using the protocol's sequence and validity rules. Do not replace
+   a known newer record with an older one.
+5. Resolve the signed value and append the requested path according to IPNS rules.
+
+Follow the [IPNS record specification](https://specs.ipfs.tech/ipns/ipns-record/).
+A gateway's resolved URL alone does not prove that the IPNS record was valid.
+A valid record also does not prove that no newer record exists.
+
+## DNSLink Names
+
+Resolve `_dnslink.<domain>` using the DNSLink rules referenced by the IPNS URI
+specification. This verification profile requires DNSSEC-authenticated answers;
+an unsigned answer cannot establish the name-to-content binding.
+
+Validate the DNSSEC chain with a configured trust anchor, following
+[RFC 4033](https://www.rfc-editor.org/rfc/rfc4033.html),
+[RFC 4034](https://www.rfc-editor.org/rfc/rfc4034.html), and
+[RFC 4035](https://www.rfc-editor.org/rfc/rfc4035.html).
+Reject conflicting destinations. Follow `/ipfs/` or `/ipns/` targets with bounded
+lookups and loop detection; every mutable step must pass its own checks.
+
+## Caching
+
+Respect the record TTL and expiry, including DNS TTLs and signature expiry for
+DNSLink. Refresh mutable mappings before those limits pass. Immutable content
+can remain cached, but the current mapping and proof validity still need checking.

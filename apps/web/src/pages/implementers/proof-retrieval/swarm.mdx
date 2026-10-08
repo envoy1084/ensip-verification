@@ -1,0 +1,38 @@
+---
+title: Swarm
+description: Retrieve a proof through a Swarm reference or manifest.
+---
+
+# Swarm
+
+Use `bzz://<reference>[/path]`. Support direct file references and manifest paths,
+including feed manifests. Reject URI queries and fragments.
+Apply the [shared retrieval rules](/implementers/proof-retrieval).
+
+## Retrieval
+
+1. Validate the reference using Swarm's reference format. An encrypted reference
+   must include the complete key-bearing reference, not just its content address.
+2. Read the referenced data through a verifying Bee node or a client that checks
+   the returned chunks and their links.
+3. For a manifest, resolve the requested path to one file. An empty path may use
+   its declared index entry. Do not use a website error page as a proof.
+4. For a feed manifest, validate the signed feed update and follow the resulting
+   reference. Bound lookups and detect loops.
+5. Reconstruct and, where required, decrypt the file. Apply the proof format and
+   envelope size rules to the resulting bytes.
+
+A remote gateway's decoded file alone does not establish the reference-to-file
+binding. Use an explicitly configured verifying node or validate the underlying
+content yourself. Public descriptors containing decryption keys do not make the
+proof confidential.
+
+See Swarm's [upload and download guide](https://docs.ethswarm.org/docs/develop/upload-and-download/),
+[encrypted references](https://docs.ethswarm.org/docs/develop/tools-and-features/store-with-encryption/),
+and [feeds](https://docs.ethswarm.org/docs/develop/tools-and-features/feeds/).
+
+## Caching
+
+Cache immutable content by its full reference and path. A feed is mutable:
+refresh it before reusing a result, and do not describe a previously observed
+update as necessarily the latest. Proof expiry and current ENS state still apply.

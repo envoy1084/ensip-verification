@@ -1,0 +1,136 @@
+---
+title: Lifecycle
+description: Apply claim validity, evidence expiry, cache bounds, and state-change rules.
+---
+
+# Lifecycle
+
+Apply these rules to every verification method. They determine whether a result
+is valid at the time of evaluation and how long it may be reused. A method can
+shorten a common bound, but cannot extend it.
+
+## Time Checks
+
+Use Unix timestamps in whole seconds. Obtain time independently of the proof.
+The ENS block timestamp checks ownership at the snapshot; wall-clock time checks
+whether the result can still be returned now.
+
+Choose the final `checkedAt` immediately before returning a positive result.
+Earlier checks may reject obviously expired input, but do not freeze time at
+the start of a long request. Recheck all time-dependent evidence at the final
+`checkedAt`, or use authenticated validity bounds that cover it.
+
+Require the [common claim](/implementers/common-claim) to satisfy:
+
+```pseudocode
+require issuedAt <= checkedAt + 300
+require issuedAt < validUntil
+require checkedAt < validUntil
+require validUntil - issuedAt <= methodMaxLifetime
+```
+
+Both signed timestamps must fit `uint64`. Use arithmetic that cannot overflow.
+The 300-second allowance applies only to future issuance. It never extends an
+expiry. Each method must define `methodMaxLifetime`; do not invent a default
+for a method whose lifetime is unspecified.
+
+## Effective Expiry
+
+```pseudocode
+effectiveValidUntil = min(
+    claim.validUntil,
+    authorityValidUntil, when present,
+    methodEvidenceValidUntil, when present
+)
+require checkedAt < effectiveValidUntil
+```
+
+Optional bounds are omitted, not replaced with zero. All expiries are exclusive:
+equality fails. Missing authority expiry means the algorithm found no scheduled
+ownership expiry, not that ownership cannot change.
+
+A method distinguishes a hard evidence expiry from a refresh deadline. For
+example, a transport cache deadline can require another fetch without changing
+the claim's signed lifetime.
+
+## Positive Cache Bound
+
+```pseudocode
+cacheUntil = min(
+    checkedAt + 300,
+    effectiveValidUntil,
+    methodEvidenceCacheUntil, when present,
+    snapshotReuseUntil, when present
+)
+```
+
+`snapshotReuseUntil` is the earliest reuse deadline imposed by the accepted ENS
+and target-chain snapshot policies. This is implementation context, not a claim
+field. Include any stricter client limit in the minimum as well.
+
+Reuse a result only while the current time is strictly earlier than `cacheUntil`
+and no relevant change is known. If a refresh deadline has already been reached,
+refresh the affected evidence before treating the result as current. Do not
+restart a cache lifetime when reading an entry from another cache.
+
+Keep cached results scoped to the chain, normalized name, record selector, and
+applicable method and runtime policy. Preserve the evaluated descriptor, value,
+authority, and block references so known changes can invalidate the result.
+
+## Fresh Evaluations and Stored Proofs
+
+A fresh evaluation selects an acceptable ENS snapshot and repeats all required
+live checks. "Fresh" does not require a new block when the existing block still
+meets the chosen policy. It does require checking that the snapshot remains
+acceptable and that cached evidence has not outlived its bounds.
+
+Proof bytes and positive results are separate caches. Immutable bytes may be
+retained, but their signature policy, live record match, authority, and expiry
+still need verification. Reuse HTTP or DNS evidence only when the method permits
+it and its authenticated freshness bounds still hold.
+
+A failed refresh must not extend the previous positive result. Negative-result
+cache durations are not yet fixed. Keep failures distinct, use finite documented
+retry policies, and invalidate them when relevant state changes are observed.
+
+## Changes That Require Re-evaluation
+
+| Change                                             | Required action                                            |
+| -------------------------------------------------- | ---------------------------------------------------------- |
+| Record or descriptor changes                       | Re-resolve and compare the new inputs                      |
+| Authority or ownership expiry changes              | Re-run authority selection and approval checks             |
+| Resolver changes                                   | Resolve again, even if logical values might be unchanged   |
+| Authority code or ERC-1271 policy changes          | Validate approval against the new state                    |
+| Method publication or target-account state changes | Repeat the affected method checks                          |
+| An expiry or refresh bound is reached              | Refresh or stop using the result                           |
+| A selected block is reorganized out                | Discard that evaluation and retry with an acceptable block |
+
+Changing `u` need not change the claim, but retrieval must use the currently
+selected location and still satisfy the method. A later registration renewal
+may extend a new evaluation's ownership bound; it cannot extend the signed
+claim or modify the bounds of an earlier result.
+
+## Disabling and Reactivation
+
+An empty resolved discovery value means verification is not configured. It stops
+new positive evaluations but cannot erase proof copies or instantly invalidate
+remote caches that have not observed the change.
+
+The current claim has no authoritative generation or revocation counter.
+Restored state may reactivate an unexpired proof, including after an ownership
+round trip, record restoration, or registration renewal. All current checks
+must still pass. Permanent revocation is not a guarantee of this version.
+
+## Snapshot Requirements Still to Finalize
+
+Block canonicality does not establish freshness. The maximum ENS snapshot age,
+chain finality choices, and target-chain reuse rules still need exact profiles.
+Until those are fixed, document the chosen limits and never treat an arbitrarily
+old canonical block as current state.
+
+For CCIP Read, pinning calls to one block does not by itself prove that separate
+offchain responses represent one revision. A resolver profile must establish
+the required consistency; do not claim it solely from a shared block number.
+
+[Verification Results](/implementers/verification-results) defines how to report
+an unsuccessful or incomplete evaluation without mislabeling its cause.

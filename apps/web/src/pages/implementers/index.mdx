@@ -1,0 +1,53 @@
+---
+title: Introduction
+description: Build support for ENS record verification.
+---
+
+import { Callout } from "vocs";
+
+# For Implementers
+
+These guides describe how to implement ENS record verification: derive discovery
+keys, read verification descriptors, and check the evidence required by a method.
+They are intended for developers building support from scratch.
+
+For an explanation of the proposal and what verification means, start with the
+[Record Verification introduction](/docs).
+
+<Callout variant="warning">
+
+**Draft: updates pending.** The proposal is still being developed.
+Method-specific verification rules are not yet final.
+
+</Callout>
+
+## Reading Order
+
+Start with the [Verification Algorithm](/implementers/verification-algorithm)
+for the complete procedure, then use these guides for each step's exact rules.
+
+1. [Discovery Records](/implementers/discovery-records) - Derive verification
+   keys using the record-specific rules.
+
+2. [Verification Descriptor](/implementers/verification-descriptor) - Interpret
+   the descriptor fields, proof formats, and transport requirements.
+
+3. [Authority](/implementers/authority) - Select the account whose approval
+   is required and check ownership expiry.
+
+4. [Common Claim](/implementers/common-claim) - Derive and compare claim fields.
+5. [Claim Digest](/implementers/claim-digest) - Calculate the EIP-712 signing input.
+6. [Signatures](/implementers/signatures) - Check approval by the selected account.
+7. [Proof Envelope](/implementers/proof-envelope) - Decode JSON and CBOR envelopes.
+8. [Proof Key](/implementers/proof-key) - Derive a publication slot when required.
+
+9. [Lifecycle](/implementers/lifecycle) - Apply expiry and cache bounds.
+10. [Verification Results](/implementers/verification-results) - Report outcomes and context.
+
+11. [Verification Methods](/implementers/methods) - Apply a method profile, starting
+    with [HTTPS Origin](/implementers/methods/https-origin).
+
+12. [Proof Retrieval](/implementers/proof-retrieval) - Read and decode the proof
+    using the rules for its location.
+
+More guides will be added here as their requirements are finalized.

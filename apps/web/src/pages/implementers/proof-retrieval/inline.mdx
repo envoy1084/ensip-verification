@@ -1,0 +1,57 @@
+---
+title: Inline Proofs
+description: Decode JSON and CBOR proof envelopes from data URIs.
+---
+
+# Inline Proofs
+
+An inline proof stores the complete envelope in `u`. No network request is needed.
+Accept these exact prefixes:
+
+- `data:application/json;base64,`
+- `data:application/cbor;base64,`
+
+The format uses [RFC 2397 data URLs](https://www.rfc-editor.org/rfc/rfc2397).
+The selected method must explicitly allow inline proofs and the chosen format.
+
+## Decode the Payload
+
+1. Check the URI length before decoding. The proposed maximum is 21,877 ASCII bytes.
+2. Require one of the prefixes above followed by a nonempty Base64 payload.
+3. Decode standard Base64 once, using [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648.html).
+4. Reject whitespace, invalid characters, Base64url, incorrect padding, and
+   nonzero unused padding bits. Require padding when the payload needs it.
+5. Reject decoded envelopes larger than 16 KiB, or the method's lower limit.
+
+Do not accept extra media-type parameters, percent-encoded payloads, omitted media
+types, or compression. Base64 is an encoding, not encryption.
+
+## Envelope Parsing
+
+These rules also apply to envelopes obtained from external locations.
+
+### JSON
+
+Follow [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259.html). Require UTF-8 without
+a BOM and exactly one top-level object. Allow only JSON whitespace after it.
+Reject duplicate member names after escape decoding, invalid Unicode scalar
+values, and missing, unknown, or incorrectly typed fields in the proof schema.
+Do not normalize string values.
+
+### CBOR
+
+Follow [RFC 8949](https://www.rfc-editor.org/rfc/rfc8949.html), including the core
+deterministic encoding requirements in section 4.2.1. Require one envelope map
+with no trailing bytes. Reject duplicate map keys and any types or tags that
+the proof schema does not allow.
+
+The [Proof Envelope guide](/implementers/proof-envelope#field-encodings) defines
+the proposed common-field mapping. Each method must also define its own proof
+fields for CBOR. Both formats produce the same logical claim and
+[signing digest](/implementers/claim-digest); neither signs serialized envelope bytes.
+
+## Verification
+
+Apply all authority, claim, signature, and expiry checks after decoding.
+Inline storage cannot replace required publication at a website or DNS location.
+Renewing the inline proof requires updating the descriptor.

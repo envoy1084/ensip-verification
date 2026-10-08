@@ -1,0 +1,161 @@
+---
+title: Discovery Records
+description: Find the verification descriptor for an ENS record.
+---
+
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTitle,
+} from "../../../components/accordion.tsx";
+
+# Discovery Records
+
+A **discovery record** is an ENS text record that holds the verification
+descriptor for another record on the same name. Its key is derived from the
+record being verified, so a client knows where to look.
+
+```text
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+```
+
+Here, `url` is the target record and `verification[text][url]` is its discovery
+key. The descriptor stored at that key selects the verification rules.
+Publishing a descriptor configures verification; it does not prove control
+by itself.
+
+## Supported Record Types
+
+The proposal covers four record families. Inclusion here defines how to find
+a descriptor. A verification method must also define which values it supports
+and what its proof establishes.
+
+| Target record    | Discovery text key               | `recordType`  | `recordKey`       |
+| ---------------- | -------------------------------- | ------------- | ----------------- |
+| `text(key)`      | `verification[text][<key>]`      | `text`        | Exact key         |
+| `addr(coinType)` | `verification[addr][<coinType>]` | `addr`        | Decimal coin type |
+| `contenthash()`  | `verification[contenthash]`      | `contenthash` | Empty string      |
+| `pubkey()`       | `verification[pubkey]`           | `pubkey`      | Empty string      |
+
+Every discovery record uses the resolver's `text` function. The resolver
+`node` argument identifies the ENS name and is omitted above. Both records
+are resolved for the same name.
+
+### Text Records
+
+For `text(key)`, place the exact key inside `verification[text][...]`:
+
+```text
+text("url")        → text("verification[text][url]")
+text("com.github") → text("verification[text][com.github]")
+```
+
+Text records can identify websites, accounts, and services. Verification needs
+a method appropriate to that target. Descriptive text, such as a biography,
+does not necessarily have an external controller to verify.
+
+Copy the key exactly, including its case and any brackets:
+
+```text
+text("agent-endpoint[mcp]")
+→ text("verification[text][agent-endpoint[mcp]]")
+```
+
+### Address Records
+
+For `addr(coinType)`, use the coin type in unsigned decimal:
+
+```text
+addr(60) → text("verification[addr][60]")
+addr(0)  → text("verification[addr][0]")
+```
+
+Ethereum uses coin type `60`; Bitcoin uses `0`. Use `60`, not `060`, `+60`,
+or `0x3c`. Verification can establish that the target account approved its
+association with the ENS record, using a method defined for that account type.
+
+### Contenthash Records
+
+The contenthash record has no key parameter:
+
+```text
+contenthash() → text("verification[contenthash]")
+```
+
+The claim uses `recordType: "contenthash"` and an empty `recordKey`.
+
+Verification must be defined for the content-addressing scheme. Checking that
+content matches a hash proves integrity, but does not by itself prove who
+published it or approved its association with the ENS name. The method must
+state what additional evidence is required.
+
+### Public-Key Records
+
+The public-key record also has no key parameter:
+
+```text
+pubkey() → text("verification[pubkey]")
+```
+
+The claim uses `recordType: "pubkey"` and an empty `recordKey`.
+
+The ENS record contains a secp256k1 public key as coordinates `(x, y)`.
+A verification method can require a signature from the corresponding private
+key to approve the association. The signature format and encoding of the key
+in the claim still need to be defined.
+
+## What About Other Record Types?
+
+Other ENS records are outside the current scope. Some already have a relevant
+check; others need a different definition of verification before they belong
+in this proposal.
+
+| Record type                         | Why it is excluded or deferred                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `data(key)`                         | Arbitrary bytes have no defined meaning or controller. Support would need a specific data format and verification method.                              |
+| `name()`                            | Standard reverse resolution already checks that the returned name resolves back to the original address. Other name-to-name associations are deferred. |
+| `ABI(contentTypes)`                 | Approval of an ABI does not prove that it correctly describes a contract. ABI correctness is outside the current control-verification scope.           |
+| `interfaceImplementer(interfaceID)` | Interface support and approval of an ENS association are separate checks. A dedicated method is deferred until there is a clear use case.              |
+| `dnsRecord(nameHash, resource)`     | DNS record types represent different things. A generic proof would not clearly distinguish DNS publication from control of the referenced target.      |
+| `zonehash()`                        | Checking a zone's content hash proves integrity, not authority over a DNS domain. A separate verification model is deferred.                           |
+| Legacy `content` and `multihash`    | These fields were deprecated in favor of `contenthash` and are not included.                                                                           |
+
+The DNS TXT verification method uses external DNS as evidence for a URL text
+record. It does not require support for the ENS `dnsRecord()` record type.
+
+See the ENS [resolver interfaces](https://docs.ens.domains/resolvers/interfaces/),
+[reverse-resolution rules](https://docs.ens.domains/ensip/23/#reverse), and
+[contenthash specification](https://docs.ens.domains/ensip/7/) for the underlying
+record definitions and existing checks.
+
+## Implementer Guide
+
+See [Discovery Records for implementers](/implementers/discovery-records) for
+the verification-key derivation rules, algorithm, and examples.
+
+## Decisions
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Why use bracket notation?</AccordionTitle>
+    <AccordionContent>
+
+The `verification[type][key]` format follows the bracket notation used for
+parameters in [ENSIP-25](https://docs.ens.domains/ensip/25/),
+[ENSIP-26](https://docs.ens.domains/ensip/26/), and
+[ENSIP-27](https://docs.ens.domains/ensip/27/#parameterized-key-names).
+These drafts use keys such as `agent-registration[<registry>][<agentId>]`,
+`agent-endpoint[<protocol>]`, and `key-name[parameter]`.
+
+Brackets make the record type and key recognizable as parameters. Dot notation
+already serves a namespacing role in ENS text keys, such as `com.github`.
+Spaces or another separator would introduce a different convention without a
+clear benefit. Following the existing bracket pattern keeps discovery keys
+consistent with these proposals while preserving the target text key unchanged.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>

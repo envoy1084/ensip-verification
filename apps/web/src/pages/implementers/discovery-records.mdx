@@ -1,0 +1,220 @@
+---
+title: Discovery Records
+description: Rules and algorithm for deriving a verification key.
+---
+
+# Discovery Records
+
+A **verification key** is the ENS text-record key for a record's verification
+descriptor. It is also called the discovery key. Derive it from the record type
+and its selector using the rules below.
+
+For the purpose of discovery records and the supported record types, see
+[Discovery Records](/docs/components/discovery-records) in the main docs.
+
+## Inputs and Output
+
+The input identifies one of four record types:
+
+| Record type   | Required selector | Verification key                 |
+| ------------- | ----------------- | -------------------------------- |
+| `text`        | Exact text key    | `verification[text][<key>]`      |
+| `addr`        | Coin type         | `verification[addr][<coinType>]` |
+| `contenthash` | None              | `verification[contenthash]`      |
+| `pubkey`      | None              | `verification[pubkey]`           |
+
+## Derivation Rules
+
+### Text
+
+Append the exact text key between `verification[text][` and `]`.
+Preserve its case, punctuation, whitespace, and any brackets. Do not trim,
+normalize, escape, or encode the key.
+
+For example, `com.github` stays `com.github`, and `agent-endpoint[mcp]`
+stays `agent-endpoint[mcp]` inside the outer brackets. Construct the verification
+key from the supplied text key; do not split it on dots or brackets.
+
+### Address
+
+Append the coin type in unsigned decimal between `verification[addr][` and `]`.
+The coin type must be an integer from `0` through `2^256 - 1`.
+Use an integer representation that preserves this range without rounding.
+
+The decimal form is `0` or a nonzero digit followed by digits. It has no sign,
+leading zeroes, spaces, decimal point, or exponent. If the input is a string,
+require this form and check the numeric range before constructing the key.
+
+### Contenthash and Public Key
+
+Use the fixed keys `verification[contenthash]` and `verification[pubkey]`.
+Neither takes a selector. Do not append empty brackets or an extra parameter.
+
+## Algorithm
+
+```pseudocode
+function deriveVerificationKey(type, selector):
+  if type == "text":
+    require selector is a string
+    return "verification[text][" + selector + "]"
+
+  if type == "addr":
+    require selector is an integer or canonical decimal string
+    require 0 <= integer(selector) <= 2^256 - 1
+    return "verification[addr][" + unsignedDecimal(selector) + "]"
+
+  if type == "contenthash" or type == "pubkey":
+    require selector is absent
+    return "verification[" + type + "]"
+
+  reject "Unsupported record type"
+```
+
+Use the exact record-type labels shown above. A missing text key or coin type,
+an invalid coin type, or an extra selector for a fixed key is an input error.
+Do not produce a key for invalid inputs.
+
+## Examples
+
+| Input                         | Verification key                          |
+| ----------------------------- | ----------------------------------------- |
+| `text("url")`                 | `verification[text][url]`                 |
+| `text("com.github")`          | `verification[text][com.github]`          |
+| `text("agent-endpoint[mcp]")` | `verification[text][agent-endpoint[mcp]]` |
+| `addr(60)`                    | `verification[addr][60]`                  |
+| `addr(0)`                     | `verification[addr][0]`                   |
+| `contenthash()`               | `verification[contenthash]`               |
+| `pubkey()`                    | `verification[pubkey]`                    |
+
+For a coin type supplied as a string, reject `"060"`, `"+60"`, `"0x3c"`,
+`"60.0"`, and `"6e1"`. The canonical string for each intended value of sixty
+is `"60"`.
+
+## Implementation Examples
+
+Each implementation returns the verification key or reports an error for invalid input.
+Pass coin types as canonical decimal strings or exact integers. In TypeScript,
+use `bigint` for values beyond the safe `number` range.
+
+The Rust version accepts coin types as canonical decimal strings and checks
+their range without an additional dependency.
+
+:::code-group
+
+```typescript [TypeScript]
+function deriveVerificationKey(recordType: string, selector?: unknown): string {
+  switch (recordType) {
+    case "text": {
+      if (typeof selector !== "string") {
+        throw new TypeError("Text records require a string key");
+      }
+      return `verification[text][${selector}]`;
+    }
+    case "addr": {
+      let coinType: bigint;
+      if (typeof selector === "bigint") {
+        coinType = selector;
+      } else if (
+        typeof selector === "number" &&
+        Number.isSafeInteger(selector)
+      ) {
+        coinType = BigInt(selector);
+      } else if (
+        typeof selector === "string" &&
+        /^(0|[1-9][0-9]*)(?![\s\S])/.test(selector) &&
+        selector.length <= 78
+      ) {
+        coinType = BigInt(selector);
+      } else {
+        throw new TypeError("Coin type must be an exact unsigned integer");
+      }
+      if (coinType < 0n || coinType >= 1n << 256n) {
+        throw new RangeError("Coin type is outside the uint256 range");
+      }
+      return `verification[addr][${coinType.toString(10)}]`;
+    }
+    case "contenthash":
+    case "pubkey": {
+      if (selector !== undefined) {
+        throw new TypeError("This record type has no selector");
+      }
+      return `verification[${recordType}]`;
+    }
+    default:
+      throw new TypeError("Unsupported record type");
+  }
+}
+```
+
+```python [Python]
+import re
+
+
+def derive_verification_key(record_type: str, selector=None) -> str:
+    if record_type == "text":
+        if not isinstance(selector, str):
+            raise TypeError("Text records require a string key")
+        return f"verification[text][{selector}]"
+
+    if record_type == "addr":
+        if type(selector) is int:
+            coin_type = selector
+        elif (
+            isinstance(selector, str)
+            and len(selector) <= 78
+            and re.fullmatch(r"0|[1-9][0-9]*", selector)
+        ):
+            coin_type = int(selector)
+        else:
+            raise TypeError("Coin type must be an exact unsigned integer")
+        if not 0 <= coin_type < 2**256:
+            raise ValueError("Coin type is outside the uint256 range")
+        return f"verification[addr][{coin_type}]"
+
+    if record_type in ("contenthash", "pubkey"):
+        if selector is not None:
+            raise TypeError("This record type has no selector")
+        return f"verification[{record_type}]"
+
+    raise ValueError("Unsupported record type")
+```
+
+```rust [Rust]
+pub fn derive_verification_key(
+    record_type: &str,
+    selector: Option<&str>,
+) -> Result<String, &'static str> {
+    match record_type {
+        "text" => {
+            let key = selector.ok_or("Text records require a string key")?;
+            Ok(format!("verification[text][{key}]"))
+        }
+        "addr" => {
+            const MAX_UINT256: &str =
+                "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+            let coin_type = selector.ok_or("Address records require a coin type")?;
+            if coin_type.is_empty()
+                || !coin_type.bytes().all(|b| b.is_ascii_digit())
+                || (coin_type.len() > 1 && coin_type.starts_with('0'))
+            {
+                return Err("Coin type must be a canonical decimal string");
+            }
+            if coin_type.len() > MAX_UINT256.len()
+                || (coin_type.len() == MAX_UINT256.len() && coin_type > MAX_UINT256)
+            {
+                return Err("Coin type is outside the uint256 range");
+            }
+            Ok(format!("verification[addr][{coin_type}]"))
+        }
+        "contenthash" | "pubkey" => {
+            if selector.is_some() {
+                return Err("This record type has no selector");
+            }
+            Ok(format!("verification[{record_type}]"))
+        }
+        _ => Err("Unsupported record type"),
+    }
+}
+```
+
+:::

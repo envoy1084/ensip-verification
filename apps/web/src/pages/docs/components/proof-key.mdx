@@ -1,0 +1,62 @@
+---
+title: Proof Key
+description: Locate a proof at a predictable publication slot.
+---
+
+# Proof Key
+
+A **proof key** identifies a publication slot for a name, record, authority, and
+method. Some methods use it to calculate where a proof must be published before
+reading that proof.
+
+For example, the HTTPS publication method uses:
+
+```text
+https://example.com/.well-known/ens-record-verification/<proof-key>
+```
+
+Separate keys let `alice.eth` and `bob.eth` publish proofs on the same website
+without sharing a file. The `url` and `blog` records on one name also get
+different keys.
+
+## Three Different Values
+
+| Value                | Purpose                                                        |
+| -------------------- | -------------------------------------------------------------- |
+| Discovery-record key | Finds the descriptor in ENS, such as `verification[text][url]` |
+| Claim digest         | Identifies the complete signed statement                       |
+| Proof key            | Identifies a predictable publication slot                      |
+
+The proof key is public. It is not a secret, a hash of the proof file, or proof
+that anyone approved a claim.
+
+## When It Changes
+
+The key includes the protocol's signing domain, authority version, authority
+address, ENS node, record type, record key, and method. Changing any of these
+inputs changes the key.
+
+It excludes the record value and timestamps so the publisher can update or
+renew a proof at the same slot. The full location can still change: moving a
+URL record to another website changes the origin used with the key.
+
+The verifier checks the complete claim after retrieval. An older proof at the
+same slot cannot verify a different current value.
+
+## When It Is Needed
+
+HTTPS uses a proof key to locate the envelope. DNS TXT uses it to locate the
+published claim digest, while `u` supplies the envelope separately.
+
+A method that needs only the envelope at `u` has no additional publication slot
+to derive. Inline envelopes also need no lookup, but a method can still require
+a proof key for separate evidence, as DNS TXT does.
+
+Including the authority gives a new owner a different slot, but does not
+prevent an old proof from becoming usable if that owner later returns. The
+[claim's validity rules](/docs/components/common-claim#changes-and-expiry) still apply.
+
+## Implementer Guide
+
+See [Proof Key](/implementers/proof-key) for the derivation, output encodings,
+and test vector.

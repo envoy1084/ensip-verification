@@ -1,0 +1,68 @@
+---
+title: Common Claim
+description: The statement approved by the ENS authority for one record.
+---
+
+# Common Claim
+
+A **common claim** is the statement the ENS authority approves. It identifies
+one name, one record, its exact value, and the verification method. Every method
+uses the same claim structure.
+
+For example, Alice can approve the association between `alice.eth`'s `url`
+record and `https://example.com/profile`. The claim identifies that exact URL,
+even if the method checks publication by the website's origin.
+
+## What It Contains
+
+| Fields                          | What they identify                                  |
+| ------------------------------- | --------------------------------------------------- |
+| `name`, `node`                  | The normalized ENS name and its namehash            |
+| `recordType`, `recordKey`       | The record being verified                           |
+| `valueHash`                     | A hash of the exact record value                    |
+| `authorityVersion`, `authority` | The authority rules and account approving the claim |
+| `method`, `target`              | The verification method and the resource it checks  |
+| `issuedAt`, `validUntil`        | When the claim was issued and when it expires       |
+
+The verifier derives the name, record, authority, and target from current inputs
+and compares them with the claim. The signed timestamps are checked against the
+allowed validity period. A field is not trusted just because it appears in a proof.
+
+## What Is Signed
+
+The authority signs the claim using [EIP-712](https://eips.ethereum.org/EIPS/eip-712),
+a format for signing structured data. The claim is converted into a **digest**,
+a fixed-size hash used for signature verification.
+
+The signed statement is independent of its JSON or CBOR representation. Changing
+JSON spacing or field order does not change the statement. Changing a claim
+field changes the digest and requires new approval.
+
+The initial signature profile accepts ordinary and compact EOA signatures, and
+smart-account approval through ERC-1271. Delegated EIP-7702 accounts also use
+ERC-1271. Counterfactual signatures that require deployment or preparation are
+deferred. See [Signatures](/implementers/signatures) for the supported formats.
+
+The authority signature provides the ENS side of verification. The selected
+method must still check its required evidence, whether that establishes target
+control or an accepted issuer's attestation.
+
+## Changes and Expiry
+
+A proof must match the record and authority being checked and must not have
+expired. Copying a proof to another ENS name or record does not make it valid there.
+
+The current design permits an unexpired proof to work again if the required
+state is restored. For example, changing a record and later restoring its exact
+value can make the previous proof usable again. The same applies if a former
+owner regains the name and every other check passes. Temporary removal is not
+permanent revocation.
+
+A proof's storage location is not part of the claim. Moving the same proof does
+not require signing again, provided the selected method allows the new location
+and its target-evidence requirements are still met.
+
+## Implementer Guide
+
+See [Common Claim](/implementers/common-claim) for fields and value encoding,
+and [Claim Digest](/implementers/claim-digest) for the exact EIP-712 calculation.

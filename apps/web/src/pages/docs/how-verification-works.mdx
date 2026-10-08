@@ -1,0 +1,134 @@
+---
+title: How Verification Works
+description: Follow a URL record from publication to a verification result.
+---
+
+# How Verification Works
+
+Suppose Alice wants to connect `alice.eth` to `https://example.com/profile`.
+She needs approval from the ENS name's authority and publication by the website
+operator. They may be the same person, but both requirements must be met.
+
+This example uses [HTTPS Origin](/docs/methods/https-origin). The names and URLs
+are illustrative; they do not represent a published, valid proof.
+
+## 1. Publish the Record and Descriptor
+
+An account authorized to edit the resolver publishes two text records:
+
+```text
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+```
+
+The first is the ordinary URL record. The second tells clients how to verify it:
+
+- `ensrv1` selects the descriptor format.
+- `a=1` selects the authority rules.
+- `m=https-origin.v1` selects website publication as the evidence.
+
+There is no `u` in this method's descriptor. The proof location is derived from
+the website origin and the proof key.
+
+## 2. Prepare the Claim
+
+The publishing application reads the current record and determines the ENS
+authority under [Version 1](/docs/authority/version-1). Permission to edit the
+record does not automatically make the editor its verification authority.
+
+It prepares a [common claim](/docs/components/common-claim) containing:
+
+| Part                | Value in this example                                       |
+| ------------------- | ----------------------------------------------------------- |
+| Name and node       | Normalized `alice.eth` and its namehash                     |
+| Record type and key | `text` and `url`                                            |
+| Value hash          | Hash of the exact bytes of `https://example.com/profile`    |
+| Authority           | Version `1` and the account selected from current ENS state |
+| Method              | `https-origin.v1`                                           |
+| Target              | `https://example.com`                                       |
+| Validity            | An issuance time and an exclusive expiry time               |
+
+The full URL is bound by the value hash. The method's target is its origin,
+which consists of the scheme, host, and port.
+
+## 3. Obtain Authority Approval
+
+The ENS authority approves the typed claim. An ordinary wallet signs it using
+EIP-712. A smart account provides approval that can be checked through ERC-1271.
+
+The application packages the result in a [proof envelope](/docs/components/proof-envelope)
+with four fields: `v`, `claim`, `authoritySignature`, and `proof`.
+For HTTPS Origin, `proof` is an empty object. The website's publication supplies
+the method evidence; a separate website signature is not required.
+
+## 4. Publish the Envelope on the Website
+
+The application derives the [proof key](/docs/components/proof-key) from the
+name, record selector, authority, and method under the shared domain. It gives
+the website operator the complete envelope and the required path:
+
+```text
+https://example.com/.well-known/ens-record-verification/<proof-key>
+```
+
+Replace `<proof-key>` with its 64 lowercase hexadecimal characters, without
+`0x`. The operator publishes the envelope as JSON or CBOR at that exact URL.
+The endpoint must return it directly, without a redirect or sign-in requirement.
+Browser readers also need an appropriate CORS response.
+
+Only the website operator, or someone they authorize, should be able to publish
+at this location. An endpoint that lets anyone upload arbitrary envelopes
+would not establish the website's approval.
+
+## 5. A Client Checks the Record
+
+When a client wants to verify the URL, it independently:
+
+1. Reads the current URL record and its discovery descriptor.
+2. Determines the current ENS authority using `a=1`.
+3. Derives the origin, proof key, and exact publication URL.
+4. Retrieves and parses the envelope under the HTTPS method's rules.
+5. Checks that the claim matches the current name, record, authority, and method.
+6. Validates authority approval and checks expiry and evidence freshness.
+
+The client does not accept the authority or target merely because the envelope
+names them. It derives those values from the current ENS state and method rules.
+
+## 6. Return the Result
+
+If every required check passes, the client returns:
+
+```json
+{ "verified": true, "verificationType": "control" }
+```
+
+This means the current ENS authority approved the exact URL record and its
+HTTPS origin published that approval. It does not prove control of a particular
+user profile on a shared website, legal identity, or website safety.
+
+If a check fails or cannot complete, the client returns `verified: false` and
+retains the reason. An expired proof, an invalid signature, and a network timeout
+are different outcomes. The underlying URL record can still be displayed.
+See [Verification Results](/docs/components/verification-results).
+
+## Keep the Proof Current
+
+The result is not permanent. Clients refresh it within five minutes or any
+shorter applicable bound, and re-evaluate after known changes. A changed URL
+needs a matching claim. A new authority needs to approve the connection.
+
+To renew this proof, obtain approval for a new validity period and publish the
+new envelope. The proof key stays the same if its inputs stay the same. Removing
+the descriptor or proof stops new successful checks, but does not instantly
+erase results still within their cache bounds. See [Lifecycle](/docs/components/lifecycle).
+
+## Other Methods
+
+The common claim and authority checks also apply to other methods. DNS TXT
+publishes the claim digest in authenticated DNS and supplies the envelope through
+`u`. Account Signature supplies the envelope through `u` and checks approval
+from the recorded account. Each method defines its own evidence.
+
+Continue with [Discovery Records](/docs/components/discovery-records) for the
+individual components, or the [Verification Algorithm](/implementers/verification-algorithm)
+for the complete implementer procedure.

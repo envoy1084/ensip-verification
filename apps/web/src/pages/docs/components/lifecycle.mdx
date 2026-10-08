@@ -1,0 +1,73 @@
+---
+title: Lifecycle
+description: Understand expiry, renewal, changes, and when verification must be checked again.
+---
+
+# Lifecycle
+
+Verification describes the record, ownership, and evidence checked at a particular
+time. Publishing a proof does not make a record permanently verified.
+
+## Expiry and Refresh
+
+A claim has a signed expiry. Ownership or method evidence can expire earlier,
+so the earliest applicable expiry limits the result.
+
+For example, a claim might last for 30 days while its `.eth` registration expires
+in two days. Verification cannot continue past that registration expiry without
+a fresh check that observes a renewal.
+
+Expiry and caching serve different purposes. Expiry sets a known end to validity;
+caching determines when current state must be checked again. The common positive
+cache limit is five minutes, and methods or applications can require a shorter
+period. A known change requires a fresh check even before that limit.
+
+## What Happens When Things Change
+
+| Change                                   | What needs to happen                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| Record value changes                     | Publish a claim approving the new exact value                                  |
+| Authority changes                        | Obtain approval from the newly selected authority                              |
+| Authority version or method changes      | Publish a claim matching the new descriptor                                    |
+| Proof location changes                   | Check the new location; the same claim may still work if the method permits it |
+| Claim expires                            | Create a renewed claim and obtain the required approvals                       |
+| Resolver or smart-account policy changes | Repeat verification against the new state                                      |
+
+Renewing an ENS registration can extend the ownership bound seen by a new check.
+It does not change a claim's signed expiry or extend an already cached result.
+
+Renewing a proof changes its timestamps and digest. The authority must approve
+the new claim, and the method must provide matching target evidence. An inline
+proof or immutable storage reference also requires a descriptor update.
+
+## Disabling Verification
+
+Clearing the discovery record stops new positive evaluations once that change
+is observed. Previously cached results may remain in use until their refresh
+limit unless the client learns about the change earlier.
+
+Removing a published proof can also stop a method that requires live publication.
+A temporary network failure has a different meaning: the verifier could not
+finish the check, rather than establishing that approval was withdrawn.
+
+## Restoring an Earlier State
+
+This version does not provide permanent revocation of every proof copy. An old,
+unexpired proof can work again if the required record, authority, descriptor,
+and evidence are restored and every check passes.
+
+For example, Alice can transfer a name to Bob and later receive it back. Her
+previous proof may then work again. Its signed expiry still applies.
+
+## Updating Without a Gap
+
+Publish new proof material before selecting it where the method allows that
+order. Some updates share one publication slot, so replacing the record and
+proof cannot happen together. Verification may temporarily fail during that
+change. Clients must not accept a mismatched proof to hide the gap.
+
+## Implementer Guide
+
+See [Lifecycle](/implementers/lifecycle) for time checks, expiry calculations,
+cache rules, and chain-state requirements. [Verification Results](/docs/components/verification-results)
+explains how to present the outcome.

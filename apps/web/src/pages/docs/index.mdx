@@ -1,0 +1,129 @@
+---
+title: Introduction
+description: Verify the connection between an ENS record and the external resource it identifies.
+---
+
+# Record Verification
+
+ENS resolver records associate a name with external resources, such as a
+website, a blockchain account, or published content. These records tell
+applications where to find a resource, but do not prove control of it.
+
+For example, `alice.eth` can publish a URL record:
+
+```text
+text("url") = "https://example.com/profile"
+```
+
+An account with permission to update the record can set this value. The record
+alone does not prove that the operator of `example.com` approved its
+association with `alice.eth`.
+
+Record Verification defines a way to verify this association for one specific
+ENS record. The current ENS authority signs a claim approving the exact record
+value. The selected verification method then checks evidence from the external
+resource, such as a proof published by the website operator.
+
+The proposal uses existing ENS text records to configure verification. It does
+not require a new resolver interface or store a permanent verification status
+onchain.
+
+The current scope covers text, address, contenthash, and public-key records.
+Each requires a verification method suited to its value; inclusion in this
+scope does not mean every value can already be verified. The
+[Discovery Records](/docs/components/discovery-records) page defines their
+companion keys.
+
+## How It Works
+
+A name enables verification for a record by publishing a companion text record:
+
+```text
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+```
+
+The companion value is a **verification descriptor**. It selects the rules for
+identifying the ENS authority and verifying the external resource. In this
+example, `https-origin.v1` checks proof published by the URL's HTTPS origin.
+The original `url` record continues to resolve normally.
+
+The verification flow has three parts:
+
+1. The current **ENS authority**, determined from the name's ownership state,
+   signs a claim approving the exact URL record. Permission to edit a resolver
+   record does not automatically make an account the verification authority.
+2. The operator of `https://example.com` publishes the signed claim at the
+   location defined by the method.
+3. A verifier reads the current ENS record, descriptor, and authority, then
+   retrieves the proof. It checks that the claim matches the record, the
+   authority signature is valid, and the proof has not expired.
+
+The **claim** is the statement being signed. It binds the ENS name, record type
+and key, exact value hash, authority, verification method, target, and validity
+period. A proof for one name or record cannot be reused to verify another.
+
+Each method defines its own evidence of control. The HTTPS method requires
+publication by the URL's origin. The DNS method requires publication in a
+DNSSEC-authenticated TXT record beneath the URL's hostname. For
+[DNS TXT](/docs/methods/dns-txt), that record contains the claim digest;
+the complete envelope comes from descriptor `u`.
+
+## What a Result Means
+
+When every required check passes, the result is:
+
+```json
+{ "verified": true, "verificationType": "control" }
+```
+
+For this example, the result means the current ENS authority approved the exact
+URL record and `https://example.com` published that approval. The claim binds
+the full URL, including `/profile`. The evidence of control applies to the
+HTTPS origin, defined by its scheme, host, and port, rather than to an
+individual page.
+
+Verification applies only to the record and state that were checked. It does
+not verify every record on `alice.eth`, establish legal identity, or guarantee
+that the website or its content is safe.
+
+If a required check fails or cannot be completed, the result is:
+
+```json
+{ "verified": false }
+```
+
+This can mean verification is not configured, the proof is invalid or expired,
+the method is unsupported, or a required service is unavailable. A failed
+verification does not change or remove the ENS record.
+
+## Validity and Changes
+
+A verification result describes the state observed at the time of the check.
+Changes to the record, authority, descriptor, or published proof require a new
+evaluation. Proofs also expire, and applications must refresh results within
+the protocol's cache limits.
+
+Record Verification is a draft ENSIP proposal. Its requirements and conformance
+tests are still being developed.
+
+## Reading Order
+
+Start with [How Verification Works](/docs/how-verification-works) for one complete
+example, then read the individual components below.
+
+1. [Discovery Records](/docs/components/discovery-records) - Find the verification
+   information for a record.
+2. [Verification Descriptor](/docs/components/verification-descriptor) - Understand
+   the authority version, method, and proof location.
+3. [Authority](/docs/authority) - Understand whose approval counts.
+
+4. [Common Claim](/docs/components/common-claim) - Understand the signed statement.
+5. [Proof Envelope](/docs/components/proof-envelope) - See how a proof is packaged.
+6. [Proof Key](/docs/components/proof-key) - Find a deterministic publication slot.
+
+7. [Lifecycle](/docs/components/lifecycle) - Understand expiry, updates, and refresh.
+8. [Verification Results](/docs/components/verification-results) - Interpret the outcome.
+
+9. [Verification Methods](/docs/methods) - Choose the evidence required for the target,
+   starting with [HTTPS Origin](/docs/methods/https-origin).

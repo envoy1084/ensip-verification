@@ -1,0 +1,175 @@
+---
+title: HTTPS Origin
+description: Validate origin publication for the https-origin.v1 method.
+---
+
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTitle,
+} from "../../../components/accordion.tsx";
+
+# HTTPS Origin
+
+`https-origin.v1` checks publication of the common envelope by the HTTPS origin
+derived from one live ENS text record. It returns `control` after all common
+and method checks pass.
+
+## Applicability
+
+| Property                        | Rule                                                         |
+| ------------------------------- | ------------------------------------------------------------ |
+| Record type                     | `text`                                                       |
+| Text key                        | Any exact text key                                           |
+| Value                           | Nonempty strict UTF-8 string accepted by the URL rules below |
+| Descriptor `m`                  | Exactly `https-origin.v1`                                    |
+| Descriptor `u`                  | Forbidden                                                    |
+| Envelope formats                | JSON or CBOR                                                 |
+| Method proof                    | Empty object in JSON or empty map in CBOR                    |
+| Maximum decoded envelope        | 256 KiB                                                      |
+| Proposed maximum claim lifetime | 31,536,000 seconds (365 days)                                |
+
+Use the common [authority signature rules](/implementers/signatures), including
+compact EOA signatures and ERC-1271. This method requires no separate target
+signature: HTTPS publication is the target evidence.
+
+## URL and Target
+
+Apply these rules to the exact decoded text value:
+
+1. Reject ASCII whitespace and C0 control characters.
+2. Parse the complete string using the [WHATWG URL Standard](https://url.spec.whatwg.org/), without a base URL.
+3. Require scheme `https:`, a nonempty host, and empty username and password.
+4. Reject a domain host whose serialized hostname ends in a dot.
+5. Reject IPv6 zone identifiers and opaque origins.
+6. Set `target` to the serialized origin, without a trailing slash.
+
+Paths, queries, and fragments are allowed in the record. They do not appear in
+the target. Domain hosts use lowercase ASCII A-label serialization; default
+port `443` is omitted and non-default ports remain. IP literals use WHATWG
+serialization and must pass the public-network policy before connection.
+
+| Record                                        | Derived target             |
+| --------------------------------------------- | -------------------------- |
+| `https://example.com/profile?view=full#about` | `https://example.com`      |
+| `https://EXAMPLE.com:443/profile`             | `https://example.com`      |
+| `https://example.com:8443/profile`            | `https://example.com:8443` |
+
+Compute `valueHash` from the original decoded record's UTF-8 bytes. Do not hash
+the URL parser's reserialized output. The exact record remains bound even where
+the target has a normalized representation.
+
+The current draft uses WHATWG parsing after these explicit checks. Additional
+rejection of repairable slash and backslash forms is still a pending decision;
+do not describe this as a strict RFC 3986 acceptance profile.
+
+## Proof Location
+
+Derive the common [proof key](/implementers/proof-key) from the live inputs.
+Encode its 32 bytes as 64 lowercase hexadecimal characters without `0x`.
+
+```text
+proofURL = target + "/.well-known/ens-record-verification/" + proofKeyHex
+```
+
+The request has no query or fragment. Do not append a file extension, change the
+port, add or remove `www`, or search a parent domain. Do not replace this location
+with descriptor `u`, an inline envelope, or an arbitrary proxy.
+
+The well-known suffix must be registered under
+[RFC 8615](https://www.rfc-editor.org/rfc/rfc8615.html) before finalization.
+
+## HTTPS Response
+
+Apply [HTTPS retrieval](/implementers/proof-retrieval/https), including TLS
+service-identity checks, credentialless GET, public-destination checks on every
+connection, and rejection of all redirects. A same-origin redirect also fails.
+
+Require a complete status `200` response. Use the response media type to select
+`application/json` or `application/cbor`. Do not sniff the body or infer the
+format from a filename. JSON must remain strict UTF-8 regardless of media-type
+parameters; no charset conversion is allowed.
+
+Parse the [common envelope](/implementers/proof-envelope) within the 256 KiB
+limit. Require `proof` to be exactly empty. Both formats carry the same logical
+claim, and CBOR uses the common mapping with an empty method-proof map.
+
+The proposed fresh-evaluation policy requests a complete response rather than
+using conditional requests. Status `304` is not accepted as a proof response.
+Compression and exact request/cache settings remain to be finalized below.
+
+## Verification Steps
+
+1. Check record applicability and descriptor fields at the ENS snapshot.
+2. Select the authority and derive the value hash, target, proof key, and URL.
+3. Fetch the envelope under the required HTTPS policy.
+4. Parse and validate the envelope, including its empty `proof`.
+5. Compare every derived claim field, including method and target.
+6. Validate authority approval of the common claim digest.
+7. Apply claim lifetime, authority expiry, and all common lifecycle checks.
+8. Confirm the snapshot remains acceptable and return a `control` result.
+
+Do not infer approval from a valid signature without publication, or from
+publication without the authority signature. A website that lets arbitrary users
+serve arbitrary envelopes at the proof endpoint cannot rely on this mechanism
+to distinguish operator approval from user uploads.
+
+## Freshness
+
+This method defines no separate hard evidence expiry. Publication can change
+at any time. HTTP freshness can shorten evidence reuse, but cannot extend the
+common five-minute result-cache ceiling or an earlier hard expiry.
+
+Apply the [Lifecycle rules](/implementers/lifecycle) and account for time already
+spent in caches. Do not use a stale response after a failed refresh. A `no-store`
+response can be validated for the current attempt but must not be retained in
+an HTTP response cache.
+
+## Failures and Browser Support
+
+A malformed envelope, claim mismatch, rejected signature, redirect, or wrong
+media type cannot produce a positive result. An observed `404` or `410` means
+required publication is absent; it does not mean the ENS descriptor is unset.
+A timeout, connection failure, or server failure is unavailable evidence.
+
+TLS validation failure prevents publication from being authenticated. CORS can
+also prevent a browser from reading a valid response. Neither establishes that
+the authority signature is invalid. Preserve the cause using the common
+[result categories](/implementers/verification-results).
+
+Browsers need suitable CORS headers at the endpoint. They may also lack control
+over peer-address checks, ambient transport behavior, or compression limits.
+A client that cannot enforce required checks must report the limitation and
+cannot claim the server verification profile. An arbitrary public proxy is not
+a substitute for authenticated publication.
+
+## Open Issues
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Which transport and lifetime parameters remain?</AccordionTitle>
+    <AccordionContent>
+
+Confirm the 365-day maximum claim lifetime, accepted content encodings, transfer
+limits, connection and total deadlines, and exact cache-request behavior. The
+current recommendation is a full `200` response for each fresh evaluation,
+with bounded work and no stale-response fallback. These parameters need shared
+boundary cases before the profile is frozen.
+
+    </AccordionContent>
+
+  </AccordionItem>
+  <AccordionItem>
+    <AccordionTitle>Should repairable URL forms be rejected?</AccordionTitle>
+    <AccordionContent>
+
+WHATWG parsing can accept nonstandard slash and backslash forms. Decide whether
+to add explicit rejection rules, then freeze URL acceptance and target
+serialization vectors. Implementations must use one agreed rule rather than
+silently substitute their platform's URL parser behavior.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>

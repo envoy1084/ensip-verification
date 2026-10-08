@@ -1,0 +1,85 @@
+---
+title: Verification Results
+description: Understand what a verification result establishes and what a failed check means.
+---
+
+# Verification Results
+
+A result applies to one ENS record and the state that was checked. It does not
+verify every record on the name or change the resolver's value.
+
+## Successful Verification
+
+When all required checks pass, the result includes the type of verification.
+For a method that establishes control:
+
+```json
+{
+  "verified": true,
+  "verificationType": "control"
+}
+```
+
+The supported types are:
+
+| Type          | Meaning                                                                                                              |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `control`     | The ENS authority approved the claim and the method's evidence establishes control of its target                     |
+| `attestation` | The ENS authority approved the claim and an issuer accepted under the method and client's trust rules attested to it |
+
+An attestation method returns:
+
+```json
+{
+  "verified": true,
+  "verificationType": "attestation"
+}
+```
+
+The selected method determines the type. An attestation does not automatically
+prove target control, and a client must not present it as a control result.
+The method defines what the issuer attests to and which issuers are accepted.
+
+Neither type alone establishes legal identity or guarantees that a website or
+other resource is safe. A result establishes only what its method checks.
+
+## When Verification Does Not Succeed
+
+If a required check fails or cannot be completed, the minimal result is:
+
+```json
+{ "verified": false }
+```
+
+That result alone does not explain the cause:
+
+| Reason         | Meaning                                                                |
+| -------------- | ---------------------------------------------------------------------- |
+| Not configured | A required record or verification descriptor is unset                  |
+| Unsupported    | The client does not support a required version, method, or capability  |
+| Invalid        | A definite check failed, such as a claim mismatch or invalid signature |
+| Expired        | A required validity period has ended                                   |
+| Unavailable    | A service or resource needed for the check could not be obtained       |
+| Policy blocked | The client does not allow the required operation                       |
+
+A timeout is not evidence of a bad signature. An unsupported method is not
+evidence that the owner published a false claim. Applications should preserve
+these distinctions when explaining why verification did not complete.
+
+## Displaying a Result
+
+Associate the result with the record that was checked. Where useful, show when
+it was checked and why an unsuccessful attempt could not verify it.
+
+Do not present an old positive result as current after its cache limit or after
+a known change. A failed refresh does not extend its validity. The original
+ENS record may still be displayed as unverified.
+
+These JSON examples describe the result's meaning. They do not require every
+library or application to expose the same API shape.
+
+## Implementer Guide
+
+See [Verification Results](/implementers/verification-results) for result
+semantics, diagnostic categories, and evaluation metadata. See
+[Lifecycle](/docs/components/lifecycle) for expiry and refresh behavior.

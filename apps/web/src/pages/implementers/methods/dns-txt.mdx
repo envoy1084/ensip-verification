@@ -1,0 +1,147 @@
+---
+title: DNS TXT
+description: Verify DNS publication of a claim digest with the envelope supplied through u.
+---
+
+# DNS TXT
+
+`dns-txt.v1` requires DNSSEC-authenticated publication of the common claim digest.
+Retrieve the envelope through descriptor `u`, then match the digest calculated
+from its validated claim to the DNS value. Do not hash the serialized file.
+
+## Applicability
+
+| Property                        | Rule                                                                 |
+| ------------------------------- | -------------------------------------------------------------------- |
+| Record type                     | `text`, with any exact text key                                      |
+| Value                           | Eligible HTTPS URL with a domain host                                |
+| Descriptor `m`                  | Exactly `dns-txt.v1`                                                 |
+| Descriptor `u`                  | Required                                                             |
+| Envelope                        | JSON or CBOR; empty method-proof object or map                       |
+| Locations                       | All locations defined by the current descriptor and retrieval guides |
+| Result                          | `control` of the target hostname                                     |
+| Proposed maximum claim lifetime | 31,536,000 seconds (365 days)                                        |
+
+Apply the shared [descriptor](/implementers/verification-descriptor),
+[retrieval](/implementers/proof-retrieval), [envelope](/implementers/proof-envelope),
+and [signature](/implementers/signatures) rules. Envelope limits remain 16 KiB
+for inline data and 256 KiB for external resources. A client without a required
+retrieval capability reports unsupported; it must not substitute another location.
+
+## Target and DNS Name
+
+Use the [HTTPS Origin URL acceptance rules](/implementers/methods/https-origin#url-and-target).
+Additionally require a domain host, excluding IPv4 and IPv6 literals. Set
+`claim.target` to the serialized lowercase ASCII hostname, without a trailing
+dot, scheme, port, path, query, or fragment. Hash the original record's UTF-8
+bytes for `valueHash`.
+
+Derive the common [proof key](/implementers/proof-key) using `dns-txt.v1` as the
+method. Encode its 32 bytes as 52 lowercase Base32 characters without padding,
+using [RFC 4648](https://www.rfc-editor.org/rfc/rfc4648.html).
+
+```text
+<proof-key-base32>._ens-record-verification.<target>.
+```
+
+Query that absolute name with class `IN`, type `TXT`. Never query a parent,
+alternate prefix, or proof-supplied hostname.
+
+Validate the uncompressed DNS wire name first: each label is at most 63 octets
+and the whole name, including label lengths and the root terminator, is at most
+255 octets. The two added labels consume 78 wire bytes. Reject an overlong name
+rather than shortening the key. These limits come from
+[RFC 1035](https://www.rfc-editor.org/rfc/rfc1035.html#section-2.3.4).
+
+## TXT Value
+
+Require exactly one TXT RDATA at the terminal owner. Its assembled value is:
+
+```text
+ensrv1 d=<64-lowercase-hex-digits>
+```
+
+The value is exactly 73 ASCII bytes. Require the literal prefix `ensrv1 d=`,
+followed by 64 characters from `0-9a-f`. Reject `0x`, extra fields, whitespace,
+uppercase hex, and trailing bytes. Decode the hex to a 32-byte expected digest.
+
+TXT RDATA contains one or more character strings, each at most 255 bytes.
+Concatenate strings within that single RDATA in wire order, without separators;
+stop if the total exceeds 73 bytes. Do not include presentation quotes or escapes.
+Publishers should use a single string for this short value.
+
+Do not concatenate separate TXT records or select a preferred one from several.
+Zero records means missing publication; more than one is ambiguous and invalid.
+See [RFC 1035 TXT format](https://www.rfc-editor.org/rfc/rfc1035.html#section-3.3.14).
+
+## DNSSEC and Aliases
+
+Require the final answer and all validation dependencies to be `Secure` under
+the accepted IANA root trust anchors. Apply
+[RFC 4035](https://www.rfc-editor.org/rfc/rfc4035.html) validation, including
+signature time checks at the final `checkedAt`. Do not downgrade `Insecure`,
+`Bogus`, or `Indeterminate` evidence to unsigned DNS.
+
+Validation may be local or delegated to a trusted validating resolver over an
+authenticated channel. An `AD` bit from an arbitrary resolver is insufficient.
+The service must provide authenticated status and freshness metadata sufficient
+to enforce these rules. DNS over HTTPS alone does not prove DNSSEC validation.
+
+Allow at most eight authenticated CNAME or DNAME alias steps. Reject loops,
+conflicting records, name overflow, and any insecure link. Validate DNAME and
+its synthesized CNAME according to [RFC 6672](https://www.rfc-editor.org/rfc/rfc6672.html).
+The terminal name is only a retrieval location; the claim target remains the
+original hostname. Aliasing delegates publication at that DNS slot.
+
+Do not search wildcard names yourself. If DNS resolution supplies a wildcard
+answer, it must include the DNSSEC proofs required to authenticate that answer
+for the exact queried name. Signed delegation to a child zone is permitted only
+when the validation chain remains secure.
+
+## Verification Steps
+
+1. Read the live record and descriptor, require `u`, and select the authority.
+2. Derive the value hash, target, proof key, and absolute DNS name.
+3. Retrieve and parse the envelope from `u`; require an empty `proof`.
+4. Compare all derived claim fields and validate the signed time fields.
+5. Calculate `commonClaimDigest` and validate authority approval of it.
+6. Obtain the Secure TXT answer and parse its digest.
+7. Require byte-for-byte equality with `commonClaimDigest`.
+8. Recheck final time and snapshot conditions, then return `control`.
+
+The TXT digest is not a substitute for signature validation. Signature bytes
+and `u` are outside the digest, so replacing either still requires all independent
+checks. Matching DNS alone cannot make a forged signature valid.
+
+## Freshness and Updates
+
+Bound `methodEvidenceCacheUntil` by the earliest authenticated reuse deadline
+across the TXT answer, alias chain, and required DNSSEC validation dependencies.
+Account for remaining TTLs, time already spent in caches, and covering signature
+expirations. Apply the common five-minute ceiling, snapshot limits, and all hard
+expiries through [Lifecycle](/implementers/lifecycle).
+
+This method does not define a separate `methodEvidenceValidUntil`. DNS validity
+is checked at evaluation time and constrains evidence reuse. A TTL or refresh
+deadline is not a new signed claim expiry.
+
+Do not use expired or stale DNS evidence after a refresh fails. The five-minute
+result ceiling does not guarantee global revocation within five minutes of a
+DNS update: previously signed DNS answers may remain valid under DNSSEC.
+
+A renewed claim needs a new TXT digest. One TXT value cannot approve old and new
+claims simultaneously, so DNS propagation and envelope replacement may create a
+verification gap. Do not accept multiple TXT digests to hide it. Moving an
+unchanged claim between proof locations does not require a DNS change.
+
+## Failures and Remaining Parameters
+
+A digest mismatch or malformed TXT value is invalid. Authenticated absence
+means required publication is missing, not that the ENS descriptor is unset.
+Distinguish unsupported DNSSEC capability, unavailable resolution, insecure
+zones, and bogus validation in diagnostics. None permits a positive result.
+
+The exact DNS work budgets, validating-service interface, negative-cache limits,
+and final confirmation of the 365-day lifetime remain pending. A complete
+conformance set must cover TXT assembly, aliases, wildcard proofs, insecure
+chains, key rollover, expiration, and DNS/envelope update mismatches.

@@ -1,0 +1,16 @@
+{
+  "index": "Introduction",
+  "verification-algorithm": "Verification Algorithm",
+  "discovery-records": "Discovery Records",
+  "verification-descriptor": "Verification Descriptor",
+  "authority": "Authority",
+  "common-claim": "Common Claim",
+  "claim-digest": "Claim Digest (EIP-712)",
+  "signatures": "Signatures",
+  "proof-envelope": "Proof Envelope",
+  "proof-key": "Proof Key",
+  "lifecycle": "Lifecycle",
+  "verification-results": "Verification Results",
+  "methods": "Verification Methods",
+  "proof-retrieval": "Proof Retrieval"
+}

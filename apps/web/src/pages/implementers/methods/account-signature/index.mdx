@@ -1,0 +1,26 @@
+---
+title: Account Signature
+description: Select an account-signature profile and verify both approvals.
+---
+
+# Account Signature
+
+`account-signature.<profile>.v1` is a method family for ENS address records.
+Select the exact profile from the live descriptor's `m` field. The profile
+defines the coin types, target account, signing input, and method-proof schema.
+
+| Method                        | Guide                                                     |
+| ----------------------------- | --------------------------------------------------------- |
+| `account-signature.eip155.v1` | [EIP-155](/implementers/methods/account-signature/eip155) |
+
+Require `u` to identify the complete [proof envelope](/implementers/proof-envelope).
+Apply the shared [retrieval rules](/implementers/proof-retrieval). The location
+is transport, not evidence of account control. No proof key is required.
+
+Verify `authoritySignature` using the selected ENS authority. Separately verify
+the target approval using the selected profile. Both approvals must bind the
+same common claim, and both must pass even if the accounts are identical.
+
+Successful verification returns `control`. Unknown profiles are unsupported;
+do not substitute another profile or signature interpretation. No other account
+profiles are defined on these pages yet.

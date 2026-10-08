@@ -14,7 +14,9 @@ Previous drafts are preserved under
 - `/internal/references`: implementation requirements and conformance plans.
 - `/internal/sdk-readme` and `/internal/sdk-roadmap`: historical SDK notes.
 
-The `/docs` and `/references` routes are available for the new documentation.
+New reader documentation starts at `/docs`, with its source in
+[apps/web/src/pages/docs](./apps/web/src/pages/docs). The `/references` route
+is reserved for the new implementation specification.
 
 ## Development
 

@@ -1,0 +1,122 @@
+---
+title: Verification Descriptor
+description: Choose the authority rules, verification method, and proof location for an ENS record.
+---
+
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTitle,
+} from "../../../components/accordion.tsx";
+
+# Verification Descriptor
+
+A **verification descriptor** is the value stored in a record's
+[discovery record](/docs/components/discovery-records). It tells a verifier
+which authority rules and verification method to use, and where to find a proof
+when the method needs a location.
+
+For example, the discovery record `verification[text][url]` could contain
+`ensrv1 a=1 m=https-origin.v1`.
+
+## What It Contains
+
+| Part                | Purpose                                                                    |
+| ------------------- | -------------------------------------------------------------------------- |
+| `ensrv1`            | Identifies the version of the descriptor and common verification protocol. |
+| `a=1`               | Selects the rules for determining the current ENS authority.               |
+| `m=https-origin.v1` | Selects a specific verification method and version.                        |
+| `u=...`             | Provides a proof location or an inline proof, when the method allows it.   |
+
+A descriptor configures verification. Publishing it does not, by itself,
+prove that the target approved its association with the ENS name.
+
+## Authority and Method
+
+The `a` field selects the rules for finding the account that can approve the
+association. It is not an ENS generation number.
+[Authority version 1](/docs/authority/version-1) defines an ownership algorithm
+for ENS v1 on Ethereum mainnet.
+
+The `m` field selects how to check the target's approval. An HTTPS method checks
+publication by a website. An account-signature method checks the target account's
+signature. Each method has a version and defines the record types it supports.
+
+## Proof Locations
+
+Some methods determine the proof location from the target record. Others use
+`u` to specify it. The proposal covers the following options:
+
+| Location            | How it is used                                                                                                              |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| HTTPS               | Read a proof from a web resource.                                                                                           |
+| IPFS                | Read a proof identified by a CID, with an optional path.                                                                    |
+| IPNS                | Resolve a mutable name to the proof's current location.                                                                     |
+| Swarm               | Read a proof through a content reference and optional manifest path.                                                        |
+| Arweave             | Read proof data by identifier, with optional manifest-path resolution.                                                      |
+| Sia/Skynet          | Read a proof through a Skylink and optional path.                                                                           |
+| Tor onion services  | Read a proof from an onion service over Tor. New retrieval support uses v3; legacy v2 addresses are recognized as obsolete. |
+| Inline JSON or CBOR | Store the complete encoded proof inside the descriptor.                                                                     |
+
+The selected method decides which locations it accepts. A proof stored on IPFS,
+for example, cannot replace required publication at a website or DNS name.
+
+## Inline Proofs
+
+Inline proofs use a data URI in `u`. The initial formats are
+`data:application/json;base64,...` and `data:application/cbor;base64,...`.
+
+JSON uses the proof's text representation. CBOR provides a binary
+representation that can store hashes and signatures more compactly. Base64
+encodes either representation for use in the ENS text record.
+
+Both contain the complete proof envelope and undergo the same verification
+checks as external proofs. Inline storage avoids a separate proof download,
+but increases the record size. Replacing or renewing an inline proof requires
+updating the descriptor.
+
+## Updates and Availability
+
+Every proof must match the current record and authority and remain within its
+validity period. Permanent storage does not make a proof permanently valid.
+
+Renewing an inline proof or an immutable reference requires updating the
+descriptor. A mutable location can serve a renewed proof at the same address.
+
+Some locations require a provider or a live service. If a client cannot retrieve
+a proof, it should report that limitation. This is different from retrieving a
+proof and finding it invalid.
+
+## Decisions
+
+<Accordion>
+  <AccordionItem>
+    <AccordionTitle>Why keep authority and method versions separate?</AccordionTitle>
+    <AccordionContent>
+
+Ownership rules and target-verification rules can change independently.
+Explicit versions let clients apply the intended rules without guessing from
+the ENS generation or falling back to a different method.
+
+    </AccordionContent>
+
+  </AccordionItem>
+  <AccordionItem>
+    <AccordionTitle>Why use one field for external and inline proofs?</AccordionTitle>
+    <AccordionContent>
+
+Both identify the source of the proof bytes. Data URIs let `u` contain those
+bytes directly, while other URI schemes locate them elsewhere. The selected
+method still determines whether that source is acceptable.
+
+    </AccordionContent>
+
+  </AccordionItem>
+</Accordion>
+
+## Implementer Guide
+
+See [Verification Descriptor for implementers](/implementers/verification-descriptor)
+for field syntax and limits. The [Proof Retrieval guides](/implementers/proof-retrieval)
+explain how to read proofs from each location.

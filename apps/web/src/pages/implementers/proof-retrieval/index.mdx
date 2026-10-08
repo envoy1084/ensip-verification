@@ -1,0 +1,82 @@
+---
+title: Proof Retrieval
+description: Shared rules for reading and decoding a verification proof.
+---
+
+# Proof Retrieval
+
+Retrieval produces the proof bytes for a verification method. It does not verify
+the claim, signatures, or the target's approval.
+
+Use the location selected by the method: either the descriptor's `u` field or
+a location derived from the target record. Do not search for another proof when
+that location fails.
+
+## Locations
+
+| Location                           | Guide                                                   |
+| ---------------------------------- | ------------------------------------------------------- |
+| Inline JSON or CBOR                | [Inline Proofs](/implementers/proof-retrieval/inline)   |
+| Web resource                       | [HTTPS](/implementers/proof-retrieval/https)            |
+| Content identified by a CID        | [IPFS](/implementers/proof-retrieval/ipfs)              |
+| Mutable name                       | [IPNS](/implementers/proof-retrieval/ipns)              |
+| Swarm reference                    | [Swarm](/implementers/proof-retrieval/swarm)            |
+| Transaction or data-item reference | [Arweave](/implementers/proof-retrieval/arweave)        |
+| Skylink                            | [Sia / Skynet](/implementers/proof-retrieval/sia)       |
+| Onion service                      | [Tor Onion Services](/implementers/proof-retrieval/tor) |
+
+These guides define the proposal's retrieval rules. Limits and exact encoding
+profiles remain subject to conformance review; upstream protocol support alone
+does not establish that an implementation follows these rules.
+
+## Shared Rules
+
+- Use only locations and proof formats allowed by the selected method.
+- Return one complete proof envelope. Do not accept a directory listing or web page.
+- Reject HTTP redirects. Resolving a signed name or a manifest is a separate,
+  protocol-defined operation, not permission to follow HTTP redirects.
+- For HTTP gateway requests, use the credential, TLS, and network restrictions
+  in the [HTTPS guide](/implementers/proof-retrieval/https). Gateway containers
+  use their own response media types before the proof is extracted.
+- Gateways and portals are configured by the client. A URI cannot select a local
+  service or override that configuration.
+- Check content identifiers, signatures, and paths as required by each network.
+  A gateway's successful response alone is not an integrity check.
+- Never execute downloaded content or open it as an interactive document.
+
+## Limits
+
+The proposed limits are 16 KiB for a decoded inline envelope and 256 KiB for an
+external envelope. A method can set a lower limit. Enforce limits while reading,
+not after buffering the entire response.
+
+Set finite connection, response, and total deadlines. Also bound the total bytes,
+requests, blocks, and name or manifest lookups used to obtain a proof. Detect
+resolution loops. Retries and gateway changes share the same overall budget.
+Exact transport-work budgets still need conformance values; reaching a local
+budget is a retrieval failure, not evidence that the proof is invalid.
+
+## Proof Format
+
+Accept `application/json` or `application/cbor` only when the method permits it.
+Use the response's media type for direct HTTPS or Tor requests. For decentralized
+storage, use authenticated content metadata or a format fixed by the method.
+If neither is available, report an unsupported representation. Do not guess from
+a file extension or try a second parser after the first fails.
+
+Transport containers, such as IPFS block archives, are not proof envelopes.
+Validate and extract the file first, then apply its proof format and size limit.
+The [Inline Proofs guide](/implementers/proof-retrieval/inline#envelope-parsing)
+defines the shared JSON and CBOR parsing rules.
+
+## Caching and Failures
+
+Immutable bytes can be cached by their verified identifier. Mutable references
+must be refreshed within their validity and cache limits. Neither kind of cache
+makes a verification result permanent: current ENS state and proof expiry still
+need to be checked.
+
+Keep these outcomes distinct: invalid location, unsupported transport or format,
+resource unavailable, retrieval limit reached, and failed integrity check.
+None is a positive verification result. Successfully retrieved bytes still need
+full proof validation.

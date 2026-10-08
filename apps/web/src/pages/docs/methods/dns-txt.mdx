@@ -1,0 +1,89 @@
+---
+title: DNS TXT
+description: Verify a DNSSEC-authenticated claim digest for an ENS URL record.
+---
+
+# DNS TXT
+
+`dns-txt.v1` checks that a domain publishes the digest of a claim approved by
+the ENS authority. The digest goes in a DNS TXT record; the complete envelope
+comes from descriptor `u`. Successful verification returns `control`.
+
+The published value is the common EIP-712 claim digest, not a hash of the
+proof file. JSON and CBOR representations of the same claim produce the same digest.
+
+## Configure the ENS Record
+
+For example, `alice.eth` publishes:
+
+```text
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=dns-txt.v1 u=https://proofs.example/alice.json"
+```
+
+The method accepts any text key containing an eligible HTTPS URL with a domain
+host. It does not accept IP-address hosts. The target in this example is
+`example.com`; the exact full URL is still bound by the claim's value hash.
+
+`u` is required. It may use any location supported by the
+[descriptor rules](/docs/components/verification-descriptor), including an
+inline JSON or CBOR envelope. The envelope host need not be the target domain.
+Its role is to supply bytes, not establish domain control.
+
+## Publish the DNS Record
+
+Prepare the common claim with `method = "dns-txt.v1"` and obtain the authority's
+signature. Store the completed envelope at `u`, with an empty `proof` object.
+Calculate the claim digest and the separate [proof key](/docs/components/proof-key).
+
+Publish one TXT record at:
+
+```text
+<proof-key-base32>._ens-record-verification.example.com.
+```
+
+Its value is:
+
+```text
+ensrv1 d=<claim-digest-hex>
+```
+
+Replace the placeholders with the 52-character lowercase Base32 proof key and
+the 64-character lowercase hexadecimal claim digest, without `0x`.
+The TXT value is only 73 bytes. The full envelope stays outside DNS, so larger
+smart-account signatures do not enlarge the DNS value.
+
+The domain must have a valid DNSSEC chain. DNSSEC lets the verifier authenticate
+the DNS publication. An ordinary unsigned TXT answer is not sufficient.
+
+## What the Verifier Checks
+
+The verifier reads the envelope from `u`, checks it against the current ENS
+record and authority, and calculates its claim digest. It then requires that
+same digest in the authenticated TXT record at the derived DNS name.
+
+Both approvals are necessary: a matching DNS digest cannot replace the authority
+signature, and a signed envelope cannot replace the DNS publication.
+
+The result establishes DNS publication for the exact hostname. It does not
+establish control of an HTTPS server or an individual page. Subdomains are
+checked separately; the verifier does not search the parent domain for a proof.
+
+## Renewal and Removal
+
+Renewing the claim changes its timestamps and digest. Publish the renewed
+envelope and update the TXT value. Moving the same envelope to a new `u` does
+not change the claim digest and does not require a DNS update.
+
+The proposed maximum claim lifetime is 365 days. DNS evidence and positive
+results have shorter refresh bounds. Removing a TXT record is not instantaneous
+revocation because cached signed answers can remain usable. See
+[Lifecycle](/docs/components/lifecycle).
+
+Clients need a DNSSEC validator or a trusted validating service. If the client
+cannot obtain authenticated DNS evidence, it cannot verify this method.
+
+## Implementer Guide
+
+See [DNS TXT for implementers](/implementers/methods/dns-txt) for target derivation,
+TXT parsing, DNSSEC, aliases, limits, and cache rules.

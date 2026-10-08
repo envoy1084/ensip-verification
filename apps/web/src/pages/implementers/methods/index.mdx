@@ -1,0 +1,19 @@
+---
+title: Verification Methods
+description: Select a method profile and apply its evidence rules.
+---
+
+# Verification Methods
+
+Use the exact descriptor `m` to select a profile. Each defines its target,
+location, formats, evidence, lifetime, and result type. Common authority, claim,
+signature, and lifecycle checks still apply. Unknown methods are unsupported.
+
+| Method                                                                        | Record                                          | Descriptor `u` | Formats    | Result    |
+| ----------------------------------------------------------------------------- | ----------------------------------------------- | -------------- | ---------- | --------- |
+| [https-origin.v1](/implementers/methods/https-origin)                         | Text containing an HTTPS URL                    | Forbidden      | JSON, CBOR | `control` |
+| [dns-txt.v1](/implementers/methods/dns-txt)                                   | Text containing an HTTPS URL with a domain host | Required       | JSON, CBOR | `control` |
+| [account-signature.eip155.v1](/implementers/methods/account-signature/eip155) | Supported EVM address record                    | Required       | JSON, CBOR | `control` |
+
+These profiles remain drafts where parameters are marked pending. Attestation
+profiles will be added with their issuer and trust requirements.

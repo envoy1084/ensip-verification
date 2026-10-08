@@ -1,0 +1,82 @@
+---
+title: HTTPS Origin
+description: Verify website publication of a claim approving an ENS URL record.
+---
+
+# HTTPS Origin
+
+`https-origin.v1` verifies that an HTTPS origin publishes a claim approved by
+the ENS authority. It applies to a text record containing an HTTPS URL and
+returns the verification type `control`.
+
+An **origin** is the URL's scheme, host, and port. For
+`https://example.com/profile`, the origin is `https://example.com`.
+
+## Configure the Record
+
+For example, `alice.eth` publishes:
+
+```text
+text("url") = "https://example.com/profile"
+text("verification[text][url]") = "ensrv1 a=1 m=https-origin.v1"
+```
+
+The method can be used with any text key whose value meets its URL rules.
+The exact key and value are bound by the common claim.
+
+Do not add `u` to this descriptor. The method derives its proof location from
+the website origin. An inline proof or a file on another service cannot replace
+that publication.
+
+## Publish the Proof
+
+1. Prepare the common claim for the exact record and selected authority.
+2. Obtain the authority's signature.
+3. Calculate the [proof key](/docs/components/proof-key).
+4. Publish the complete envelope at:
+
+```text
+https://example.com/.well-known/ens-record-verification/<proof-key>
+```
+
+Replace the placeholder with the proof key's 64 lowercase hexadecimal characters,
+without `0x`. The endpoint must return the envelope directly, without a redirect
+or sign-in requirement. JSON and CBOR are supported envelope formats.
+
+The envelope's method-specific `proof` is empty. Publication at this location
+provides the website evidence; the authority signature provides ENS approval.
+The website operator must control what is served at this endpoint. Allowing
+anyone to publish arbitrary proofs there would defeat that evidence.
+
+## What Is Verified
+
+The verifier reads the current ENS record and descriptor, selects the authority,
+and retrieves the envelope from the derived origin. It then checks the claim,
+signature, website publication, and validity bounds.
+
+A successful result binds the exact URL, including its path, query, and fragment,
+but demonstrates publication by the origin. It does not establish that a user
+controls an individual profile or page on a shared website.
+
+Subdomains and non-default ports are separate origins. Publication at
+`https://www.example.com` does not satisfy a record targeting
+`https://example.com`. The method does not follow redirects between them.
+
+## Renewal and Availability
+
+The proposed maximum claim lifetime is 365 days. A positive result still needs
+refreshing within the common five-minute cache limit or any shorter applicable
+bound. Removing publication or changing the record requires another evaluation.
+
+Renewing a claim requires new authority approval and publication of the matching
+envelope. See [Lifecycle](/docs/components/lifecycle).
+
+Browser clients also need the website to permit cross-origin reads through
+CORS. A blocked request means the client could not verify publication; it does
+not prove that the authority signature is invalid.
+
+## Implementer Guide
+
+See [HTTPS Origin for implementers](/implementers/methods/https-origin) for URL
+parsing, the request policy, and validation steps. Remaining transport-policy
+choices are listed there before this method is finalized.

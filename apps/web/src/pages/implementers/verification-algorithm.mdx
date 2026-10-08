@@ -1,0 +1,191 @@
+---
+title: Verification Algorithm
+description: Resolve one record, validate its proof, and return a bounded verification result.
+---
+
+# Verification Algorithm
+
+This procedure verifies one record of one ENS name. It connects the common
+rules to the selected method. Each linked component defines its exact parsing,
+encoding, and validation requirements; this page does not replace them.
+
+## Inputs and Evaluation Context
+
+Start with the ENS deployment, input name, record type, and record selector.
+The client also supplies its supported profiles, trusted network configuration,
+clock, and documented snapshot and resource policies. These are not taken from
+the proof.
+
+Normalize the name using the supported ENSIP-15 rules and compute its namehash.
+Validate the selector and derive its companion text key using
+[Discovery Records](/implementers/discovery-records). Keep the same normalized
+name and exact selector throughout the attempt.
+
+## 1. Read Consistent ENS State
+
+Select an acceptable ENS block and retain its chain ID, number, hash, and
+timestamp. Resolve the selected record and discovery text at that block.
+Strictly decode the resolver results before interpreting their values.
+
+Use the same block for authority selection, ownership expiry, authority code,
+and contract-signature validation. Do not mix pinned reads with `latest`.
+Apply the [authority snapshot rules](/implementers/authority#consistent-chain-state).
+For offchain resolution, apply the resolver's consistency requirements too;
+a shared block reference alone does not guarantee one offchain revision.
+
+An unset target record or empty discovery value is not configured. An RPC
+failure is unavailable, not an empty value. Reject malformed resolver output
+without trying another selector or interpreting it as another record type.
+
+## 2. Select the Rules
+
+Enforce descriptor limits and parse the exact
+[Verification Descriptor](/implementers/verification-descriptor). Select the
+authority algorithm from `a` and method from `m`.
+
+Require the method to apply to the record type and value. Enforce its `u` rule
+and supported proof formats. Unsupported identifiers or capabilities cannot
+produce a positive result. Malformed syntax is invalid; a supported operation
+forbidden by local policy is policy blocked.
+
+Do not let the envelope select a different method, authority version, location,
+chain, or verification procedure.
+
+## 3. Derive the Expected Claim and Locations
+
+Run the selected [authority algorithm](/implementers/authority) against the ENS
+snapshot. Retain its selected account and any `authorityValidUntil` bound.
+If the algorithm cannot select an eligible authority, stop with its failure.
+
+Derive the expected [claim fields](/implementers/common-claim) independently:
+normalized name, node, record type and key, exact value hash, authority version,
+authority address, method, and method-specific target. Validate signed timestamps
+later; they are not derived from current state.
+
+Derive a [proof key](/implementers/proof-key) only when the method needs one.
+The current methods use these locations and evidence checks:
+
+| Method                                                    | Envelope location                            | Additional method requirement                                |
+| --------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------ |
+| [HTTPS Origin](/implementers/methods/https-origin)        | Derived origin and well-known proof-key path | Successful publication under the method's HTTPS rules        |
+| [DNS TXT](/implementers/methods/dns-txt)                  | Exact descriptor `u`                         | DNSSEC-authenticated claim digest at the derived DNS name    |
+| [EIP-155](/implementers/methods/account-signature/eip155) | Exact descriptor `u`                         | Target account approval at an accepted target-chain snapshot |
+
+Keep the retrieval evidence and its freshness bounds. HTTPS transport of a
+DNS or account envelope does not substitute for the required target evidence.
+
+## 4. Retrieve and Parse the Envelope
+
+Apply [Proof Retrieval](/implementers/proof-retrieval) and the method's additional
+location rules. Enforce byte limits while reading and before parsing. Inline
+proofs require the same claim and evidence checks as externally stored proofs.
+
+Decode the selected JSON or CBOR format under
+[Proof Envelope](/implementers/proof-envelope). Validate the closed top-level
+schema, claim schema, and method-specific `proof` schema. Reject duplicate or
+unknown members and incorrect types or encodings.
+
+A fetched file is not yet a verified proof. Preserve retrieval failures as
+such; do not convert them into signature failures or search another location.
+
+## 5. Match the Claim and Check Time
+
+Compare every independently derived field with the decoded claim. Hash the
+exact logical record bytes, not the displayed address, serialized envelope,
+or ABI return framing. Apply each field's canonical encoding rules.
+
+Check timestamps using [Lifecycle](/implementers/lifecycle). Require ordered
+issuance and expiry, the method's maximum lifetime, and the permitted future
+issuance allowance. Reject already-expired claims early. Repeat time checks
+at the final evaluation time before success.
+
+## 6. Validate Authority Approval
+
+Calculate `commonClaimDigest` using the exact
+[EIP-712 domain and claim type](/implementers/claim-digest). Validate
+`authoritySignature` using the independently selected authority and the ENS
+snapshot under [Signatures](/implementers/signatures).
+
+The account's code determines the permitted validation path. Do not replace
+the selected authority with a recovered signer, retry contract rejection as
+EOA recovery, or reinterpret an unsupported signature wrapper.
+
+## 7. Verify Method Evidence
+
+Run the exact selected method using the validated claim, digest, and retained
+retrieval context:
+
+- HTTPS Origin requires publication at the derived endpoint under its request rules.
+- DNS TXT requires the authenticated TXT value to match `commonClaimDigest`,
+  not a hash of the downloaded file.
+- EIP-155 requires `proof.targetSignature` to approve the same digest. Derive
+  the target chain and account from the record and use one accepted target block
+  for code lookup and contract validation.
+
+Retain any method evidence expiry and refresh bounds. A future attestation
+method must also check its accepted issuer, trust policy, and exact claim binding.
+The method determines `control` or `attestation`; the envelope cannot choose it.
+
+## 8. Final Checks and Cache Bounds
+
+Confirm that all snapshots remain acceptable and no relevant invalidating
+change is known. If a block was reorganized out, discard the affected evaluation
+and repeat with consistent state, within the attempt's resource budget.
+
+Choose `checkedAt` immediately before returning. Recheck issuance tolerance,
+claim expiry, authority expiry, and all method validity bounds at that time.
+Refresh evidence whose reuse deadline has already passed.
+
+Calculate the bounds using [Lifecycle](/implementers/lifecycle):
+
+```pseudocode
+effectiveValidUntil = min(
+    claim.validUntil,
+    authorityValidUntil, when present,
+    methodEvidenceValidUntil, when present
+)
+require checkedAt < effectiveValidUntil
+
+cacheUntil = min(
+    checkedAt + 300,
+    effectiveValidUntil,
+    methodEvidenceCacheUntil, when present,
+    snapshotReuseUntil, when present
+)
+```
+
+Omit absent bounds; do not replace them with zero. Snapshot reuse is bounded
+by every required chain. Reading a cached result never restarts its lifetime.
+
+## 9. Return the Result
+
+Only after every required check succeeds, return:
+
+```json
+{ "verified": true, "verificationType": "control" }
+```
+
+Use `attestation` instead only for a supported method that defines and verifies
+that result type. Retain the evaluated name, selector, descriptor, value hash,
+authority, method, block references, `checkedAt`, and calculated validity and
+cache bounds. Attestations also retain issuer and trust-policy context.
+
+Otherwise return `verified: false` and preserve the observed diagnostic category:
+not configured, unsupported, invalid, expired, unavailable, or policy blocked.
+Do not invent failures for checks that were never reached. See
+[Verification Results](/implementers/verification-results).
+
+## Reuse and Implementation Boundaries
+
+Reuse a positive result only before its cache deadline, under the same policy,
+and while no relevant change is known. A failed refresh cannot extend it.
+Stored proof bytes may be reused, but do not bypass live record, authority,
+signature-policy, or expiry checks.
+
+Independent operations may run concurrently if they preserve these dependencies
+and snapshot requirements. No partial success is a positive verification result.
+
+The linked guides still identify shared parameters awaiting final values,
+including snapshot freshness, execution budgets, and parsing limits. Document
+finite implementation policies where required; this procedure does not create
+new defaults or resolve those pending decisions.
