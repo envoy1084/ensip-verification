@@ -28,4 +28,4 @@ catalog:
   "typescript": "6.0.3"
   "turbo": "2.10.4"
   "@types/node": "26.0.1"
-  "vite": "8.1.4"
+  "vite": "8.1.6"
